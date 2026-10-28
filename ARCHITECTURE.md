@@ -152,20 +152,20 @@ y=0%   +---------------------------------------+
 y=5%   +----+----+----+----+----+----+----+----+
        | multiplier   |    |    |    |   score |  ^
        |    |    |    |  combo  |    |    |    |  |
-       |    |    |    | accuracy|    |    |    |  highway (67%)
+       |    |    |    | accuracy|    |    |    |  highway (45%)
        |    (notas scrolleando hacia abajo)    |  |
        |    |    |    |    |    |    |    |    |  v 
-y=72%  +----+----+----+----+----+----+----+----+
+y=50%  +----+----+----+----+----+----+----+----+
        |    |    |    |    |    |    |    |    |  ← hit line (per-lane)
-y=77%  +----+----+----+----+----+----+----+----+  
+y=56%  +----+----+----+----+----+----+----+----+  
        | HH | CR | SN | KI | T1 | T2 | T3 | RI |  ← lane labels
 y=100% +----+----+----+----+----+----+----+----+
 ```
 
 - **Timeline:** 0–5% (barra de progreso horizontal)
-- **Highway:** 5–72% (lienzo de notas)
-- **Hit line:** 72-77% (una sección por lane con icono del instrumento)
-- **Labels:** 77-100% (nombre corto del instrumento por lane)
+- **Highway:** 5–70% (lienzo de notas)
+- **Hit line:** 70-76% (una sección por lane con icono del instrumento), altura ~6 % emparejada con la altura de una nota (`lane_w × 0.25`)
+- **Labels:** 76-100% (nombre corto del instrumento por lane + zona táctil)
 - **HUD:** superpuesto (score, combo, multiplier)
 
 ### Spawn de notas
@@ -177,7 +177,7 @@ y=100% +----+----+----+----+----+----+----+----+
 ```
 lane_w = screen_width / lane_count
 x = lane_w * lane_index + lane_w / 2
-scroll_distance = screen_height * 0.55 * note_speed
+scroll_distance = (highway_bottom_y - highway_top_y) * note_speed  (0.65 × note_speed por defecto)
 y_offset = (note_time - current_time) * scroll_distance / 2.0
 y = hit_line_y - y_offset
 ```

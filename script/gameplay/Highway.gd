@@ -42,12 +42,12 @@ func _refresh_screen_size() -> void:
 	var vs: Vector2 = get_viewport_rect().size
 	screen_w = vs.x
 	screen_h = vs.y
-	highway_top_y = screen_h * 0.05
-	highway_bottom_y = screen_h * 0.72
-	hit_line_top_y = screen_h * 0.72
-	hit_line_bottom_y = screen_h * 0.77
+	highway_top_y = screen_h * 0.025
+	highway_bottom_y = screen_h * 0.65
+	hit_line_top_y = screen_h * 0.65
+	hit_line_bottom_y = screen_h * 0.72
 	hit_line_y = (hit_line_top_y + hit_line_bottom_y) * 0.5
-	labels_y = screen_h * 0.77
+	labels_y = screen_h * 0.72
 
 
 func _add_background() -> void:
