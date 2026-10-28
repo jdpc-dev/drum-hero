@@ -9,9 +9,13 @@ var _tempo_events: Array = []
 var _time_sig_events: Array = []
 var _ticks_per_beat: int = 480
 var _total_ticks: int = 0
+var _track_prefix: String = "PART DRUMS"
+var has_drum_track: bool = false
+var using_guitar_fallback: bool = false
+var _tom_marker_ticks: Dictionary = {}
 
 
-func load(path: String, root_path: String = "", difficulty_offset: int = -1) -> bool:
+func load(path: String, root_path: String = "", difficulty_offset: int = -1, use_guitar_fallback: bool = false) -> bool:
 	var data: PackedByteArray = FileHelper.read_file(path)
 	if data.is_empty():
 		push_error("MidiParser: Cannot open file: ", path)
@@ -20,7 +24,24 @@ func load(path: String, root_path: String = "", difficulty_offset: int = -1) -> 
 	_notes_by_offset.clear()
 	_tempo_events.clear()
 	_time_sig_events.clear()
-	return _parse(data, difficulty_offset)
+	_track_prefix = "PART DRUMS"
+	has_drum_track = false
+	using_guitar_fallback = false
+	var success: bool = _parse(data, difficulty_offset)
+	if not success:
+		return false
+	if _notes.is_empty() and use_guitar_fallback:
+		_notes.clear()
+		_notes_by_offset.clear()
+		_tempo_events.clear()
+		_time_sig_events.clear()
+		_track_prefix = "PART GUITAR"
+		success = _parse(data, difficulty_offset)
+		if not success:
+			return false
+		if not _notes.is_empty():
+			using_guitar_fallback = true
+	return true
 
 
 func _parse(data: PackedByteArray, difficulty_offset: int = -1) -> bool:
@@ -64,6 +85,9 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 	var running_status: int = -1
 	var track_name: String = ""
 	var is_drum_track: bool = false
+	var raw_events: Array = []
+
+	_tom_marker_ticks.clear()
 
 	while offset < track_end:
 		var delta_result: Dictionary = _read_vlq(data, offset)
@@ -82,7 +106,9 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 			offset = meta_len_result.next_offset
 			if meta_type == 0x03:
 				track_name = data.slice(offset, offset + meta_len).get_string_from_ascii()
-				is_drum_track = track_name.begins_with("PART DRUMS")
+				is_drum_track = track_name.begins_with(_track_prefix)
+				if is_drum_track and _track_prefix == "PART DRUMS":
+					has_drum_track = true
 			elif meta_type == 0x51:
 				var micros_per_quarter: int = _read24(data, offset)
 				var bpm: float = 60000000.0 / float(micros_per_quarter)
@@ -125,34 +151,23 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 			offset += 1
 			var velocity: int = data[offset]
 			offset += 1
-			var note_type: int = _ChartData.NoteType.NORMAL
-			var lane: int = -1
-			var diff_off: int = -1
 			if velocity > 0:
-				diff_off = _resolve_difficulty(note)
-				if diff_off >= 0 and _ChartData.LANE_MAP.has(note - diff_off):
-					lane = _ChartData.LANE_MAP[note - diff_off]
-					if (note - diff_off) in _ChartData.OPEN_HIHAT_NOTES:
-						note_type = _ChartData.NoteType.OPEN_HIHAT
-					if (note - diff_off) in _ChartData.CRASH_NOTES:
-						note_type = _ChartData.NoteType.CRASH_ACCENT
-				if (note - diff_off) == 0:
-					note_type = _ChartData.NoteType.KICK
-			if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
-				var ev = _ChartData.NoteEvent.new(absolute_tick, lane, note_type, 0, velocity, diff_off)
-				_notes.append(ev)
-				if not _notes_by_offset.has(diff_off):
-					_notes_by_offset[diff_off] = []
-				_notes_by_offset[diff_off].append(ev)
-			elif velocity == 0:
-				_find_and_end_note(absolute_tick, note)
+				if _ChartData.TOM_MARKERS.has(note):
+					var drum_color: int = _ChartData.TOM_MARKERS[note]
+					if not _tom_marker_ticks.has(absolute_tick):
+						_tom_marker_ticks[absolute_tick] = {}
+					_tom_marker_ticks[absolute_tick][drum_color] = true
+				else:
+					raw_events.append({"tick": absolute_tick, "note": note, "vel": velocity, "is_on": true})
+			else:
+				raw_events.append({"tick": absolute_tick, "note": note, "vel": 0, "is_on": false})
 
 		elif (event_byte & 0xF0) == 0x80:
 			running_status = event_byte
 			var note: int = data[offset]
 			offset += 1
 			offset += 1
-			_find_and_end_note(absolute_tick, note)
+			raw_events.append({"tick": absolute_tick, "note": note, "vel": 0, "is_on": false})
 
 		elif (event_byte & 0xF0) == 0xB0:
 			running_status = event_byte
@@ -185,46 +200,66 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 					offset += 1
 					var velocity: int = data[offset]
 					offset += 1
-					var note_type: int = _ChartData.NoteType.NORMAL
-					var lane: int = -1
-					var diff_off: int = -1
 					if velocity > 0:
-						diff_off = _resolve_difficulty(note)
-						if diff_off >= 0 and _ChartData.LANE_MAP.has(note - diff_off):
-							lane = _ChartData.LANE_MAP[note - diff_off]
-							if (note - diff_off) in _ChartData.OPEN_HIHAT_NOTES:
-								note_type = _ChartData.NoteType.OPEN_HIHAT
-							if (note - diff_off) in _ChartData.CRASH_NOTES:
-								note_type = _ChartData.NoteType.CRASH_ACCENT
-						if (note - diff_off) == 0:
-							note_type = _ChartData.NoteType.KICK
-						if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
-							var ev = _ChartData.NoteEvent.new(absolute_tick, lane, note_type, 0, velocity, diff_off)
-							_notes.append(ev)
-							if not _notes_by_offset.has(diff_off):
-								_notes_by_offset[diff_off] = []
-							_notes_by_offset[diff_off].append(ev)
-					elif velocity == 0:
-						_find_and_end_note(absolute_tick, note)
+						if _ChartData.TOM_MARKERS.has(note):
+							var drum_color: int = _ChartData.TOM_MARKERS[note]
+							if not _tom_marker_ticks.has(absolute_tick):
+								_tom_marker_ticks[absolute_tick] = {}
+							_tom_marker_ticks[absolute_tick][drum_color] = true
+						else:
+							raw_events.append({"tick": absolute_tick, "note": note, "vel": velocity, "is_on": true})
+					else:
+						raw_events.append({"tick": absolute_tick, "note": note, "vel": 0, "is_on": false})
 				elif (running_status & 0xF0) == 0x80:
 					var note: int = data[offset]
 					offset += 1
 					offset += 1
-					_find_and_end_note(absolute_tick, note)
+					raw_events.append({"tick": absolute_tick, "note": note, "vel": 0, "is_on": false})
 				else:
 					offset += 1
+
+	_process_raw_events(raw_events, difficulty_offset)
 
 	return true
 
 
+func _process_raw_events(raw_events: Array, difficulty_offset: int) -> void:
+	for ev in raw_events:
+		if ev.is_on:
+			var tick: int = ev.tick
+			var note: int = ev.note
+			var vel: int = ev.vel
+			var diff_off: int = _resolve_difficulty(note)
+			if diff_off < 0:
+				continue
+			var rel: int = note - diff_off
+			if not _ChartData.LANE_MAP.has(rel):
+				continue
+			var lane: int = _ChartData.LANE_MAP[rel]
+			var note_type: int = _ChartData.NoteType.NORMAL
+			if rel == 0:
+				note_type = _ChartData.NoteType.KICK
+			elif rel == 2 or rel == 3 or rel == 4:
+				if _tom_marker_ticks.has(tick) and _tom_marker_ticks[tick].has(rel):
+					lane = _ChartData.TOM_LANE_MAP[rel]
+			if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
+				var nev = _ChartData.NoteEvent.new(tick, lane, note_type, 0, vel, diff_off, rel)
+				_notes.append(nev)
+				if not _notes_by_offset.has(diff_off):
+					_notes_by_offset[diff_off] = []
+				_notes_by_offset[diff_off].append(nev)
+		else:
+			_find_and_end_note(ev.tick, ev.note)
+
+
 func _find_and_end_note(tick: int, midi_note: int) -> void:
 	var diff_off: int = _resolve_difficulty(midi_note)
-	if diff_off < 0 or not _ChartData.LANE_MAP.has(midi_note - diff_off):
+	if diff_off < 0:
 		return
-	var lane: int = _ChartData.LANE_MAP[midi_note - diff_off]
+	var rel: int = midi_note - diff_off
 	for i in range(_notes.size() - 1, -1, -1):
 		var n = _notes[i]
-		if n.lane == lane and n.difficulty_offset == diff_off and n.length == 0 and n.tick < tick:
+		if n.relative_note == rel and n.difficulty_offset == diff_off and n.length == 0 and n.tick < tick:
 			n.length = tick - n.tick
 			break
 
@@ -303,23 +338,25 @@ func get_available_offsets() -> Dictionary:
 	return counts
 
 
-static func detect_difficulties(path: String) -> Array:
+static func detect_difficulties(path: String, use_guitar_fallback: bool = false) -> Dictionary:
 	var midi = MidiParser.new()
-	var success: bool = midi.load(path)
+	var success: bool = midi.load(path, "", -1, use_guitar_fallback)
 	if not success:
-		return []
+		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
 	var counts: Dictionary = midi.get_available_offsets()
-	
+	var has_drum: bool = midi.has_drum_track
+	var guitar_used: bool = midi.using_guitar_fallback
+
 	if counts.is_empty():
-		return []
-	
+		return {"difficulties": [], "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
+
 	var ChartData = preload("res://script/chart/ChartData.gd")
 	var result: Array = []
 	for off in ChartData.DIFFICULTY_OFFSETS:
 		if counts.get(off, 0) >= 3:
 			var diff_name: String = ChartData.DIFFICULTY_NAMES.get(off, "Unknown")
 			result.append({"offset": off, "name": diff_name})
-	return result
+	return {"difficulties": result, "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
 
 
 func _read_vlq(data: PackedByteArray, offset: int) -> Dictionary:

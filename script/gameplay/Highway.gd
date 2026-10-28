@@ -20,12 +20,17 @@ var hit_line_ref: HitLine
 
 var screen_w: float = 1280.0
 var screen_h: float = 720.0
+var pad_x: float = 0.0
+var pad_y: float = 0.0
 
 var _label_settings: LabelSettings
 var _beat_line_pool: Array[ColorRect] = []
 var _beat_timestamps: Array[Dictionary] = []
 
 var _next_note_index: int = 0
+var _beat_line_cursor: int = 0
+
+var _bg_sprite: Sprite2D
 
 signal lanes_built()
 
@@ -35,13 +40,19 @@ func _ready() -> void:
 	_label_settings = preload("res://asset/fonts/label_settings.tres")
 	_add_background()
 	_build_lanes()
+
+
+func generate_beat_lines() -> void:
 	_generate_beat_timestamps()
 
 
 func _refresh_screen_size() -> void:
 	var vs: Vector2 = get_viewport_rect().size
-	screen_w = vs.x
-	screen_h = vs.y
+	pad_x = SettingsManager.gameplay_padding_amount if SettingsManager.gameplay_padding_enabled else 0.0
+	pad_y = pad_x
+	position = Vector2(pad_x, pad_y)
+	screen_w = vs.x - 2.0 * pad_x
+	screen_h = vs.y - 2.0 * pad_y
 	highway_top_y = screen_h * 0.025
 	highway_bottom_y = screen_h * 0.65
 	hit_line_top_y = screen_h * 0.65
@@ -83,6 +94,8 @@ func _build_lanes() -> void:
 	hit_line_ref = hit_line
 
 	_build_touch_zones()
+	if SettingsManager.gameplay_padding_enabled:
+		AndroidBridge.set_lane_exclusion(pad_x, screen_w / float(active_lane_count), active_lane_count, pad_y, labels_y)
 	lanes_built.emit()
 
 
@@ -116,9 +129,8 @@ func _build_touch_zones() -> void:
 
 func _generate_beat_timestamps() -> void:
 	_beat_timestamps.clear()
+	_beat_line_cursor = 0
 	var tempos: Array = ChartParser.get_tempo_events()
-	if tempos.is_empty():
-		return
 	var resolution: int = ChartParser.get_resolution()
 	var duration: float = ChartParser.get_duration_seconds()
 
@@ -127,17 +139,24 @@ func _generate_beat_timestamps() -> void:
 	var time_sigs: Array = ChartParser.get_time_signature_events()
 	var current_tick: int = 0
 	var current_time: float = 0.0
-	var current_bpm: float = tempos[0].bpm
-	var current_mpt: float = tempos[0].micros_per_tick
+	var current_bpm: float = 120.0
+	var current_mpt: float = 500000.0 / float(resolution)
+	var current_denominator: int = 4
 	var beats_per_bar: int = 4
 
+	if not tempos.is_empty():
+		current_bpm = tempos[0].bpm
+		current_mpt = tempos[0].micros_per_tick
+
 	while current_time < duration:
-		var beat_ticks: int = int(resolution * 60.0 / current_bpm)
+		var beat_duration: float = 4.0 / float(current_denominator)
+		var beat_ticks: int = int(resolution * beat_duration)
 		var seconds_per_beat: float = float(beat_ticks) * current_mpt / 1000000.0
 
 		if ts_idx + 1 < time_sigs.size() and time_sigs[ts_idx + 1].tick <= current_tick:
 			ts_idx += 1
 			beats_per_bar = time_sigs[ts_idx].numerator
+			current_denominator = time_sigs[ts_idx].denominator
 
 		var bar_beat: int = 0
 		while bar_beat < beats_per_bar:
@@ -145,7 +164,7 @@ func _generate_beat_timestamps() -> void:
 				tempo_idx += 1
 				current_bpm = tempos[tempo_idx].bpm
 				current_mpt = tempos[tempo_idx].micros_per_tick
-				beat_ticks = int(resolution * 60.0 / current_bpm)
+				beat_ticks = int(resolution * beat_duration)
 				seconds_per_beat = float(beat_ticks) * current_mpt / 1000000.0
 
 			_beat_timestamps.append({
@@ -210,27 +229,32 @@ func _process(delta: float) -> void:
 
 
 func _update_beat_lines(current_time: float) -> void:
-	var visible_range_start: float = current_time - 0.5
+	for bl in _beat_line_pool:
+		bl.hide()
+
+	var scroll_distance: float = (highway_bottom_y - highway_top_y) * note_speed
+	var bottom_cutoff: float = 2.0 * (hit_line_y - highway_bottom_y) / scroll_distance if scroll_distance > 0 else 0.0
+	var visible_range_start: float = current_time + bottom_cutoff
 	var visible_range_end: float = current_time + 2.0
 
-	var used: int = 0
-	for bt in _beat_timestamps:
-		var t: float = bt.time
-		if t < visible_range_start:
-			continue
-		if t > visible_range_end:
+	var i: int = _beat_line_cursor
+	while i < _beat_timestamps.size() and _beat_timestamps[i].time < visible_range_start:
+		i += 1
+	_beat_line_cursor = i
+
+	while i < _beat_timestamps.size():
+		var bt = _beat_timestamps[i]
+		if bt.time > visible_range_end:
 			break
 
 		var line: ColorRect = _get_beat_line()
-		var pos: Vector2 = note_position(0, 0, t, current_time)
-		line.position = Vector2(0, pos.y)
+		var time_ahead: float = bt.time - current_time
+		var y: float = hit_line_y - (time_ahead * scroll_distance) / 2.0
+		line.position = Vector2(0, y)
 		line.size = Vector2(screen_w, 2.0 if bt.is_measure else 1.0)
 		line.color = Color(1, 1, 1, 0.4 if bt.is_measure else 0.12)
 		line.show()
-		used += 1
-
-	for i in range(used, _beat_line_pool.size()):
-		_beat_line_pool[i].hide()
+		i += 1
 
 
 func _get_beat_line() -> ColorRect:
@@ -240,6 +264,7 @@ func _get_beat_line() -> ColorRect:
 	var new_line := ColorRect.new()
 	new_line.color = Color.WHITE
 	new_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	new_line.z_index = -1
 	add_child(new_line)
 	_beat_line_pool.append(new_line)
 	return new_line
@@ -247,6 +272,7 @@ func _get_beat_line() -> ColorRect:
 
 func restart() -> void:
 	_next_note_index = 0
+	_beat_line_cursor = 0
 	for lane in lane_nodes:
 		lane.clear()
 	for bl in _beat_line_pool:
@@ -286,6 +312,3 @@ func note_position(tick: int, lane_index: int, note_time: float, current_time: f
 	var y: float = hit_line_y - y_offset
 
 	return Vector2(x, y)
-
-
-var _bg_sprite: Sprite2D

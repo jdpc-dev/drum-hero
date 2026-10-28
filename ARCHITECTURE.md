@@ -5,7 +5,7 @@
 - **Motor:** Godot 4.7 (GDScript)
 - **Resolución:** 1280×720, landscape, stretch `canvas_items` + `expand`
 - **Renderizado:** `gl_compatibility`
-- **Audio:** stems Opus decodificados vía `ffmpeg` a PCM → `AudioStreamWAV`
+- **Audio:** stems OGG nativos (`AudioStreamOggVorbis.load_from_file()`), con fallback `FileHelper.read_file()`. Opus decodificado vía `ffmpeg` a PCM → `AudioStreamWAV` (desktop only).
 - **Gráficos de interfaz:** generación procedural vectorial (`Image.set_pixel`)
 
 ---
@@ -14,11 +14,45 @@
 
 ```
 Main (CanvasLayer)                      ← MenuRoot.gd
-└── Background (ColorRect)
-└── Title (Label) "DRUM HERO"
-└── StatusLabel
-└── PlayButton
-└── SongList (ItemList)
+├── Background (ColorRect)
+├── Root (VBoxContainer)               — con PADDING 40px
+│   ├── HeaderBar (PanelContainer)     — título "DRUM HERO" + Settings
+│   ├── SearchBar (PanelContainer)     — LineEdit con filtro
+│   ├── SongListScroll (ScrollContainer) — lista scrolleable
+│   │   └── SongListContainer (VBoxContainer)
+│   │       ├── SongRow_N (PanelContainer)  — ► + artista + --,---pts
+│   │       └── ...
+│   ├── StatusLabel                    — "STATUS: chart OK - ..."
+├── PreviewStatusLabel             — "♫ Artist - Song" (mientras se reproduce preview, oculto si no hay)
+│   └── DiffContainer (HBoxContainer)  — Easy/Medium/Hard/Expert/Expert+
+│       └── [5 botones]                — desactivados si no disponibles
+
+Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
+├── Background (ColorRect)
+├── MarginContainer (margins 40px)
+│   └── VBoxContainer (root)
+│       ├── HeaderScroll (ScrollContainer, no scroll, 110px)
+│       │   └── VBoxContainer
+│       │       ├── HeaderBar (HBoxContainer) — "SETTINGS" + Back
+│       │       └── TabBar (PanelContainer)   — CONTROLS | HUD | Experimental
+│       └── ContentScroll (ScrollContainer, scrollable)
+│           └── ContentContainer (VBoxContainer) — contenido del tab activo
+│
+│   Tab CONTROLS:
+│       ├── CONTROL MODE (Default / Haptic / Custom)
+│       ├── LANE ORDER (solo Custom)
+│       ├── HAPTIC (enable + sensitivity slider)
+│       └── LAYOUT (Mirrored / Left Handed)
+│
+│   Tab HUD:
+│       ├── VISUAL (Show FPS / Screen Shake)
+│       ├── GAMEPLAY (Note Speed / Silence Countdown sliders)
+│       └── JUDGEMENT WINDOWS (read-only ±ms)
+│
+│   Tab Experimental:
+│       ├── CHART FALLBACK (Use PART GUITAR)
+│       ├── DEBUG (Show Judgment Areas)
+│       └── GAMEPLAY PADDING (Enable + slider 20-60px)
 
 Gameplay (Node2D)                       ← GameplayRoot.gd
 ├── Highway (Node2D)                    ← Highway.gd
@@ -37,7 +71,6 @@ Gameplay (Node2D)                       ← GameplayRoot.gd
 │   ├── ScoreLabel
 │   ├── ComboLabel
 │   ├── MultiplierLabel
-│   ├── AccuracyLabel
 │   └── SongTimeline (TextureProgressBar)
 ├── HitDetection (Node)                 ← HitDetection.gd
 ├── TouchInput (Node)                   ← TouchInput.gd
@@ -55,13 +88,14 @@ Registrados en `project.godot` bajo `[autoload]`. Se inicializan antes que cualq
 | `GameManager` | Máquina de estados (MENU / LOADING / PLAYING / PAUSED / RESULT). Contiene `current_song_path`, `mode`, `state`. Emite `hit_registered`, `miss_registered`, `game_state_changed`. | — |
 | `AudioManager` | Carga stems multi-pista (song, drums, bass, guitar, rhythm, keys, vocals). Salta `song` si existen stems individuales para evitar duplicación. Decodifica `.opus` a estéreo vía `ffmpeg`. Ofrece `duck_drums()` para silenciar batería temporalmente. | — |
 | `InputManager` | Ruteo de input táctil y pipeline de sensor háptico (acelerómetro para kick). Estado interno `KickState` (IDLE / KICK_DOWN / COOLDOWN). | — |
-| `SettingsManager` | Persistencia de configuración (archivo `user://settings.cfg`). Juicios, sensibilidad, modo háptico, orden de lanes. | — |
-| `SongLoader` | Escanea `res://Songs/` y `user://Songs/`, parsea `song.ini`, expone lista de canciones con metadatos. | — |
-| `ChartParser` | Carga `notes.mid` vía `MidiParser.gd`, construye arreglo de `NoteEvent` con tiempo en segundos. `get_notes_in_range()` usa búsqueda binaria (`find_next_note_index`) para saltar al rango solicitado. | `ChartData.gd` (clases de datos) |
+| `SettingsManager` | Persistencia de configuración (archivo `user://settings.cfg`). Juicios, sensibilidad, modo háptico, orden de lanes, fallback de guitarra. | — |
+| `SongLoader` | Escanea `res://Songs/` y `user://DrumHero`, parsea `song.ini`, expone lista de canciones con metadatos. Detecta fuente del chart (PART DRUMS vs PART GUITAR). Cada song entry incluye `preview_path` (str), `preview_start_time` (float, -1 si no definido), `song_length` (float). `get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en `user://` (FileAccess) como en `res://` empaquetados (ResourceLoader). | — |
+| `ChartParser` | Carga `notes.mid` vía `MidiParser.gd`, construye arreglo de `NoteEvent` con tiempo en segundos. Soporta fallback a PART GUITAR si PART DRUMS no existe. `get_notes_in_range()` usa búsqueda binaria (`find_next_note_index`) para saltar al rango solicitado. | `ChartData.gd` (clases de datos) |
 | `TimingEngine` | Reloj maestro. Si hay audio usa `AudioManager.get_position()`, sino delta de frames. Emite `time_updated`, `song_ended`. | `AudioManager` |
 | `ScoreManager` | Puntaje, combo, multiplicador, rachas. API: `register_hit(diff)`, `register_miss()`, `reset()`. | — |
 | `EffectManager` | Pool de efectos visuales (`ParticleBurst`, `Shockwave`, `JudgementPopup`). Genera SFX (beeps programáticos). | — |
 | `DrumGraphics` | Genera texturas vectoriales para notas y hit lines por lane (double cymbal, cymbal, drumstick, pedal). Texturas de 128×128 pre-generadas en `_ready()`. | — |
+| `AndroidBridge` | Puente GDScript→Android nativo. Gestiona `GestureExclusion` plugin para excluir bordes del back gesture. Solo activo en Android; no-op en desktop. | — |
 
 ### Flujo de dependencias
 
@@ -85,22 +119,158 @@ InputManager ──→ TouchInput ──→ HitDetection ──→ Lane.try_hit(
 ```
 AudioManager.load_stems(song_path)
   │
-  ├─ _find_stem_file() busca: {stem}.opus → {stem}.ogg → {stem}.wav → {stem}.mp3
-  │                            → drums_1.opus, drums_2.opus, etc. (multi-archivo)
+  ├─ _find_stem_file() busca: {stem}.ogg → {stem}.opus → {stem}.wav → {stem}.mp3
+  │                            → drums_1.ogg, drums_2.ogg, etc. (multi-archivo)
+  │   (FileHelper.file_exists() OR ResourceLoader.exists() — cubre res:// + user://)
   │
   └─ _load_audio_stream()
        │
-       ├─ ResourceLoader.exists()? → load() (para .ogg/.wav/.mp3 nativos)
+       ├─ .opus → _decode_opus_via_ffmpeg() → ffmpeg → AudioStreamWAV (PCM ~46MB)
+       │   └─ Android: fallback a .ogg → AudioStreamOggVorbis
        │
-       └─ .opus y ffmpeg disponible? → _decode_opus_via_ffmpeg()
-            │
-            ├─ ffmpeg -y -i <opus> -f s16le -acodec pcm_s16le -ar 44100 -ac 2 <tmp.raw>
-            ├─ FileAccess.read() del raw PCM
-             ├─ AudioStreamWAV.new() con stereo=true, format=FORMAT_16_BITS, mix_rate=44100
-             └─ Se elimina el temporal
+       ├─ .ogg → AudioStreamOggVorbis.load_from_file() (~5MB compressed)
+       │   (funciona en desktop + Android)
+       │   └─ Si falla → ResourceLoader.exists()? → load()
+       │       └─ fallback → FileHelper.read_file() → AudioStreamOggVorbis.new()
+       │
+       └─ .wav/.mp3 → ResourceLoader.exists()? → load()
+           └─ fallback → FileHelper.read_file() → AudioStreamWAV
 ```
 
-### Ducking de batería
+### Preview de canciones en el menú
+
+Al seleccionar una canción en la lista del menú principal (`MenuRoot.gd`), se reproduce automáticamente un preview de la canción. El sistema usa `preview.opus` si existe en la carpeta de la canción, con fallback a `song.ogg`.
+
+**Flujo de reproducción (step-by-step):**
+
+```
+_usuario toca SongRow
+  │
+  ├─ _on_song_row_input()
+  │   ├─ InputEventScreenTouch.pressed → registra posición
+  │   ├─ InputEventScreenTouch.release → si no hubo drag → _select_song()
+  │   ├─ InputEventScreenDrag → si distance > 8px → _row_dragging = true (cancela)
+  │   └─ InputEventMouseButton / InputEventMouseMotion → misma lógica (desktop)
+  │
+  └─ _select_song(original_index)
+      ├─ Si misma canción ya seleccionada → return (sin recargar)
+      ├─ _selected_song_index = original_index
+      ├─ _update_selection_ui()          ← pone "► " en la fila seleccionada
+      ├─ _update_status_for_song()       ← "STATUS: chart OK - audio OK"
+      ├─ _update_difficulty_visibility() ← habilita/deshabilita botones
+      └─ _start_preview_animation(original_index)
+```
+
+**Inicio de animación (`_start_preview_animation()`):**
+
+```
+_start_preview_animation()
+  ├─ _stop_preview()                    ← detiene cualquier preview anterior + thread
+  ├─ _resolve_preview_path(song)
+  │   ├─ Si song tiene "preview_path" → usar ese
+  │   └─ Sino → SongLoader.get_stem_path(song.path, "song")
+  │       (resulta en song.opus / song.ogg / song.wav / song.mp3)
+  ├─ Si preview_path vacío → return (no hay preview)
+  ├─ _preview_needs_load = true         ← flag: _process() debe cargar
+  ├─ _preview_loaded_stream = null
+  ├─ _preview_animating = true
+  ├─ _preview_anim_frame = 0            ← "."
+  ├─ _preview_anim_delay = 1.5          ← 1.5s antes de play real
+  └─ PreviewStatusLabel.text = "."
+```
+
+**Proceso frame-by-frame (`_process()`):**
+
+```
+_process(delta)
+  │
+  ├─ SI _preview_animating:
+  │   ├─ Dots animation: timer += delta, avanza frame cada 0.3s
+  │   │
+  │   ├─ Si _preview_needs_load:
+  │   │   ├─ Buscar en _preview_cache (LRU) → si hit, stream listo
+  │   │   └─ Si miss:
+  │   │       ├─ Android: AudioManager._load_audio_stream() síncrono
+  │   │       │   (mismo patrón que GameplayRoot que ya funciona)
+  │   │       └─ Desktop: Thread.new().start(_preview_load_func)
+  │   │           (carga asíncrona, NO bloquea hilo principal)
+  │   │
+  │   ├─ Si _preview_load_done (thread terminó, solo desktop):
+  │   │   ├─ _preview_loaded_stream = _preview_load_result
+  │   │   ├─ _preview_thread.wait_to_finish()
+  │   │   ├─ _cache_stream(path, stream)  ← agrega al cache LRU
+  │   │   └─ Delay adaptativo: si delay > 0.3s → reducir a 0.3s
+  │   │
+  │   └─ _preview_anim_delay -= delta
+  │       ├─ delay > 0.0: espera (dots siguen animando)
+  │       └─ delay <= 0.0:
+  │           ├─ stream != null → _play_preview()
+  │           └─ stream == null:
+  │               ├─ timeout > 0 → timeout -= delta, delay = 0.0
+  │               └─ timeout <= 0 → "Preview unavailable"
+  │
+  └─ SI _preview_player.playing:
+      ├─ _preview_elapsed += delta
+      └─ Si elapsed >= 30s → _stop_preview() + "Preview ended"
+```
+
+**Reproducción (`_play_preview()`):**
+
+```
+_play_preview()
+  ├─ Si player está sonando → _preview_player.stop()
+  ├─ _preview_player.stream = stream
+  ├─ _preview_player.volume_db = linear_to_db(SettingsManager.preview_volume)
+  ├─ _preview_player.play()                 ← en bus "Music"
+  ├─ _preview_elapsed = 0.0                 ← reset timer duración
+  ├─ Si no hay preview_path (usando song.ogg):
+  │   ├─ preview_start_time > 0 → seek a ese segundo
+  │   └─ preview_start_time <= 0 o null → seek a segundo 30
+  └─ PreviewStatusLabel.text = "♫  Queen - Bohemian Rhapsody"
+```
+
+**Detención:**
+
+```
+_stop_preview()                              ← llamado al:
+  ├─ _preview_animating = false               ├─ cambiar a otra canción
+  ├─ _preview_pending_index = -1              ├─ abrir settings
+  ├─ _preview_needs_load = false              ├─ cambiar texto de búsqueda
+  ├─ _preview_loaded_stream = null            ├─ presionar dificultad (iniciar juego)
+  ├─ Thread.wait_to_finish() si activo        ├─ _exit_tree() (cerrar app)
+  ├─ _preview_player.stop()                   ├─ preview > 30s (duración límite)
+  ├─ _preview_player.stream = null            └─ _stop_preview() explícito
+  ├─ _preview_elapsed = 0.0
+  └─ PreviewStatusLabel.text = ""
+```
+
+**Árbol de nodos del preview:**
+
+```
+MenuRoot (CanvasLayer)
+  └── PreviewStatusLabel (Label)    ← ". → .. → ... → ♫  Artist - Song"
+  └── PreviewPlayer (AudioStreamPlayer)  ← bus = "Music"
+  └── Thread (_preview_thread)      ← carga async de audio
+```
+
+**Consideraciones técnicas:**
+
+- **Android `res://` fix:** en builds Android exportados, los archivos en `res://Songs/` están empaquetados en el PCK. `FileHelper.file_exists()` (basado en `FileAccess.open()`) no puede leerlos directamente. `SongLoader.get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en almacenamiento externo (`FileAccess`) como en `res://` empaquetados (`ResourceLoader`). `AudioManager._find_stem_file()` ya usaba ambos; el fix unifica el patrón en `SongLoader` para que el preview y la detección de metadatos funcionen igual que el gameplay.
+- **Lazy loading:** las canciones no se precargan al inicio. Cada preview se carga bajo demanda al seleccionar, evitando OOM en Android con 30+ canciones.
+- **Carga por plataforma:** en desktop, `_load_audio_stream()` se ejecuta en un `Thread` separado via `_preview_load_func()` (no bloquea el hilo principal). En Android, se ejecuta síncronamente en `_process()` (mismo patrón que `GameplayRoot._start_loading()` que ya funciona en Android).
+- **Cache LRU:** los streams cargados se almacenan en `_preview_cache` (Dictionary path→AudioStream) con máximo `PREVIEW_CACHE_MAX = 5` entradas. Al scrollear entre canciones previamente escuchadas, la carga es instantánea (~25MB con .ogg nativo).
+- **Delay adaptativo:** si el stream carga antes de que expire el delay de 1.5s, se reduce a `PREVIEW_ANIM_INTERVAL` (0.3s = un frame de dots). Con .ogg nativo (~10ms de carga), el preview arranca en ~0.3s en lugar de1.5s.
+- **`.ogg` nativo:** `AudioStreamOggVorbis.load_from_file()` se usa en todas las plataformas (desktop + Android). Si falla, el fallback usa `FileHelper.read_file()` → `AudioStreamOggVorbis.new()`. En desktop, `load_from_file()` carga ~5MB compressed en lugar de ~46MB PCM (ffmpeg).
+- **Limpieza de referencia:** `_stop_preview()` pone `_preview_player.stream = null` para liberar el AudioStream inmediatamente en lugar de esperar a que `_play_preview()` lo reemplace.
+- **Duración limitada:** el preview se detiene automáticamente tras `PREVIEW_MAX_DURATION = 30s`. Evita reproducir la canción completa como preview.
+- **Seek por preview_start_time:** cuando se usa `song.ogg` como fallback (sin `preview.ogg`), se aplica `_preview_player.seek()` al valor de `preview_start_time` de `song.ini`. Si el valor es -1, 0 o null, se busca al segundo 30. Con `preview.ogg` se reproduce desde el inicio (0s).
+- **Android .opus skip:** en Android, `_resolve_preview_path()` ignora archivos `preview.opus` (ffmpeg no disponible) y cae a `song.ogg` via `get_stem_path()`. En desktop, `.opus` se decodifica normalmente. `SongLoader.get_stem_path()` usa `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en almacenamiento externo como en `res://` empaquetados.
+- **Timeout de carga:** si el stream no carga en `PREVIEW_LOAD_TIMEOUT = 5s`, la animación se detiene y muestra "Preview unavailable". Evita el loop infinito de dots en caso de error.
+- **Anti-spam táctil:** `_select_song()` tiene early-return si la canción ya está seleccionada (`original_index == _selected_song_index`). `_on_song_row_input()` usa `InputEventScreenTouch` para distinguir tap de drag (threshold 8px).
+- **Dots animation:** 3 frames (`.`, `..`, `...`) alternando cada 0.3s. Delay mínimo de 0.3s (un frame) para feedback visual, máximo 1.5s.
+- **Fallback:** en desktop se usa `preview.opus` si existe (decodificado via ffmpeg). En Android se ignora `preview.opus` y se usa `song.ogg`. Si el stream no carga, el timeout de 5s muestra "Preview unavailable".
+- **Volumen:** controlado por `SettingsManager.preview_volume` (default 0.8), aplicado como `linear_to_db()`.
+- **Cleanup:** `_exit_tree()` llama `_stop_preview()` que espera al thread (si existe) y libera todos los recursos al cerrar la app.
 
 En cada `miss`, `Lane.gd` llama a `AudioManager.duck_drums(-12 dB, 0.5 s)`. Solo afecta al stem `"drums"`. Si no existe stem de batería (canciones sin pista separada), no hace nada.
 
@@ -147,26 +317,55 @@ Todas las texturas de notas y hit lines se generan en código en lugar de usar b
 Basado en el `README.md` — ASCII GAMEPLAY REFERENCE.
 
 ```
-y=0%   +---------------------------------------+
-       |             SONG TIMELINE             |
-y=5%   +----+----+----+----+----+----+----+----+
-       | multiplier   |    |    |    |   score |  ^
-       |    |    |    |  combo  |    |    |    |  |
-       |    |    |    | accuracy|    |    |    |  highway (45%)
-       |    (notas scrolleando hacia abajo)    |  |
-       |    |    |    |    |    |    |    |    |  v 
-y=50%  +----+----+----+----+----+----+----+----+
-       |    |    |    |    |    |    |    |    |  ← hit line (per-lane)
-y=56%  +----+----+----+----+----+----+----+----+  
-       | HH | CR | SN | KI | T1 | T2 | T3 | RI |  ← lane labels
-y=100% +----+----+----+----+----+----+----+----+
+y=0%    +---------------------------------------+
+        |             SONG TIMELINE             |
+y=2.5%  +----+----+----+----+----+----+----+----+
+        | multiplier   |    |    |    |   score |  ^
+        |    |    |    |  combo  |    |    |    |  |
+        |    |    |    | accuracy|    |    |    |  highway (62.5%)
+        |    (notas scrolleando hacia abajo)    |  |
+        |    |    |    |    |    |    |    |    |  v 
+y=65%   +----+----+----+----+----+----+----+----+
+        |    |    |    |    |    |    |    |    |  ← hit line (per-lane)
+y=72%   +----+----+----+----+----+----+----+----+  
+        | HH | CR | SN | KI | T1 | T2 | T3 | RI |  ← lane labels
+y=100%  +----+----+----+----+----+----+----+----+
 ```
 
-- **Timeline:** 0–5% (barra de progreso horizontal)
-- **Highway:** 5–70% (lienzo de notas)
-- **Hit line:** 70-76% (una sección por lane con icono del instrumento), altura ~6 % emparejada con la altura de una nota (`lane_w × 0.25`)
-- **Labels:** 76-100% (nombre corto del instrumento por lane + zona táctil)
+- **Timeline:** 0–2.5 % (barra de progreso horizontal)
+- **Highway:** 2.5–65 % (lienzo de notas)
+- **Hit line:** 65-72 % (una sección por lane con icono del instrumento)
+- **Labels:** 72-100 % (nombre corto del instrumento por lane + zona táctil)
 - **HUD:** superpuesto (score, combo, multiplier)
+
+### Gameplay padding (experimental)
+
+Cuando `gameplay_padding_enabled` está activo, el Highway se posiciona en `(pad, pad)` y `screen_w`/`screen_h` se reducen a las dimensiones efectivas (`viewport - 2*pad`). Esto desplaza automáticamente lanes, notas, hit line, beat lines y touch zones. El HUD (CanvasLayer) se ajusta manualmente sumando `pad` a los offsets de cada label. El valor de padding es configurable con un slider (20-60px, default 40).
+
+### Android gesture exclusion (plugin nativo)
+
+En Android, la navegación por gestos intercepta toques en los bordes de la pantalla antes de entregarlos a la app, causando delay en los toques de HH (lane 0) y RIDE (lane 7). Para mitigar esto, el proyecto incluye un plugin Android mínimo que llama a `View.setSystemGestureExclusionRects()` para excluir los bordes laterales del back gesture.
+
+**Flujo:**
+1. `Highway._build_lanes()` → llama a `AndroidBridge.set_lane_exclusion()` después de construir touch zones
+2. `AndroidBridge` obtiene el singleton `GestureExclusion` vía `Engine.get_singleton()`
+3. El plugin Java calcula los rectángulos de exclusión (max 200px por borde, max 4 rects)
+4. Al salir del gameplay (`_exit_to_menu`, `_restart_song`, `stop_gameplay`) → `AndroidBridge.clear_exclusion()`
+
+**Limitaciones de la API Android:**
+- `setSystemGestureExclusionRects()` solo afecta el **back gesture** (swipe lateral), NO el home/recents (swipe inferior)
+- Máximo 200px desde cada borde, máximo 4 rectángulos
+- El sistema puede ignorar los rects si detecta abuso
+- En desktop/iOS, `AndroidBridge` es no-op
+
+**Auto-habilitación en Android:** En el primer arranque (sin archivo de settings), `gameplay_padding_enabled` se establece automáticamente en `true` en Android para mitigar el problema de bordes.
+
+**Prerequisitos para build:**
+1. Instalar Android Build Template: `Project → Install Android Build Template...`
+2. Habilitar Gradle build: `gradle_build/use_gradle_build=true` en export settings
+3. Compilar el `.aar` del plugin desde `GestureExclusionPlugin/` con Gradle
+4. Copiar `addons/GestureExclusion/` al proyecto Godot
+5. Habilitar plugin en `Project Settings → Plugins`
 
 ### Spawn de notas
 
@@ -177,10 +376,12 @@ y=100% +----+----+----+----+----+----+----+----+
 ```
 lane_w = screen_width / lane_count
 x = lane_w * lane_index + lane_w / 2
-scroll_distance = (highway_bottom_y - highway_top_y) * note_speed  (0.65 × note_speed por defecto)
+scroll_distance = (highway_bottom_y - highway_top_y) * note_speed  (0.625 × note_speed por defecto)
 y_offset = (note_time - current_time) * scroll_distance / 2.0
 y = hit_line_y - y_offset
 ```
+
+El juicio se calcula usando el **tiempo** de la nota (no su posición visual). El `ColorRect` de la nota es `lane_w × 0.95` de ancho por `lane_w × 0.25` de alto, centrado en la posición calculada. El judgment usa `note_data.time - current_time` (delta temporal del centro de la nota), no el solapamiento visual con las bandas de juicio.
 
 ---
 
@@ -258,6 +459,10 @@ TimingEngine.time_updated
 
 **Protección Android**: En dispositivos táctiles (`DisplayServer.is_touchscreen_available()`), se salta el bloque `InputEventMouseButton` para evitar que el evento de mouse emulado por Android duplique el procesamiento del mismo toque. Sin esta guarda, el segundo evento (mouse emulado) encuentra la nota ya eliminada por el primer evento (touch), causando que `try_hit_lane()` retorne `false` y reproduzca `DrumSfxManager.play_for_lane()` incorrectamente.
 
+**Optimización de rendimiento**: Las llamadas a `EffectManager.trigger_particle_burst()` y `EffectManager.show_judgement()` dentro de `Lane.try_hit()` se ejecutan mediante `call_deferred()`. Esto saca la creación de nodos de efectos visuales de la fase de `_input()` y las mueve al final del frame, evitando bloqueos del frame en dispositivos móviles cuando el jugador toca la pantalla. La lógica crítica (hit detection, scoring, audio) permanece sincrónica.
+
+**Touch zones cacheadas**: Las zonas táctiles (`TouchZone_*`) se cachean en `_touch_zones` (Array[ColorRect]) durante `setup()` mediante `_cache_touch_zones()`. Cada zona almacena su `lane_idx` en metadata (`set_meta("lane_idx", ...)`) para evitar búsqueda por nombre y parseo de strings en `_update_touch_zones()`. El array cacheado se actualiza solo si se reconstruyen los lanes.
+
 ### InputManager
 
 `InputManager.handle_touch_event()` recibe el `lane_index` ya resuelto desde `TouchInput` y evita recalcularlo.
@@ -265,6 +470,10 @@ TimingEngine.time_updated
 ### Teclado (desktop)
 
 Teclas **1–8** del teclado numérico mapean a lanes **0–7**. Implementado en `TouchInput._input()` como `InputEventKey`, llama a `HitDetection.try_hit_lane()` exactamente igual que el input táctil.
+
+### Hit detection optimizada
+
+`Lane.try_hit()` incluye una optimización para reducir el loop de búsqueda: solo considera notas cuyo tiempo esté dentro del rango `[current_time - miss_ms, current_time + miss_ms]`, saltándose notas demasiado tempranas o tardías que no podrían ser acertadas de todas formas. Esto evita recorrer todo el arreglo de notas activas cuando hay acumulación de notas en el highway.
 
 ### Kick háptico (acelerómetro)
 
@@ -274,22 +483,25 @@ Teclas **1–8** del teclado numérico mapean a lanes **0–7**. Implementado en
 
 ## Formato de canciones
 
+Las canciones incluidas en el APK están en `res://Songs/` con archivos `.ogg` (convertidos desde `.opus` por `tools/convert_opus_to_ogg.sh` antes del build). Las canciones del usuario van en `user://DrumHero` (desktop) o almacenamiento externo (Android) con `.opus` o `.ogg`.
+
 ```
 Songs/<artist> - <song>/
 ├── song.ini           ← metadatos (artista, nombre, dificultad, etc.)
 ├── notes.mid          ← chart MIDI (mapeo Clone Hero / YARG)
-├── song.opus          ← mezcla completa
-├── drums.opus         ← solo batería (opcional)
-├── bass.opus          ← solo bajo (opcional)
-├── guitar.opus        ← solo guitarra (opcional)
-├── rhythm.opus        ← guitarra rítmica (opcional)
-├── keys.opus          ← solo teclado (opcional)
-├── vocals.opus        ← solo voces (opcional)
+├── song.ogg           ← mezcla completa
+├── preview.ogg        ← preview corto (opcional, 30s — fallback a song.ogg si no existe)
+├── drums.ogg          ← solo batería (opcional)
+├── bass.ogg           ← solo bajo (opcional)
+├── guitar.ogg         ← solo guitarra (opcional)
+├── rhythm.ogg         ← guitarra rítmica (opcional)
+├── keys.ogg           ← solo teclado (opcional)
+├── vocals.ogg         ← solo voces (opcional)
 ├── album.jpg          ← carátula
 └── background.jpg     ← fondo de pantalla
 ```
 
-Los stems pueden tener formas alternativas: `drums_1.opus`, `drums_2.opus` (multi-mic). El `_find_stem_file()` busca con sufijo numérico si no encuentra el archivo base.
+Los stems pueden tener formas alternativas: `drums_1.ogg`, `drums_2.ogg` (multi-mic). El `_find_stem_file()` busca con sufijo numérico si no encuentra el archivo base. En desktop, `.opus` se soporta igualmente (decodificado vía ffmpeg).
 
 ### notas.mid
 
@@ -319,6 +531,55 @@ El formato sigue el estándar **Rock Band MIDI**: cada dificultad ocupa una octa
 | 11 | Tom 3 | 6 |
 
 Notas fuera de estos rangos (GM raw 36–51, special 110+) se ignoran. El `_resolve_difficulty()` itera `DIFFICULTY_OFFSETS = [60, 72, 84, 96, 120]` y la primera coincidencia en rango 0–11 determina la dificultad y el lane.
+
+### Detección de fuente del chart (PART DRUMS / PART GUITAR)
+
+El parser (`MidiParser.gd`) busca pistas MIDI cuyo nombre comience con `"PART DRUMS"`. Si no se encuentran notas de batería y la opción `use_guitar_fallback` está activada, el parser re-intenta con pistas `"PART GUITAR"`.
+
+**Flujo de detección:**
+
+```
+MidiParser.load(path, ..., use_guitar_fallback)
+  │
+  ├─ 1. Parsear MIDI buscando "PART DRUMS"
+  │     → ¿Se encontraron notas?
+  │       ├─ SÍ → usar esas notas (has_drum_track = true)
+  │       └─ NO → continuar
+  │
+  └─ 2. ¿use_guitar_fallback activado?
+        ├─ SÍ → Re-parsear MIDI buscando "PART GUITAR"
+        │       → ¿Se encontraron notas?
+        │         ├─ SÍ → usar esas notas (using_guitar_fallback = true)
+        │         └─ NO → sin notas
+        └─ NO → sin notas
+```
+
+**Propiedades expuestas por MidiParser:**
+
+| Propiedad | Tipo | Descripción |
+|---|---|---|
+| `has_drum_track` | `bool` | `true` si se encontró una pista "PART DRUMS" |
+| `using_guitar_fallback` | `bool` | `true` si se usó PART GUITAR como fallback |
+
+**Detección de dificultades:**
+
+`MidiParser.detect_difficulties()` retorna un diccionario con:
+
+```gdscript
+{
+    "difficulties": [...],          # Array de dificultades disponibles
+    "has_drum_chart": bool,         # Si existía PART DRUMS
+    "guitar_fallback_used": bool    # Si se usó PART GUITAR
+}
+```
+
+`SongLoader` almacena estos campos en cada entrada de la lista de canciones, y `MenuRoot` los muestra en la etiqueta de estado:
+
+- **Sin PART DRUMS y sin fallback** → muestra "no drum chart"
+- **Sin PART DRUMS pero con fallback activo** → muestra "using guitar chart"
+- **Con PART DRUMS** → sin mensaje adicional
+
+**Nota:** Si un MIDI tiene ambas pistas (PART DRUMS y PART GUITAR), se prioriza PART DRUMS siempre. El fallback solo se activa cuando PART DRUMS no produce notas.
 
 ---
 
@@ -351,13 +612,41 @@ Notas fuera de estos rangos (GM raw 36–51, special 110+) se ignoran. El `_reso
 
 | Clave | Default | Descripción |
 |---|---|---|
-| `judgement_perfect_ms` | 25 | Ventana de perfect (±ms) |
-| `judgement_good_ms` | 55 | Ventana de good (±ms) |
-| `judgement_miss_ms` | 120 | Umbral de miss (±ms) |
+| `judgement_perfect_ms` | 22.5 | Ventana de perfect (±ms) |
+| `judgement_excellent_ms` | 45.0 | Ventana de excellent (±ms) |
+| `judgement_good_ms` | 75.0 | Ventana de good (±ms) |
+| `judgement_late_ms` | 100.0 | Ventana de late (±ms) |
+| `judgement_early_ms` | 100.0 | Ventana de early (±ms) |
+| `judgement_miss_ms` | 135.0 | Umbral de miss (±ms) |
+| `master_volume` | 1.0 | Volumen master |
+| `sfx_volume` | 1.0 | Volumen de efectos |
+| `music_volume` | 1.0 | Volumen de música |
 | `haptic_enabled` | false | Kick por sensor |
+| `haptic_sensitivity` | 1.0 | Sensibilidad del sensor háptico |
+| `game_mode` | 0 | Modo de juego (0=Default, 1=Haptic, 2=Custom) |
 | `custom_lanes` | [] | Orden personalizado de lanes |
-| `countdown_threshold` | 5.0 | Gap mínimo (s) para mostrar countdown |
+| `mirrored` | false | Layout espejo |
+| `left_handed` | false | Modo zurdo |
+| `screen_shake` | false | Efecto de sacudida en pantalla |
 | `show_fps` | false | Mostrar contador FPS en pantalla |
+| `show_hit_feedback` | true | Mostrar texto de juicio en cada hit line |
+| `countdown_threshold` | 5.0 | Gap mínimo (s) para mostrar countdown |
+| `preview_volume` | 0.8 | Volumen del preview de canción en el menú principal |
+| `use_guitar_fallback` | false | Usar PART GUITAR como fallback si falta PART DRUMS |
+| `note_speed` | 1.0 | Velocidad de scroll de notas |
+| `show_judgment_areas` | false | Dibujar zonas de juicio en el hit line |
+| `gameplay_padding_enabled` | false | Condensar gameplay con padding para evitar toques en bordes |
+| `gameplay_padding_amount` | 40.0 | Cantidad de padding en px (20-60) |
+
+### Layout del menú de Settings
+
+El menú de configuración (`SettingsRoot.gd`) usa un layout con **tabs** para organizar las opciones:
+
+- **CONTROLS** — Modo de control (Default/Haptic/Custom), orden de lanes, ajustes hápticos, layout (mirrored/left handed)
+- **HUD** — Opciones visuales (FPS, screen shake, hit feedback), gameplay (note speed, countdown), ventanas de juicio (read-only)
+- **Experimental** — Fallback de chart (PART GUITAR), áreas de juicio (debug)
+
+**Nota técnica:** En Android, los `Control` nodes hijos de un `CanvasLayer` que no están dentro de un `ScrollContainer` no se renderizan correctamente. Para solucionarlo, el header y tab bar usan un `ScrollContainer` fijo (sin scroll) mientras el contenido usa un `ScrollContainer` scrolleable.
 
 ---
 
@@ -370,22 +659,39 @@ Cuando el jugador acierta una nota, se disparan simultáneamente los siguientes 
 1. **HitLine flash** — El `ColorRect` del hit line correspondiente se vuelve blanco y retorna a su color original (0.1s). Implementado en `HitLine.gd`.
 2. **Slash effect** — Dos `ColorRect` se expanden desde el centro del carril hacia los bordes con el color característico del lane (0.12s). Implementado en `Lane.gd` (`_slash_left`, `_slash_right`).
 3. **ParticleBurst** — 16 partículas explotan desde el punto de impacto con el color del lane (0.4s). Pool en `EffectManager`.
-4. **Lane background highlight** — El `bg_rect` del lane incrementa su alpha brevemente.
+4. **JudgementPopup** — Texto de juicio ("PERFECT", "EXCELLENT", "GOOD", "LATE", "EARLY", "MISS") aparece en el hit line del lane correspondiente, flota hacia arriba y se desvanece (0.6s). Pool en `EffectManager`. Controlado por `show_hit_feedback`.
+5. **Lane background highlight** — El `bg_rect` del lane incrementa su alpha brevemente.
+
+Cuando una nota pasa el hit line sin ser golpeada, se muestra "MISS" en el hit line del lane correspondiente (mismos efectos 4 y 5).
 
 ### Efectos con pooling (EffectManager)
 
-Se implementan con pooling en `EffectManager` (máx. 16 instancias):
+Implementados con pooling en `EffectManager` (máx. 16 instancias por tipo).
 
 | Efecto | Escena | Activación |
 |---|---|---|
 | ParticleBurst | `scene/UI/Effects/ParticleBurst.tscn` | `trigger_particle_burst(pos, color, parent)` en cada hit |
 | Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent)` — implementado, sin conectar |
-| JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — implementado, sin conectar |
+| JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — activo en cada hit (controlado por `show_hit_feedback`) |
+
+**Mecanismo de pooling (`_borrow`):**
+
+1. Recorre el pool y elimina referencias inválidas con `is_instance_valid()`.
+2. Busca una instancia fuera del árbol de escena (`is_inside_tree() == false`) para reusarla.
+3. Si no hay disponible y no se alcanzó `MAX_POOL_SIZE` (16), crea una nueva instancia.
+4. Si el pool está lleno, retorna `null` (el efecto se omite silenciosamente).
+
+Cada efecto, al finalizar su animación, llama a `get_parent().remove_child(self)` en lugar de `queue_free()`. Esto lo desengancha del árbol pero lo mantiene en memoria para su reutilización posterior, eliminando la creación y destrucción constante de nodos en el hot path del gameplay.
+
+**ParticleBurst** (partículas con `ColorRect`): 16 partículas pre-creadas en la primera llamada a `play()`. Cada partícula es un `ColorRect` que se posiciona y anima sin necesidad de `queue_redraw()` ni `draw_circle()`, reduciendo la carga de renderizado por CPU en móviles.
+
+**JudgementPopup** (texto de juicio): cachea una instancia de `LabelSettings` creada en `_ready()` en lugar de instanciar una nueva en cada `show_judgement()`, eliminando allocaciones por frame.
 
 ### Feedback visual adicional
 
 - **Combo counter** — animación de "pop" (escala 1.3→1.0) cuando el combo cambia (`ComboCounter.gd`).
-- **Accuracy text** — texto "PERFECT"/"EXCELLENT"/"GOOD"/"LATE"/"EARLY" con fade in/out (HUD.show_accuracy).
+- **Hit feedback** — texto de juicio ("PERFECT"/"EXCELLENT"/"GOOD"/"LATE"/"EARLY"/"MISS") en cada hit line via `JudgementPopup` (configurable con `show_hit_feedback`). Miss se muestra cuando la nota pasa el hit line sin ser golpeada.
+- **Judgment areas** — bandas de color asimétricas en el hit line que muestran las ventanas de timing (configurable con `show_judgment_areas` en Experimental). EARLY→GOOD→EXCELLENT→PERFECT→LATE→MISS de arriba hacia abajo.
 - **Touch zone highlight** — las zonas táctiles en la base de cada carril se iluminan al presionar (`TouchInput.gd`).
 
 ---

@@ -4,14 +4,8 @@ var song_list: Array[Dictionary] = []
 
 const SUPPORTED_FORMATS = ["ogg", "opus", "wav", "mp3"]
 
-var custom_song_path: String = ""
-var custom_song_dirs: Array[String] = []
-
-const CONFIG_PATH := "user://song_path.cfg"
-
-
 func _ready() -> void:
-	_load_custom_path()
+	pass
 
 
 func scan_songs() -> void:
@@ -37,9 +31,6 @@ func scan_songs() -> void:
 				_scan_song(full_path)
 			entry = dir.get_next()
 		dir.list_dir_end()
-	for sd in custom_song_dirs:
-		if not sd.is_empty():
-			_scan_song(sd)
 
 
 func _get_user_song_paths() -> Array:
@@ -53,37 +44,13 @@ func _get_user_song_paths() -> Array:
 		var user_path: String = "user://DrumHero"
 		DirAccess.make_dir_recursive_absolute(user_path)
 		paths.append(user_path)
-	if not custom_song_path.is_empty():
-		paths.append(custom_song_path)
 	return paths
-
 
 func _get_external_path() -> String:
 	var downloads: String = OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
 	if downloads.is_empty():
 		return ""
 	return downloads.get_base_dir().path_join("Android/data/com.drum.hero/files/DrumHero")
-
-
-func set_custom_song_path(path: String) -> void:
-	custom_song_path = path
-	_save_custom_path()
-	scan_songs()
-
-
-func clear_all_custom() -> void:
-	custom_song_path = ""
-	custom_song_dirs.clear()
-	_save_custom_path()
-	scan_songs()
-
-
-func add_song_dir(dir: String) -> void:
-	if dir.is_empty():
-		return
-	if not dir in custom_song_dirs:
-		custom_song_dirs.append(dir)
-
 
 func get_user_song_dir() -> String:
 	if OS.has_feature("android"):
@@ -92,36 +59,23 @@ func get_user_song_dir() -> String:
 			return p
 	return ProjectSettings.globalize_path("user://DrumHero")
 
-
-func _load_custom_path() -> void:
-	var cfg := ConfigFile.new()
-	if cfg.load(CONFIG_PATH) == OK:
-		custom_song_path = cfg.get_value("settings", "custom_song_path", "")
-		var arr: Array = cfg.get_value("settings", "custom_song_dirs", [])
-		custom_song_dirs.clear()
-		for a in arr:
-			custom_song_dirs.append(str(a))
-
-
-func _save_custom_path() -> void:
-	var cfg := ConfigFile.new()
-	cfg.set_value("settings", "custom_song_path", custom_song_path)
-	_save_custom_paths(cfg)
-
-
-func _save_custom_paths(cfg: ConfigFile = null) -> void:
-	if not cfg:
-		cfg = ConfigFile.new()
-		cfg.set_value("settings", "custom_song_path", custom_song_path)
-	cfg.set_value("settings", "custom_song_dirs", custom_song_dirs)
-	cfg.save(CONFIG_PATH)
-
-
 func _scan_song(song_path: String) -> void:
 	var ini_path: String = song_path.path_join("song.ini")
-	if not FileHelper.file_exists(ini_path):
+	if not FileHelper.file_exists(ini_path) and not ResourceLoader.exists(ini_path):
 		return
 	var ini_data: Dictionary = _parse_ini(ini_path)
+	var preview_path: String = ""
+	for ext in SUPPORTED_FORMATS:
+		var p: String = song_path.path_join("preview." + ext)
+		if FileHelper.file_exists(p) or ResourceLoader.exists(p):
+			preview_path = p
+			break
+
+	var preview_start: int = int(ini_data.get("preview_start_time", -1))
+
+	var album_jpg: String = song_path.path_join("album.jpg")
+	var bg_jpg: String = song_path.path_join("background.jpg")
+	var notes_mid: String = song_path.path_join("notes.mid")
 	var entry: Dictionary = {
 		"path": song_path,
 		"name": ini_data.get("name", song_path.get_file()),
@@ -131,20 +85,28 @@ func _scan_song(song_path: String) -> void:
 		"year": ini_data.get("year", ""),
 		"charter": ini_data.get("charter", ""),
 		"diff_drums": ini_data.get("diff_drums", 0),
-		"album_path": song_path.path_join("album.jpg") if FileHelper.file_exists(song_path.path_join("album.jpg")) else "",
-		"background_path": song_path.path_join("background.jpg") if FileHelper.file_exists(song_path.path_join("background.jpg")) else "",
-		"notes_path": song_path.path_join("notes.mid") if FileHelper.file_exists(song_path.path_join("notes.mid")) else "",
+		"album_path": album_jpg if (FileHelper.file_exists(album_jpg) or ResourceLoader.exists(album_jpg)) else "",
+		"background_path": bg_jpg if (FileHelper.file_exists(bg_jpg) or ResourceLoader.exists(bg_jpg)) else "",
+		"notes_path": notes_mid if (FileHelper.file_exists(notes_mid) or ResourceLoader.exists(notes_mid)) else "",
+		"preview_path": preview_path,
+		"preview_start_time": preview_start,
+		"song_length": int(ini_data.get("song_length", 0)),
 	}
 	if not entry.notes_path.is_empty():
-		entry["difficulties"] = _detect_song_difficulties(entry.notes_path)
+		var diff_result: Dictionary = _detect_song_difficulties(entry.notes_path)
+		entry["difficulties"] = diff_result.difficulties
+		entry["has_drum_chart"] = diff_result.has_drum_chart
+		entry["guitar_fallback_used"] = diff_result.guitar_fallback_used
 	else:
 		entry["difficulties"] = []
+		entry["has_drum_chart"] = false
+		entry["guitar_fallback_used"] = false
 	song_list.append(entry)
 
 
-func _detect_song_difficulties(notes_path: String) -> Array:
+func _detect_song_difficulties(notes_path: String) -> Dictionary:
 	var MidiParserClass = preload("res://script/chart/MidiParser.gd")
-	return MidiParserClass.detect_difficulties(notes_path)
+	return MidiParserClass.detect_difficulties(notes_path, SettingsManager.use_guitar_fallback)
 
 
 func _parse_ini(path: String) -> Dictionary:
@@ -175,6 +137,6 @@ func _parse_ini(path: String) -> Dictionary:
 func get_stem_path(song_path: String, stem_name: String) -> String:
 	for ext in SUPPORTED_FORMATS:
 		var full: String = song_path.path_join(stem_name + "." + ext)
-		if FileHelper.file_exists(full):
+		if FileHelper.file_exists(full) or ResourceLoader.exists(full):
 			return full
 	return ""

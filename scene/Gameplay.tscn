@@ -9,6 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://d2ycbv0bsfm54" path="res://scene/UI/Highway.tscn" id="10_5lqln"]
 [ext_resource type="Script" path="res://script/gameplay/GameplayRoot.gd" id="11_7md6q"]
 [ext_resource type="LabelSettings" path="res://asset/fonts/label_settings.tres" id="12_jn4yc"]
+[ext_resource type="FontFile" path="res://asset/fonts/main_font.ttf" id="13_font"]
 
 [node name="Gameplay" type="Node2D"]
 script = ExtResource("11_7md6q")
@@ -44,12 +45,14 @@ anchor_top = 0.0
 anchor_right = 0.5
 anchor_bottom = 0.0
 offset_left = -150.0
-offset_top = 200.0
+offset_top = 150.0
 offset_right = 150.0
-offset_bottom = 260.0
-label_settings = ExtResource("12_jn4yc")
-theme_override_font_sizes/font_size = 48
+offset_bottom = 220.0
+theme_override_fonts/font = ExtResource("13_font")
+theme_override_font_sizes/font_size = 72
 theme_override_colors/font_color = Color(0.9, 0.8, 0.2, 1)
+theme_override_constants/outline_size = 2
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.5)
 horizontal_alignment = 1
 
 [node name="MultiplierLabel" type="Label" parent="HUD"]
@@ -66,22 +69,6 @@ offset_bottom = 70.0
 label_settings = ExtResource("12_jn4yc")
 theme_override_font_sizes/font_size = 24
 theme_override_colors/font_color = Color(0.2, 1, 0.2, 1)
-
-[node name="AccuracyLabel" type="Label" parent="HUD"]
-unique_name_in_owner = true
-anchors_preset = 0
-anchor_left = 0.5
-anchor_top = 0.0
-anchor_right = 0.5
-anchor_bottom = 0.0
-offset_left = -150.0
-offset_top = 270.0
-offset_right = 150.0
-offset_bottom = 310.0
-label_settings = ExtResource("12_jn4yc")
-theme_override_font_sizes/font_size = 28
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-horizontal_alignment = 1
 
 [node name="SongTimeline" type="TextureProgressBar" parent="HUD"]
 unique_name_in_owner = true

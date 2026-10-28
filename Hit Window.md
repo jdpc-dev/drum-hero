@@ -253,14 +253,15 @@ while the sign indicates the timing direction:
 
 Each rhythm game defines its own timing windows.
 
-Example:
+**Drum Hero** uses:
 
 | Judgment | Window |
 |----------|--------|
-| Perfect | ±20 ms |
-| Great | ±45 ms |
-| Good | ±70 ms |
-| Miss | >70 ms |
+| Perfect | ±22.5 ms |
+| Excellent | ±45 ms |
+| Good | ±75 ms |
+| Early/Late | >75 ms (before/after note) |
+| Miss | >135 ms or note passes without hit |
 
 The exact values vary from game to game.
 
@@ -268,9 +269,14 @@ The exact values vary from game to game.
 
 # Early and Late
 
-**Early** and **Late** are **not judgments**.
+In Drum Hero, **Early** and **Late** are **separate judgments** (not just timing directions).
 
-They simply describe whether the player hit **before** or **after** the perfect timestamp while still remaining inside the hit window.
+They describe whether the player hit **before** or **after** the perfect timestamp while still remaining inside the miss window:
+
+- **Early**: player hit before the note arrived (positive offset)
+- **Late**: player hit after the note passed (negative offset)
+
+Both are displayed as judgment text at the hit line, just like Perfect, Excellent, and Good.
 
 Example:
 
@@ -309,7 +315,7 @@ Likewise:
 
 Offset = -38 ms
 
-Great (Early)
+Excellent (Early)
 ```
 
 and
@@ -319,12 +325,12 @@ and
 
 Offset = +38 ms
 
-Great (Late)
+Excellent (Late)
 ```
 
-Both receive **Great**.
+Both receive **Excellent**.
 
-The game may only display:
+The game displays the judgment with its timing direction:
 
 ```
 Perfect
@@ -333,7 +339,31 @@ Perfect
 or
 
 ```
-Great
+Excellent
+```
+
+or
+
+```
+Good
+```
+
+or
+
+```
+Early
+```
+
+or
+
+```
+Late
+```
+
+or
+
+```
+Miss
 ```
 
 while internally recording whether the hit was Early or Late for statistics and calibration purposes.
@@ -405,22 +435,15 @@ offset = input_time - note.timestamp
 
 The **magnitude** of the offset determines the judgment:
 
-- Perfect
-- Great
-- Good
-- Miss
+- Perfect (≤22.5ms)
+- Excellent (≤45ms)
+- Good (≤75ms)
+- Early/Late (>75ms, outside Good window)
+- Miss (note passes without being hit)
 
-The **sign** of the offset indicates the timing direction:
+The **sign** of the offset determines Early vs Late:
 
-- Early
-- On Time
-- Late
-
-Separating these two concepts provides several advantages:
-
-- Gameplay feedback displays only the judgment (Perfect, Great, Good, Miss).
-- Statistics can show whether the player tends to hit early or late.
-- Calibration tools can detect systematic timing bias.
-- Practice mode can visualize timing consistency.
+- Positive (note hasn't arrived) → Early
+- Negative (note already passed) → Late
 
 Since judgments are calculated from timestamps rather than pixel overlap, gameplay remains accurate regardless of frame rate, display resolution, highway length, or note scrolling speed. The highway serves only as a visual timing aid, while the engine always evaluates precision using the song timeline.

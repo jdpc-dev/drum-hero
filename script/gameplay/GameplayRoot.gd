@@ -159,6 +159,7 @@ func _start_loading() -> void:
 		_hide_loading_screen()
 		return
 
+	highway.generate_beat_lines()
 	_update_loading(0.35, "Loading audio stems...")
 	await get_tree().create_timer(0.0).timeout
 
@@ -292,6 +293,7 @@ func _do_exit_to_menu() -> void:
 	if not is_inside_tree():
 		return
 	_hide_countdown()
+	AndroidBridge.clear_exclusion()
 	TimingEngine.stop()
 	highway.restart()
 	ScoreManager.reset()
@@ -365,6 +367,7 @@ func _hide_pause_overlay() -> void:
 
 func stop_gameplay() -> void:
 	_hide_countdown()
+	AndroidBridge.clear_exclusion()
 	TimingEngine.stop()
 	highway.restart()
 	ScoreManager.reset()

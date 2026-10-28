@@ -3,8 +3,30 @@ extends CanvasLayer
 
 var _label_settings: LabelSettings = preload("res://asset/fonts/label_settings.tres")
 
+var _current_tab: int = 0
+var _tab_buttons: Array[Button] = []
+var _content_container: VBoxContainer
+
+# CONTROLS tab elements
 var _mode_buttons: Array[CheckBox] = []
 var _custom_lane_container: VBoxContainer
+var _haptic_sensitivity_label: Label
+
+# HUD tab elements
+var _hud_fps_check: CheckBox
+var _hud_shake_check: CheckBox
+var _hud_feedback_check: CheckBox
+var _note_speed_slider: HSlider
+var _note_speed_label: Label
+var _countdown_slider: HSlider
+var _countdown_label: Label
+
+# Experimental tab elements
+var _fallback_check: CheckBox
+var _judgment_areas_check: CheckBox
+var _padding_check: CheckBox
+var _padding_slider: HSlider
+var _padding_label: Label
 
 const LANE_LABELS: PackedStringArray = [
 	"HH", "CRASH", "SNARE", "KICK",
@@ -24,7 +46,6 @@ const LANE_COLORS: Array[Color] = [
 
 
 func _ready() -> void:
-	# Render above the menu layer so song list doesn't overlap
 	layer = 10
 	_build_ui()
 	_load_current_settings()
@@ -51,28 +72,126 @@ func _build_ui() -> void:
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
 	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, 60)
+		margin.add_theme_constant_override("margin_" + side, 40)
 	add_child(margin)
 
-	var scroll := ScrollContainer.new()
-	scroll.set_anchors_preset(Control.PRESET_FULL_RECT)
-	margin.add_child(scroll)
+	var root := VBoxContainer.new()
+	root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	margin.add_child(root)
 
-	var vbox := VBoxContainer.new()
-	vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.alignment = BoxContainer.ALIGNMENT_BEGIN
-	scroll.add_child(vbox)
+	var header_scroll := ScrollContainer.new()
+	header_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_scroll.custom_minimum_size.y = 110
+	header_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	header_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	root.add_child(header_scroll)
+
+	var header_vbox := VBoxContainer.new()
+	header_vbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header_scroll.add_child(header_vbox)
+
+	_build_header(header_vbox)
+	_build_tab_bar(header_vbox)
+
+	var content_scroll := ScrollContainer.new()
+	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	root.add_child(content_scroll)
+
+	_content_container = VBoxContainer.new()
+	_content_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	content_scroll.add_child(_content_container)
+
+	_build_tab_content()
+
+
+func _build_header(parent: VBoxContainer) -> void:
+	var header := HBoxContainer.new()
+	header.custom_minimum_size.y = 60
+	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(header)
+
+	var left_spacer := Control.new()
+	left_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(left_spacer)
 
 	var title := Label.new()
 	title.text = "SETTINGS"
 	title.label_settings = _label_settings
 	title.add_theme_font_size_override("font_size", 44)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
+	header.add_child(title)
 
-	vbox.add_child(_spacer(20))
-	_add_section_title(vbox, "CONTROL MODE")
-	vbox.add_child(_spacer(10))
+	var right_spacer := Control.new()
+	right_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(right_spacer)
+
+	var back_btn := Button.new()
+	back_btn.text = "Back"
+	back_btn.custom_minimum_size = Vector2(100, 40)
+	back_btn.pressed.connect(_on_back)
+	header.add_child(back_btn)
+
+
+func _build_tab_bar(parent: VBoxContainer) -> void:
+	var tab_bg := PanelContainer.new()
+	tab_bg.custom_minimum_size.y = 50
+	tab_bg.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = Color(0.05, 0.05, 0.08)
+	tab_bg.add_theme_stylebox_override("panel", sb)
+	parent.add_child(tab_bg)
+
+	var hbox := HBoxContainer.new()
+	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	tab_bg.add_child(hbox)
+
+	var tab_names := ["CONTROLS", "HUD", "Experimental"]
+	for i in tab_names.size():
+		var btn := Button.new()
+		btn.text = tab_names[i]
+		btn.custom_minimum_size = Vector2(200, 40)
+		btn.toggle_mode = true
+		btn.pressed.connect(_on_tab_selected.bind(i))
+		hbox.add_child(btn)
+		_tab_buttons.append(btn)
+		if i < tab_names.size() - 1:
+			var sep := Control.new()
+			sep.custom_minimum_size = Vector2(10, 0)
+			hbox.add_child(sep)
+
+	_tab_buttons[0].button_pressed = true
+
+
+func _on_tab_selected(tab_index: int) -> void:
+	_current_tab = tab_index
+	for i in _tab_buttons.size():
+		_tab_buttons[i].button_pressed = (i == tab_index)
+	_build_tab_content()
+
+
+func _build_tab_content() -> void:
+	for child in _content_container.get_children():
+		child.queue_free()
+
+	match _current_tab:
+		0:
+			_build_controls_content(_content_container)
+		1:
+			_build_hud_content(_content_container)
+		2:
+			_build_experimental_content(_content_container)
+
+
+func _build_controls_content(parent: VBoxContainer) -> void:
+	_mode_buttons.clear()
+
+	_add_section_title(parent, "CONTROL MODE")
+	parent.add_child(_spacer(10))
 
 	var modes: Array[Dictionary] = [
 		{"label": "Default", "desc": "8 lanes — all drum parts visible", "mode": 0},
@@ -86,6 +205,7 @@ func _build_ui() -> void:
 		btn.text = m_data.label
 		btn.add_theme_font_size_override("font_size", 22)
 		btn.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+		btn.set_pressed_no_signal(m_data.mode == SettingsManager.game_mode)
 		btn.toggled.connect(_on_mode_toggled.bind(m_data.mode))
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hbox.add_child(btn)
@@ -98,46 +218,300 @@ func _build_ui() -> void:
 		desc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		hbox.add_child(desc)
 
-		vbox.add_child(hbox)
+		parent.add_child(hbox)
 
-	vbox.add_child(_spacer(20))
-	_add_section_title(vbox, "LANE ORDER (CUSTOM MODE)")
-	vbox.add_child(_spacer(10))
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "LANE ORDER (CUSTOM MODE)")
+	parent.add_child(_spacer(10))
 
 	_custom_lane_container = VBoxContainer.new()
 	_custom_lane_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	vbox.add_child(_custom_lane_container)
+	parent.add_child(_custom_lane_container)
 
 	_rebuild_custom_lane_ui(SettingsManager.custom_lanes)
+	_custom_lane_container.visible = (SettingsManager.game_mode == 2)
 
-	vbox.add_child(_spacer(20))
-	_add_section_title(vbox, "VISUAL")
-	vbox.add_child(_spacer(10))
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "HAPTIC")
+	parent.add_child(_spacer(10))
 
-	var fps_hbox := HBoxContainer.new()
-	fps_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var fps_check := CheckBox.new()
-	fps_check.text = "Show FPS"
-	fps_check.add_theme_font_size_override("font_size", 22)
-	fps_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
-	fps_check.set_pressed_no_signal(SettingsManager.show_fps)
-	fps_check.toggled.connect(_on_fps_toggled)
-	fps_hbox.add_child(fps_check)
-	vbox.add_child(fps_hbox)
+	var haptic_enabled_hbox := HBoxContainer.new()
+	haptic_enabled_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var haptic_enabled_check := CheckBox.new()
+	haptic_enabled_check.text = "Enable Haptic Kick"
+	haptic_enabled_check.add_theme_font_size_override("font_size", 22)
+	haptic_enabled_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	haptic_enabled_check.set_pressed_no_signal(SettingsManager.haptic_enabled)
+	haptic_enabled_check.toggled.connect(_on_haptic_enabled_toggled)
+	haptic_enabled_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	haptic_enabled_hbox.add_child(haptic_enabled_check)
+	parent.add_child(haptic_enabled_hbox)
 
-	vbox.add_child(_spacer(30))
+	var haptic_sens_hbox := HBoxContainer.new()
+	haptic_sens_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	haptic_sens_hbox.add_theme_constant_override("separation", 10)
+	var haptic_sens_label := Label.new()
+	haptic_sens_label.text = "Sensitivity"
+	haptic_sens_label.add_theme_font_size_override("font_size", 18)
+	haptic_sens_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	haptic_sens_label.custom_minimum_size = Vector2(120, 0)
+	haptic_sens_hbox.add_child(haptic_sens_label)
 
-	var btn_row := HBoxContainer.new()
-	btn_row.alignment = BoxContainer.ALIGNMENT_CENTER
-	btn_row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var haptic_sensitivity_slider := HSlider.new()
+	haptic_sensitivity_slider.min_value = 0.1
+	haptic_sensitivity_slider.max_value = 3.0
+	haptic_sensitivity_slider.step = 0.1
+	haptic_sensitivity_slider.value = SettingsManager.haptic_sensitivity
+	haptic_sensitivity_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	haptic_sensitivity_slider.value_changed.connect(_on_haptic_sensitivity_changed)
+	haptic_sensitivity_slider.drag_ended.connect(_on_haptic_sensitivity_drag_ended)
+	haptic_sens_hbox.add_child(haptic_sensitivity_slider)
 
-	var back_btn := Button.new()
-	back_btn.text = "BACK"
-	back_btn.custom_minimum_size = Vector2(200, 60)
-	back_btn.pressed.connect(_on_back)
-	btn_row.add_child(back_btn)
+	_haptic_sensitivity_label = Label.new()
+	_haptic_sensitivity_label.text = str(SettingsManager.haptic_sensitivity)
+	_haptic_sensitivity_label.add_theme_font_size_override("font_size", 16)
+	_haptic_sensitivity_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_haptic_sensitivity_label.custom_minimum_size = Vector2(40, 0)
+	haptic_sens_hbox.add_child(_haptic_sensitivity_label)
+	parent.add_child(haptic_sens_hbox)
 
-	vbox.add_child(btn_row)
+	var haptic_desc := Label.new()
+	haptic_desc.text = "Adjust how hard you need to tap for kick detection"
+	haptic_desc.add_theme_font_size_override("font_size", 14)
+	haptic_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(haptic_desc)
+
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "LAYOUT")
+	parent.add_child(_spacer(10))
+
+	var mirrored_check := CheckBox.new()
+	mirrored_check.text = "Mirrored Layout"
+	mirrored_check.add_theme_font_size_override("font_size", 22)
+	mirrored_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	mirrored_check.set_pressed_no_signal(SettingsManager.mirrored)
+	mirrored_check.toggled.connect(_on_mirrored_toggled)
+	parent.add_child(mirrored_check)
+
+	var left_handed_check := CheckBox.new()
+	left_handed_check.text = "Left Handed Mode"
+	left_handed_check.add_theme_font_size_override("font_size", 22)
+	left_handed_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	left_handed_check.set_pressed_no_signal(SettingsManager.left_handed)
+	left_handed_check.toggled.connect(_on_left_handed_toggled)
+	parent.add_child(left_handed_check)
+
+
+func _build_hud_content(parent: VBoxContainer) -> void:
+	_add_section_title(parent, "VISUAL")
+	parent.add_child(_spacer(10))
+
+	_hud_fps_check = CheckBox.new()
+	_hud_fps_check.text = "Show FPS"
+	_hud_fps_check.add_theme_font_size_override("font_size", 22)
+	_hud_fps_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_hud_fps_check.set_pressed_no_signal(SettingsManager.show_fps)
+	_hud_fps_check.toggled.connect(_on_fps_toggled)
+	parent.add_child(_hud_fps_check)
+
+	_hud_shake_check = CheckBox.new()
+	_hud_shake_check.text = "Screen Shake"
+	_hud_shake_check.add_theme_font_size_override("font_size", 22)
+	_hud_shake_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_hud_shake_check.set_pressed_no_signal(SettingsManager.screen_shake)
+	_hud_shake_check.toggled.connect(_on_screen_shake_toggled)
+	parent.add_child(_hud_shake_check)
+
+	_hud_feedback_check = CheckBox.new()
+	_hud_feedback_check.text = "Show Hit Feedback"
+	_hud_feedback_check.add_theme_font_size_override("font_size", 22)
+	_hud_feedback_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_hud_feedback_check.set_pressed_no_signal(SettingsManager.show_hit_feedback)
+	_hud_feedback_check.toggled.connect(_on_hit_feedback_toggled)
+	parent.add_child(_hud_feedback_check)
+
+	var feedback_desc := Label.new()
+	feedback_desc.text = "Show judgement text (PERFECT, GOOD, etc.) at the hit line"
+	feedback_desc.add_theme_font_size_override("font_size", 14)
+	feedback_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(feedback_desc)
+
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "GAMEPLAY")
+	parent.add_child(_spacer(10))
+
+	var speed_hbox := HBoxContainer.new()
+	speed_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	speed_hbox.add_theme_constant_override("separation", 10)
+	var speed_label := Label.new()
+	speed_label.text = "Note Speed"
+	speed_label.add_theme_font_size_override("font_size", 18)
+	speed_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	speed_label.custom_minimum_size = Vector2(120, 0)
+	speed_hbox.add_child(speed_label)
+
+	_note_speed_slider = HSlider.new()
+	_note_speed_slider.min_value = 0.5
+	_note_speed_slider.max_value = 3.0
+	_note_speed_slider.step = 0.25
+	_note_speed_slider.value = SettingsManager.note_speed
+	_note_speed_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_note_speed_slider.value_changed.connect(_on_note_speed_changed)
+	_note_speed_slider.drag_ended.connect(_on_note_speed_drag_ended)
+	speed_hbox.add_child(_note_speed_slider)
+
+	_note_speed_label = Label.new()
+	_note_speed_label.text = "x" + str(SettingsManager.note_speed)
+	_note_speed_label.add_theme_font_size_override("font_size", 16)
+	_note_speed_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_note_speed_label.custom_minimum_size = Vector2(40, 0)
+	speed_hbox.add_child(_note_speed_label)
+	parent.add_child(speed_hbox)
+
+	var countdown_hbox := HBoxContainer.new()
+	countdown_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	countdown_hbox.add_theme_constant_override("separation", 10)
+	var countdown_label := Label.new()
+	countdown_label.text = "Silence Countdown"
+	countdown_label.add_theme_font_size_override("font_size", 18)
+	countdown_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	countdown_label.custom_minimum_size = Vector2(120, 0)
+	countdown_hbox.add_child(countdown_label)
+
+	_countdown_slider = HSlider.new()
+	_countdown_slider.min_value = 1.0
+	_countdown_slider.max_value = 15.0
+	_countdown_slider.step = 0.5
+	_countdown_slider.value = SettingsManager.countdown_threshold
+	_countdown_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_countdown_slider.value_changed.connect(_on_countdown_changed)
+	_countdown_slider.drag_ended.connect(_on_countdown_drag_ended)
+	countdown_hbox.add_child(_countdown_slider)
+
+	_countdown_label = Label.new()
+	_countdown_label.text = str(SettingsManager.countdown_threshold) + "s"
+	_countdown_label.add_theme_font_size_override("font_size", 16)
+	_countdown_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_countdown_label.custom_minimum_size = Vector2(40, 0)
+	countdown_hbox.add_child(_countdown_label)
+	parent.add_child(countdown_hbox)
+
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "JUDGEMENT WINDOWS")
+	parent.add_child(_spacer(10))
+
+	var judgement_data: Array[Dictionary] = [
+		{"label": "Perfect", "key": "judgement_perfect_ms"},
+		{"label": "Excellent", "key": "judgement_excellent_ms"},
+		{"label": "Good", "key": "judgement_good_ms"},
+		{"label": "Late", "key": "judgement_late_ms"},
+		{"label": "Early", "key": "judgement_early_ms"},
+		{"label": "Miss", "key": "judgement_miss_ms"},
+	]
+	for jd in judgement_data:
+		var row := HBoxContainer.new()
+		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		row.add_theme_constant_override("separation", 10)
+		var name_lbl := Label.new()
+		name_lbl.text = jd.label
+		name_lbl.add_theme_font_size_override("font_size", 16)
+		name_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+		name_lbl.custom_minimum_size = Vector2(100, 0)
+		row.add_child(name_lbl)
+
+		var val_lbl := Label.new()
+		var val: float = SettingsManager.get(jd.key)
+		val_lbl.text = "±" + str(val) + " ms"
+		val_lbl.add_theme_font_size_override("font_size", 16)
+		val_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+		row.add_child(val_lbl)
+		parent.add_child(row)
+
+
+func _build_experimental_content(parent: VBoxContainer) -> void:
+	_add_section_title(parent, "CHART FALLBACK")
+	parent.add_child(_spacer(10))
+
+	_fallback_check = CheckBox.new()
+	_fallback_check.text = "Use PART GUITAR as fallback"
+	_fallback_check.add_theme_font_size_override("font_size", 22)
+	_fallback_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_fallback_check.set_pressed_no_signal(SettingsManager.use_guitar_fallback)
+	_fallback_check.toggled.connect(_on_fallback_toggled)
+	parent.add_child(_fallback_check)
+
+	var fallback_desc := Label.new()
+	fallback_desc.text = "For songs without PART DRUMS, use PART GUITAR notes as a drum chart"
+	fallback_desc.add_theme_font_size_override("font_size", 14)
+	fallback_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(fallback_desc)
+
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "DEBUG")
+	parent.add_child(_spacer(10))
+
+	_judgment_areas_check = CheckBox.new()
+	_judgment_areas_check.text = "Show Judgment Areas"
+	_judgment_areas_check.add_theme_font_size_override("font_size", 22)
+	_judgment_areas_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_judgment_areas_check.set_pressed_no_signal(SettingsManager.show_judgment_areas)
+	_judgment_areas_check.toggled.connect(_on_judgment_areas_toggled)
+	parent.add_child(_judgment_areas_check)
+
+	var areas_desc := Label.new()
+	areas_desc.text = "Draw colored zones at the hit line showing each judgment timing window"
+	areas_desc.add_theme_font_size_override("font_size", 14)
+	areas_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(areas_desc)
+
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "GAMEPLAY PADDING")
+	parent.add_child(_spacer(10))
+
+	_padding_check = CheckBox.new()
+	_padding_check.text = "Enable Gameplay Padding"
+	_padding_check.add_theme_font_size_override("font_size", 22)
+	_padding_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_padding_check.set_pressed_no_signal(SettingsManager.gameplay_padding_enabled)
+	_padding_check.toggled.connect(_on_padding_enabled_toggled)
+	parent.add_child(_padding_check)
+
+	var padding_desc := Label.new()
+	padding_desc.text = "Condense gameplay and HUD to avoid edge touch issues on some devices (gesture navigation)"
+	padding_desc.add_theme_font_size_override("font_size", 14)
+	padding_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(padding_desc)
+
+	parent.add_child(_spacer(10))
+
+	var padding_hbox := HBoxContainer.new()
+	padding_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	padding_hbox.add_theme_constant_override("separation", 10)
+	var padding_amount_label := Label.new()
+	padding_amount_label.text = "Padding"
+	padding_amount_label.add_theme_font_size_override("font_size", 18)
+	padding_amount_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	padding_amount_label.custom_minimum_size = Vector2(120, 0)
+	padding_hbox.add_child(padding_amount_label)
+
+	_padding_slider = HSlider.new()
+	_padding_slider.min_value = 20.0
+	_padding_slider.max_value = 60.0
+	_padding_slider.step = 5.0
+	_padding_slider.value = SettingsManager.gameplay_padding_amount
+	_padding_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_padding_slider.editable = SettingsManager.gameplay_padding_enabled
+	_padding_slider.value_changed.connect(_on_padding_amount_changed)
+	_padding_slider.drag_ended.connect(_on_padding_amount_drag_ended)
+	padding_hbox.add_child(_padding_slider)
+
+	_padding_label = Label.new()
+	_padding_label.text = str(int(SettingsManager.gameplay_padding_amount)) + "px"
+	_padding_label.add_theme_font_size_override("font_size", 16)
+	_padding_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	_padding_label.custom_minimum_size = Vector2(40, 0)
+	padding_hbox.add_child(_padding_label)
+	parent.add_child(padding_hbox)
 
 
 func _add_section_title(parent: VBoxContainer, text: String) -> void:
@@ -157,20 +531,22 @@ static func _spacer(h: int) -> Control:
 
 func _load_current_settings() -> void:
 	var current_mode: int = SettingsManager.game_mode
-	for i in 3:
+	for i in _mode_buttons.size():
 		_mode_buttons[i].set_pressed_no_signal(i == current_mode)
-	_custom_lane_container.visible = (current_mode == 2)
+	if is_instance_valid(_custom_lane_container):
+		_custom_lane_container.visible = (current_mode == 2)
 
 
 func _on_mode_toggled(toggled: bool, mode: int) -> void:
 	if not toggled:
 		return
-	for i in 3:
+	for i in _mode_buttons.size():
 		_mode_buttons[i].set_pressed_no_signal(i == mode)
 	SettingsManager.game_mode = mode
 	GameManager.mode = mode as GameManager.GameMode
 	SettingsManager.save_settings()
-	_custom_lane_container.visible = (mode == 2)
+	if is_instance_valid(_custom_lane_container):
+		_custom_lane_container.visible = (mode == 2)
 
 
 func _rebuild_custom_lane_ui(lanes: Array) -> void:
@@ -250,6 +626,89 @@ func _on_reset_lanes() -> void:
 func _on_fps_toggled(toggled: bool) -> void:
 	SettingsManager.show_fps = toggled
 	SettingsManager.save_settings()
+
+
+func _on_screen_shake_toggled(toggled: bool) -> void:
+	SettingsManager.screen_shake = toggled
+	SettingsManager.save_settings()
+
+
+func _on_hit_feedback_toggled(toggled: bool) -> void:
+	SettingsManager.show_hit_feedback = toggled
+	SettingsManager.save_settings()
+
+
+func _on_fallback_toggled(toggled: bool) -> void:
+	SettingsManager.use_guitar_fallback = toggled
+	SettingsManager.save_settings()
+
+
+func _on_judgment_areas_toggled(toggled: bool) -> void:
+	SettingsManager.show_judgment_areas = toggled
+	SettingsManager.save_settings()
+
+
+func _on_haptic_enabled_toggled(toggled: bool) -> void:
+	SettingsManager.haptic_enabled = toggled
+	SettingsManager.save_settings()
+
+
+func _on_haptic_sensitivity_changed(value: float) -> void:
+	SettingsManager.haptic_sensitivity = value
+	_haptic_sensitivity_label.text = str(value)
+
+
+func _on_haptic_sensitivity_drag_ended(value_changed: bool) -> void:
+	if value_changed:
+		SettingsManager.save_settings()
+
+
+func _on_note_speed_changed(value: float) -> void:
+	SettingsManager.note_speed = value
+	_note_speed_label.text = "x" + str(value)
+
+
+func _on_note_speed_drag_ended(value_changed: bool) -> void:
+	if value_changed:
+		SettingsManager.save_settings()
+
+
+func _on_countdown_changed(value: float) -> void:
+	SettingsManager.countdown_threshold = value
+	_countdown_label.text = str(value) + "s"
+
+
+func _on_countdown_drag_ended(value_changed: bool) -> void:
+	if value_changed:
+		SettingsManager.save_settings()
+
+
+func _on_mirrored_toggled(toggled: bool) -> void:
+	SettingsManager.mirrored = toggled
+	SettingsManager.save_settings()
+
+
+func _on_left_handed_toggled(toggled: bool) -> void:
+	SettingsManager.left_handed = toggled
+	SettingsManager.save_settings()
+
+
+func _on_padding_enabled_toggled(toggled: bool) -> void:
+	SettingsManager.gameplay_padding_enabled = toggled
+	SettingsManager.save_settings()
+	if is_instance_valid(_padding_slider):
+		_padding_slider.editable = toggled
+
+
+func _on_padding_amount_changed(value: float) -> void:
+	SettingsManager.gameplay_padding_amount = value
+	if is_instance_valid(_padding_label):
+		_padding_label.text = str(int(value)) + "px"
+
+
+func _on_padding_amount_drag_ended(value_changed: bool) -> void:
+	if value_changed:
+		SettingsManager.save_settings()
 
 
 func _on_back() -> void:

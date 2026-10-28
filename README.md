@@ -20,6 +20,81 @@
 |  HIH OPEN  |            |            |            |            |            |            |            |
 +------------+------------+------------+------------+------------+------------+------------+------------+
 
+## ASCII MAIN MENU REFERENCE
+
++-----------------------------------------------------------------------------+
+|                                DRUM HERO                           Settings |
++-----------------------------------------------------------------------------+
+| Search: ________________________________________________________________ 🔍 |
++-----------------------------------------------------------------------------+
+|                                                                             | s
+| ► Through the Fire and Flames - DragonForce                     12,000pts   | c
+|   Everlong - Foo Fighters                                        8,000pts   | r
+|   Battery - Metallica                                           --,---pts   | o
+|   Chop Suey! - System of a Down                                 60,000pts   | l
+|   Welcome Home - Coheed and Cambria                             --,---pts   | l 
+|   The Pretender - Foo Fighters                                  --,---pts   | a
+|   Panic Attack - Dream Theater                                  12,000pts   | b
+|   Painkiller - Judas Priest                                    200,000pts   | l
+|   Free Bird - Lynyrd Skynyrd                                    30,000pts   | e
+|                                                                             |
++-----------------------------------------------------------------------------+
+|                      STATUS: chart OK - missing audio                       |
++-----------------------------------------------------------------------------+
+| Easy            Medium            Hard            Expert            Expert+ |
++-----------------------------------------------------------------------------+
+
+## ASCII SETTINGS MENU REFERENCE
+
++-----------------------------------------------------------------------------+
+|                                SETTINGS                                Back |
++-----------------------------------------------------------------------------+
+| CONTROLS | HUD | Experimental                                               |
++-----------------------------------------------------------------------------+
+| CONTROLS TAB                                                                 |
+|                                                                             |
+| CONTROL MODE                                                                |
+| Default    8 lanes — all drum parts visible                                 |
+| Haptic     7 lanes — KICK via device motion sensor                          |
+| Custom     Reorder lanes manually                                           |
+|                                                                             |
+| LANE ORDER (CUSTOM MODE)                                                    |
+| ▲ ▼ [color] HH                                                              |
+| ▲ ▼ [color] CRASH                                                           |
+| ...                                                                         |
+|                                                                             |
+| HAPTIC                                                                      |
+| Enable Haptic Kick                                                          |
+| Sensitivity        [====o====================] 1.0                          |
+|                                                                             |
+| LAYOUT                                                                      |
+| Mirrored Layout                                                             |
+| Left Handed Mode                                                            |
++-----------------------------------------------------------------------------+
+| HUD TAB                                                                     |
++-----------------------------------------------------------------------------+
+| VISUAL                                                                      |
+| Show FPS                                                                    |
+| Screen Shake                                                                |
+|                                                                             |
+| GAMEPLAY                                                                    |
+| Note Speed           [========o=============] x1.0                          |
+| Silence Countdown    [===o==================] 5.0s                          |
+|                                                                             |
+| JUDGEMENT WINDOWS                                                           |
+| Perfect      ±22.5 ms                                                       |
+| Excellent    ±45.0 ms                                                       |
+| Good         ±75.0 ms                                                       |
+| Late         ±100.0 ms                                                      |
+| Early        ±100.0 ms                                                      |
+| Miss         ±135.0 ms                                                      |
++-----------------------------------------------------------------------------+
+| EXPERIMENTAL TAB                                                            |
++-----------------------------------------------------------------------------+
+| Use PART GUITAR as fallback                                                 |
+| For songs without PART DRUMS, use PART GUITAR notes as a drum chart         |
++-----------------------------------------------------------------------------+
+
 ## PROJECT DESCRIPTION
 Drum Hero its a mobile rhythm game similar to Rock Band, Guitar Hero, Clone Hero and YARG focused exclusively on the drum instrument.
 Based on InstaDrum alternative play mode "gameplay.png" that shows a 8 lanes (drum parts):

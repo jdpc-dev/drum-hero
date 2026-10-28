@@ -22,16 +22,9 @@ static func evaluate(delta_seconds: float, settings: SettingsManager) -> TimingA
         return TimingAccuracy.GOOD
 
     if sign > 0.0:
-        if delta_ms <= settings.judgement_late_ms:
-            return TimingAccuracy.LATE
+        return TimingAccuracy.EARLY
     else:
-        if delta_ms <= settings.judgement_early_ms:
-            return TimingAccuracy.EARLY
-
-    if delta_ms <= settings.judgement_miss_ms:
-        return TimingAccuracy.MISS
-
-    return TimingAccuracy.MISS
+        return TimingAccuracy.LATE
 
 
 static func is_hit(acc: TimingAccuracy) -> bool:

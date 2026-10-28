@@ -9,6 +9,8 @@ var _touch_lane_map: Dictionary = {}
 var _lane_highlight_timers: Dictionary = {}
 var _highlight_duration: float = 0.12
 
+var _touch_zones: Array[ColorRect] = []
+
 
 func setup(highway, hit_detection) -> void:
 	_highway_ref = highway
@@ -16,6 +18,17 @@ func setup(highway, hit_detection) -> void:
 	_lane_count = highway.lane_nodes.size()
 	if _lane_count <= 0:
 		_lane_count = 8
+	_cache_touch_zones()
+
+
+func _cache_touch_zones() -> void:
+	_touch_zones.clear()
+	if not _highway_ref:
+		return
+	for child in _highway_ref.get_children():
+		if child is ColorRect and child.name.begins_with("TouchZone_"):
+			child.set_meta("lane_idx", int(child.name.trim_prefix("TouchZone_")))
+			_touch_zones.append(child)
 
 
 func _process(delta: float) -> void:
@@ -88,13 +101,8 @@ func _highlight_lane(lane_index: int) -> void:
 
 
 func _update_touch_zones() -> void:
-	if not _highway_ref:
-		return
-	for child in _highway_ref.get_children():
-		if child is ColorRect and child.name.begins_with("TouchZone_"):
-			var idx_str: String = child.name.trim_prefix("TouchZone_")
-			var lane_idx: int = int(idx_str)
-			child.color.a = 0.5 if _lane_highlight_timers.has(lane_idx) else 0.12
+	for zone in _touch_zones:
+		zone.color.a = 0.5 if _lane_highlight_timers.has(zone.get_meta("lane_idx")) else 0.12
 
 
 func _get_highway_local_pos(screen_pos: Vector2) -> Vector2:

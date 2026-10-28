@@ -26,8 +26,9 @@ class NoteEvent:
     var length: int
     var velocity: int
     var difficulty_offset: int
+    var relative_note: int
 
-    func _init(t: int, l: int, nt: NoteType, len: int = 0, vel: int = 100, diff_off: int = 0):
+    func _init(t: int, l: int, nt: NoteType, len: int = 0, vel: int = 100, diff_off: int = 0, rel: int = -1):
         tick = t
         time = 0.0
         lane = l
@@ -35,6 +36,7 @@ class NoteEvent:
         length = len
         velocity = vel
         difficulty_offset = diff_off
+        relative_note = rel
 
 class TempoEvent:
     var tick: int
@@ -58,18 +60,20 @@ class TimeSignatureEvent:
 
 const LANE_MAP: Dictionary = {
 	0: 3,   # Kick -> KICK lane
-	1: 2,   # Snare (Red) -> SNARE lane
-	2: 0,   # Hi-Hat Closed (Yellow) -> HH lane
-	3: 7,   # Ride (Blue) -> RIDE lane
-	4: 1,   # Crash (Green) -> CRASH lane
-	5: 2,   # Snare (alt) -> SNARE lane
-	6: 0,   # Hi-Hat Open -> HH lane
-	7: 7,   # Ride (bell/edge) -> RIDE lane
-	8: 1,   # Crash (alt) -> CRASH lane
-	9: 4,   # Tom 1 -> TOM 1 lane
-	10: 5,  # Tom 2 -> TOM 2 lane
-	11: 6,  # Tom 3 -> TOM 3 lane
+	1: 2,   # Red (Snare) -> SNARE lane
+	2: 0,   # Yellow -> HH lane (cymbal default)
+	3: 7,   # Blue -> RIDE lane (cymbal default)
+	4: 1,   # Green -> CRASH lane (cymbal default)
 }
 
-const OPEN_HIHAT_NOTES: Array[int] = [6]
-const CRASH_NOTES: Array[int] = [4, 8]
+const TOM_MARKERS: Dictionary = {
+	110: 2,  # Yellow tom marker -> affects Yellow drum note (relative 2)
+	111: 3,  # Blue tom marker -> affects Blue drum note (relative 3)
+	112: 4,  # Green tom marker -> affects Green drum note (relative 4)
+}
+
+const TOM_LANE_MAP: Dictionary = {
+	2: 4,   # Yellow + tom marker -> TOM 1 lane
+	3: 5,   # Blue + tom marker -> TOM 2 lane
+	4: 6,   # Green + tom marker -> TOM 3 lane
+}

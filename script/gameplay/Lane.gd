@@ -95,6 +95,8 @@ func _update_active(delta: float, current_time: float) -> void:
 			note._on_miss()
 			ScoreManager.register_miss()
 			GameManager.miss_registered.emit()
+			if SettingsManager.show_hit_feedback:
+				EffectManager.show_judgement(Judgement.TimingAccuracy.MISS, highway_ref.get_hit_global_position(lane_index), highway_ref)
 			_remove_note(i)
 		else:
 			i += 1
@@ -113,28 +115,40 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 
 	var nearest: Note = null
 	var nearest_diff: float = INF
+	var miss_ms: float = SettingsManager.judgement_miss_ms
+	var miss_sec: float = miss_ms / 1000.0
+	var search_earliest: float = current_time - miss_sec
+	var search_latest: float = current_time + miss_sec
 
 	for note in _active_notes:
-		var diff: float = abs(note.note_data.time - current_time)
+		var nt: float = note.note_data.time
+		if nt < search_earliest or nt > search_latest:
+			continue
+		var diff: float = abs(nt - current_time)
 		if diff < nearest_diff:
 			nearest_diff = diff
 			nearest = note
 
 	if nearest:
-		var miss_ms: float = SettingsManager.judgement_miss_ms
 		if nearest_diff * 1000.0 <= miss_ms:
 			var accuracy: int = Judgement.evaluate(nearest.note_data.time - current_time, SettingsManager)
 			if Judgement.is_hit(accuracy):
 				nearest._on_hit()
 				ScoreManager.register_hit(nearest_diff)
 				GameManager.hit_registered.emit(accuracy)
-				highway_ref.flash_hit_line(lane_index)
-				var burst_pos: Vector2 = highway_ref.get_hit_global_position(lane_index)
-				var lane_colors: Array[Color] = Highway._get_lane_colors()
-				EffectManager.trigger_particle_burst(burst_pos, lane_colors[lane_index], highway_ref)
-				_highlight()
 				_active_notes.erase(nearest)
 				nearest.queue_free()
+				highway_ref.flash_hit_line(lane_index)
+				_highlight()
+				EffectManager.call_deferred("trigger_particle_burst",
+					highway_ref.get_hit_global_position(lane_index),
+					Highway._get_lane_colors()[lane_index],
+					highway_ref)
+				if SettingsManager.show_hit_feedback:
+					EffectManager.call_deferred("show_judgement",
+						accuracy,
+						highway_ref.get_hit_global_position(lane_index),
+						highway_ref)
 				return true
 			else:
 				_remove_note(_active_notes.find(nearest))

@@ -104,10 +104,10 @@ func _load_audio_stream(path: String) -> AudioStream:
 			var ogg_path: String = path.get_basename() + ".ogg"
 			return _load_audio_stream(ogg_path)
 
-	if OS.get_name() != "Android" and ext == "ogg":
-		var wav: AudioStream = _decode_to_wav(path)
-		if wav:
-			return wav
+	if ext == "ogg":
+		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+		if stream:
+			return stream
 
 	if ResourceLoader.exists(path):
 		var stream: AudioStream = load(path)

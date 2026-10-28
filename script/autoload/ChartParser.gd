@@ -15,7 +15,7 @@ func load_chart(path: String, root_path: String = "", difficulty_offset: int = -
 	_difficulty_offset = difficulty_offset
 	var MidiParserClass = preload("res://script/chart/MidiParser.gd")
 	var midi = MidiParserClass.new()
-	var success: bool = midi.load(path, root_path, difficulty_offset)
+	var success: bool = midi.load(path, root_path, difficulty_offset, SettingsManager.use_guitar_fallback)
 	if not success:
 		return false
 	_resolution = midi.get_ticks_per_beat()

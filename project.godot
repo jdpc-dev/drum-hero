@@ -35,6 +35,7 @@ ScoreManager="*res://script/autoload/ScoreManager.gd"
 EffectManager="*res://script/autoload/EffectManager.gd"
 DrumGraphics="*res://script/autoload/DrumGraphics.gd"
 DrumSfxManager="*res://script/autoload/DrumSfxManager.gd"
+AndroidBridge="*res://script/autoload/AndroidBridge.gd"
 
 [display]
 
@@ -42,6 +43,10 @@ window/size/viewport_width=1280
 window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/GestureExclusion/plugin.cfg")
 
 [physics]
 
