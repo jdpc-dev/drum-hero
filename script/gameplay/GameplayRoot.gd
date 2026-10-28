@@ -2,6 +2,7 @@ class_name GameplayRoot
 extends Node2D
 
 const MAIN_SCENE := preload("res://scene/Main.tscn")
+const NOTE_TRAVEL_TIME := 2.0
 
 @onready var highway = $Highway
 @onready var hit_detection = $HitDetection
@@ -20,13 +21,26 @@ var _loading_overlay: CanvasLayer
 var _loading_bar: ProgressBar
 var _loading_status: Label
 
+# Countdown
+var _countdown_label: CountdownLabel
+var _countdown_threshold: float
+
 
 func _ready() -> void:
 	GameManager.game_state_changed.connect(_on_state_changed)
-	_setup_input()
 	_is_initialized = true
 	get_tree().auto_accept_quit = false
+	_countdown_threshold = SettingsManager.countdown_threshold
+	TimingEngine.time_updated.connect(_on_countdown_update)
+	await _setup_input_when_ready()
 	_start_loading()
+
+
+func _setup_input_when_ready() -> void:
+	if highway.lane_nodes.size() > 0:
+		_setup_input()
+		return
+	highway.lanes_built.connect(_setup_input, CONNECT_ONE_SHOT)
 
 
 func _show_loading_screen() -> void:
@@ -173,6 +187,43 @@ func _start_loading() -> void:
 	_hide_loading_screen()
 
 
+func _on_countdown_update(time_sec: float) -> void:
+	if GameManager.state != GameManager.GameState.PLAYING:
+		_hide_countdown()
+		return
+	if not ChartParser.has_data():
+		_hide_countdown()
+		return
+
+	var next_idx: int = ChartParser.find_next_note_index(time_sec)
+	var has_next: bool = next_idx < ChartParser.note_data.size()
+	var next_time: float = ChartParser.note_data[next_idx].time if has_next else -1.0
+	var remaining: float = next_time - time_sec if has_next else -1.0
+	var note_visible: bool = has_next and next_time <= time_sec + NOTE_TRAVEL_TIME
+
+	if remaining > _countdown_threshold and not note_visible:
+		_show_countdown()
+		_countdown_label.update_display(remaining)
+	elif _countdown_label != null and _countdown_label.visible:
+		_hide_countdown()
+
+
+func _show_countdown() -> void:
+	if _countdown_label != null:
+		return
+	_countdown_label = preload("res://scene/UI/CountdownLabel.tscn").instantiate()
+	_countdown_label.name = "CountdownLabel"
+	add_child(_countdown_label)
+
+
+func _hide_countdown() -> void:
+	if _countdown_label == null:
+		return
+	_countdown_label.clear()
+	_countdown_label.queue_free()
+	_countdown_label = null
+
+
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_back_handled_time = Time.get_ticks_msec() / 1000.0
@@ -221,6 +272,7 @@ func _resume_game() -> void:
 func _restart_song() -> void:
 	_is_paused = false
 	_hide_pause_overlay()
+	_hide_countdown()
 	TimingEngine.stop()
 	highway.restart()
 	ScoreManager.reset()
@@ -239,6 +291,7 @@ func _exit_to_menu() -> void:
 func _do_exit_to_menu() -> void:
 	if not is_inside_tree():
 		return
+	_hide_countdown()
 	TimingEngine.stop()
 	highway.restart()
 	ScoreManager.reset()
@@ -311,6 +364,7 @@ func _hide_pause_overlay() -> void:
 
 
 func stop_gameplay() -> void:
+	_hide_countdown()
 	TimingEngine.stop()
 	highway.restart()
 	ScoreManager.reset()

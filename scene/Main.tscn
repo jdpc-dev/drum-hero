@@ -88,9 +88,19 @@ offset_left = 50.0
 offset_right = 350.0
 text = "Pick song.ini files"
 
+[node name="SettingsButton" type="Button" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -70.0
+offset_bottom = -10.0
+offset_left = 370.0
+offset_right = 550.0
+text = "Settings"
+
 [node name="SongList" type="ItemList" parent="."]
-anchors_preset = 0
 offset_left = 50.0
 offset_top = 320.0
 offset_right = 550.0
-offset_bottom = 900.0
+offset_bottom = -170.0
+anchor_bottom = 1.0

@@ -1,6 +1,5 @@
 extends Node
 
-var _flash_pool: Array[Node] = []
 var _particle_pool: Array[Node] = []
 var _shockwave_pool: Array[Node] = []
 var _judgement_pool: Array[Node] = []
@@ -58,15 +57,6 @@ static func _generate_beep(freq: float, duration: float) -> AudioStreamWAV:
     return wav
 
 
-func trigger_lane_flash(lane_index: int, highway_node: Node) -> void:
-    var flash: Node = _get_from_pool(_flash_pool, preload("res://scene/UI/Effects/LaneFlash.tscn"))
-    if flash:
-        highway_node.add_child(flash)
-        flash.global_position = _lane_center(lane_index, highway_node)
-        var lane_width: float = _lane_width(highway_node)
-        flash.call("play", lane_width)
-
-
 func trigger_particle_burst(position: Vector2, color: Color, parent: Node) -> void:
     var burst: Node = _get_from_pool(_particle_pool, preload("res://scene/UI/Effects/ParticleBurst.tscn"))
     if burst:
@@ -109,27 +99,4 @@ func _on_effect_exited(pool: Array, instance: Node) -> void:
     pool.erase(instance)
 
 
-func _lane_count(highway: Node) -> int:
-    var c: int = 0
-    for child in highway.get_children():
-        if child is Node2D:
-            c += 1
-    return c
 
-
-func _get_virtual_size() -> Vector2:
-    return Vector2(
-        ProjectSettings.get_setting("display/window/size/viewport_width", 1920),
-        ProjectSettings.get_setting("display/window/size/viewport_height", 1080)
-    )
-
-
-func _lane_width(highway: Node) -> float:
-    var screen_w: float = _get_virtual_size().x
-    var count: int = _lane_count(highway)
-    return screen_w / float(max(count, 1))
-
-
-func _lane_center(lane_index: int, highway: Node) -> Vector2:
-    var lane_w: float = _lane_width(highway)
-    return Vector2(lane_w * (lane_index + 0.5), _get_virtual_size().y * 0.7)

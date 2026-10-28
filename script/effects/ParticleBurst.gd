@@ -11,14 +11,14 @@ func play(color: Color) -> void:
     _timer = _duration
     _color = color
     _particles.clear()
-    for i in range(12):
+    for i in range(16):
         var angle: float = randf_range(0, TAU)
-        var speed: float = randf_range(50, 200)
+        var speed: float = randf_range(60, 250)
         _particles.append({
             "pos": Vector2.ZERO,
             "vel": Vector2(cos(angle), sin(angle)) * speed,
             "life": randf_range(0.2, _duration),
-            "size": randf_range(2, 6),
+            "size": randf_range(4, 10),
         })
 
 
@@ -37,5 +37,5 @@ func _process(delta: float) -> void:
 func _draw() -> void:
     for p in _particles:
         if p.life > 0.0:
-            var alpha: float = clampf(p.life / _duration, 0.0, 1.0)
+            var alpha: float = sqrt(clampf(p.life / _duration, 0.0, 1.0))
             draw_circle(p.pos, p.size, Color(_color.r, _color.g, _color.b, alpha))

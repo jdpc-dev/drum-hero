@@ -85,11 +85,7 @@ func reset() -> void:
     _filtered_accel = Vector3.ZERO
 
 
-func handle_touch_event(index: int, position: Vector2, pressed: bool, lane_count: int) -> void:
-    var vw: float = ProjectSettings.get_setting("display/window/size/viewport_width", 1920)
-    var lane_width: float = vw / float(lane_count)
-    var lane_index: int = int(position.x / lane_width)
-    lane_index = clampi(lane_index, 0, lane_count - 1)
+func handle_touch_event(index: int, position: Vector2, pressed: bool, lane_index: int, lane_count: int = 8, screen_width: float = -1.0) -> void:
     if pressed:
         touch_lane_map[index] = lane_index
     else:

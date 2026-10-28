@@ -62,6 +62,8 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 	var track_end: int = offset + track_len
 	var absolute_tick: int = 0
 	var running_status: int = -1
+	var track_name: String = ""
+	var is_drum_track: bool = false
 
 	while offset < track_end:
 		var delta_result: Dictionary = _read_vlq(data, offset)
@@ -78,7 +80,10 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 			var meta_len_result: Dictionary = _read_vlq(data, offset)
 			var meta_len: int = meta_len_result.value
 			offset = meta_len_result.next_offset
-			if meta_type == 0x51:
+			if meta_type == 0x03:
+				track_name = data.slice(offset, offset + meta_len).get_string_from_ascii()
+				is_drum_track = track_name.begins_with("PART DRUMS")
+			elif meta_type == 0x51:
 				var micros_per_quarter: int = _read24(data, offset)
 				var bpm: float = 60000000.0 / float(micros_per_quarter)
 				var mpt: float = float(micros_per_quarter) / float(_ticks_per_beat)
@@ -93,6 +98,26 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 			elif meta_type == 0x2F:
 				break
 			offset += meta_len
+			continue
+
+		if not is_drum_track:
+			if (event_byte & 0xF0) == 0x90 or (event_byte & 0xF0) == 0x80:
+				offset += 2
+			elif (event_byte & 0xF0) == 0xB0 or (event_byte & 0xF0) == 0xE0:
+				offset += 2
+			elif (event_byte & 0xF0) == 0xC0 or (event_byte & 0xF0) == 0xD0:
+				offset += 1
+			elif (event_byte & 0xF0) == 0xF0:
+				if event_byte == 0xF0 or event_byte == 0xF7:
+					var sys_len_result: Dictionary = _read_vlq(data, offset)
+					offset = sys_len_result.next_offset
+					offset += sys_len_result.value
+			elif running_status >= 0 and (event_byte & 0x80) == 0:
+				if (running_status & 0xF0) == 0x90 or (running_status & 0xF0) == 0x80:
+					offset += 2
+				else:
+					offset += 1
+			continue
 
 		elif (event_byte & 0xF0) == 0x90:
 			running_status = event_byte
@@ -100,24 +125,25 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 			offset += 1
 			var velocity: int = data[offset]
 			offset += 1
+			var note_type: int = _ChartData.NoteType.NORMAL
+			var lane: int = -1
+			var diff_off: int = -1
 			if velocity > 0:
-				var note_type: int = _ChartData.NoteType.NORMAL
-				var lane: int = -1
-				var diff_off: int = _resolve_difficulty(note)
+				diff_off = _resolve_difficulty(note)
 				if diff_off >= 0 and _ChartData.LANE_MAP.has(note - diff_off):
 					lane = _ChartData.LANE_MAP[note - diff_off]
 					if (note - diff_off) in _ChartData.OPEN_HIHAT_NOTES:
 						note_type = _ChartData.NoteType.OPEN_HIHAT
 					if (note - diff_off) in _ChartData.CRASH_NOTES:
 						note_type = _ChartData.NoteType.CRASH_ACCENT
-					if (note - diff_off) == 36:
-						note_type = _ChartData.NoteType.KICK
-				if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
-					var ev = _ChartData.NoteEvent.new(absolute_tick, lane, note_type, 0, velocity, diff_off)
-					_notes.append(ev)
-					if not _notes_by_offset.has(diff_off):
-						_notes_by_offset[diff_off] = []
-					_notes_by_offset[diff_off].append(ev)
+				if (note - diff_off) == 0:
+					note_type = _ChartData.NoteType.KICK
+			if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
+				var ev = _ChartData.NoteEvent.new(absolute_tick, lane, note_type, 0, velocity, diff_off)
+				_notes.append(ev)
+				if not _notes_by_offset.has(diff_off):
+					_notes_by_offset[diff_off] = []
+				_notes_by_offset[diff_off].append(ev)
 			elif velocity == 0:
 				_find_and_end_note(absolute_tick, note)
 
@@ -159,18 +185,19 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 					offset += 1
 					var velocity: int = data[offset]
 					offset += 1
+					var note_type: int = _ChartData.NoteType.NORMAL
+					var lane: int = -1
+					var diff_off: int = -1
 					if velocity > 0:
-						var note_type: int = _ChartData.NoteType.NORMAL
-						var lane: int = -1
-						var diff_off: int = _resolve_difficulty(note)
+						diff_off = _resolve_difficulty(note)
 						if diff_off >= 0 and _ChartData.LANE_MAP.has(note - diff_off):
 							lane = _ChartData.LANE_MAP[note - diff_off]
 							if (note - diff_off) in _ChartData.OPEN_HIHAT_NOTES:
 								note_type = _ChartData.NoteType.OPEN_HIHAT
 							if (note - diff_off) in _ChartData.CRASH_NOTES:
 								note_type = _ChartData.NoteType.CRASH_ACCENT
-							if (note - diff_off) == 36:
-								note_type = _ChartData.NoteType.KICK
+						if (note - diff_off) == 0:
+							note_type = _ChartData.NoteType.KICK
 						if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
 							var ev = _ChartData.NoteEvent.new(absolute_tick, lane, note_type, 0, velocity, diff_off)
 							_notes.append(ev)
@@ -259,7 +286,8 @@ func get_ticks_per_beat() -> int:
 
 func _resolve_difficulty(midi_note: int) -> int:
 	for off in _ChartData.DIFFICULTY_OFFSETS:
-		if midi_note - off >= 36 and _ChartData.LANE_MAP.has(midi_note - off):
+		var rel: int = midi_note - off
+		if rel >= 0 and rel < 12 and _ChartData.LANE_MAP.has(rel):
 			return off
 	return -1
 
@@ -285,22 +313,11 @@ static func detect_difficulties(path: String) -> Array:
 	if counts.is_empty():
 		return []
 	
-	var base: int = 0
-	if counts.get(0, 0) < 3 and counts.get(60, 0) >= 3:
-		base = 60
-	elif counts.get(0, 0) < 3 and counts.get(48, 0) >= 3:
-		base = 48
-	
+	var ChartData = preload("res://script/chart/ChartData.gd")
 	var result: Array = []
-	var rel_offsets = [0, -12, -24, -36]
-	for rel in rel_offsets:
-		var off: int = base + rel
+	for off in ChartData.DIFFICULTY_OFFSETS:
 		if counts.get(off, 0) >= 3:
-			var diff_name: String = "Expert"
-			match rel:
-				-12: diff_name = "Hard"
-				-24: diff_name = "Medium"
-				-36: diff_name = "Easy"
+			var diff_name: String = ChartData.DIFFICULTY_NAMES.get(off, "Unknown")
 			result.append({"offset": off, "name": diff_name})
 	return result
 

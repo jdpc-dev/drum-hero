@@ -17,6 +17,7 @@ signal miss_registered()
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	mode = SettingsManager.game_mode as GameMode
 
 
 func set_state(new_state: GameState) -> void:

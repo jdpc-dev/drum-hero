@@ -4,8 +4,6 @@ class StemInfo:
 	var bus: String
 	var stream: AudioStream
 	var player: AudioStreamPlayer
-	var muted: bool = false
-	var solo: bool = false
 	var volume: float = 1.0
 
 var _stems: Dictionary = {}
@@ -19,6 +17,7 @@ const STEM_FILES: Dictionary = {
 	"bass": "bass",
 	"guitar": "guitar",
 	"keys": "keys",
+	"rhythm": "rhythm",
 	"vocals": "vocals",
 }
 
@@ -29,30 +28,86 @@ func _ready() -> void:
 	_master_player.name = "MasterAudio"
 	add_child(_master_player)
 	_master_player.process_mode = Node.PROCESS_MODE_ALWAYS
+	_apply_master_volume()
+
+
+func _apply_master_volume() -> void:
+	var idx: int = AudioServer.get_bus_index("Master")
+	if idx >= 0:
+		AudioServer.set_bus_volume_db(idx, linear_to_db(SettingsManager.master_volume))
+
+
+func _apply_music_volume() -> void:
+	var idx: int = AudioServer.get_bus_index("Music")
+	if idx < 0:
+		return
+	AudioServer.set_bus_volume_db(idx, linear_to_db(SettingsManager.music_volume))
+
+
+func _load_stem(song_path: String, stem_name: String, stem_base: String, volume_scale: float = 1.0) -> bool:
+	var stem_path: String = _find_stem_file(song_path, stem_base)
+	if stem_path.is_empty():
+		return false
+	var stream: AudioStream = _load_audio_stream(stem_path)
+	if not stream:
+		return false
+	var info := StemInfo.new()
+	info.stream = stream
+	info.player = AudioStreamPlayer.new()
+	info.player.stream = stream
+	info.player.name = "Stem_" + stem_name
+	info.player.bus = "Music"
+	if volume_scale < 1.0:
+		info.player.volume_db = linear_to_db(volume_scale)
+	add_child(info.player)
+	_stems[stem_name] = info
+	return true
 
 
 func load_stems(song_path: String) -> bool:
 	_clear_stems()
 	var loaded_any: bool = false
+
+	# Always load song.ogg as the base mix (provides full instrumentation)
+	loaded_any = _load_stem(song_path, "song", "song") or loaded_any
+
+	# Load individual stems alongside the full mix
+	var has_song: bool = _stems.has("song")
 	for stem_name in STEM_FILES:
-		var stem_path: String = _find_stem_file(song_path, STEM_FILES[stem_name])
-		if stem_path.is_empty():
+		if stem_name == "song":
 			continue
-		var stream: AudioStream = _load_audio_stream(stem_path)
-		if stream:
-			var info := StemInfo.new()
-			info.stream = stream
-			info.player = AudioStreamPlayer.new()
-			info.player.stream = stream
-			info.player.name = "Stem_" + stem_name
-			add_child(info.player)
-			_stems[stem_name] = info
+		var stem_base: String = STEM_FILES[stem_name]
+		var vol: float = 0.5 if has_song else 1.0
+		if _load_stem(song_path, stem_name, stem_base, vol):
 			loaded_any = true
+
+	# Load multi-layer drum variants (drums_2, drums_3)
+	if _stems.has("drums"):
+		for i in [2, 3]:
+			var vol: float = 0.5 if has_song else 1.0
+			if _load_stem(song_path, "drums_" + str(i), "drums_" + str(i), vol):
+				loaded_any = true
+
+	if loaded_any:
+		_apply_music_volume()
 	return loaded_any
 
 
 func _load_audio_stream(path: String) -> AudioStream:
 	var ext: String = path.get_extension().to_lower()
+
+	if ext == "opus":
+		var stream: AudioStream = _decode_opus_via_ffmpeg(path)
+		if stream:
+			return stream
+		if OS.get_name() == "Android":
+			var ogg_path: String = path.get_basename() + ".ogg"
+			return _load_audio_stream(ogg_path)
+
+	if OS.get_name() != "Android" and ext == "ogg":
+		var wav: AudioStream = _decode_to_wav(path)
+		if wav:
+			return wav
 
 	if ResourceLoader.exists(path):
 		var stream: AudioStream = load(path)
@@ -60,7 +115,7 @@ func _load_audio_stream(path: String) -> AudioStream:
 			return stream
 
 	if ext == "opus":
-		return _decode_opus_via_ffmpeg(path)
+		return null
 
 	var raw_data: PackedByteArray = FileHelper.read_file(path)
 	if raw_data.is_empty():
@@ -78,20 +133,28 @@ func _load_audio_stream(path: String) -> AudioStream:
 func _decode_opus_via_ffmpeg(path: String) -> AudioStream:
 	if OS.get_name() == "Android":
 		return null
-	var tmp_path: String = "user://tmp_pcm_" + path.get_file().md5_text() + ".raw"
+	return _decode_to_wav(path)
+
+
+func _decode_to_wav(path: String) -> AudioStream:
+	if OS.get_name() == "Android":
+		return null
+	var fs_path: String = ProjectSettings.globalize_path(path)
+	var tmp_name: String = "tmp_pcm_" + path.get_file().md5_text() + ".raw"
+	var tmp_path: String = ProjectSettings.globalize_path("user://" + tmp_name)
 	var args: PackedStringArray = [
-		"-y", "-i", path,
+		"-y", "-i", fs_path,
 		"-f", "s16le",
 		"-acodec", "pcm_s16le",
-		"-ar", "44100",
-		"-ac", "1",
+		"-ar", "48000",
+		"-ac", "2",
 		tmp_path
 	]
 	var exit_code: int = OS.execute("ffmpeg", args, [], true)
 	if exit_code != 0:
 		return null
 
-	var raw_pcm: PackedByteArray = FileHelper.read_file(tmp_path)
+	var raw_pcm: PackedByteArray = FileHelper.read_file("user://" + tmp_name)
 	if raw_pcm.is_empty():
 		return null
 	DirAccess.remove_absolute(tmp_path)
@@ -102,8 +165,8 @@ func _decode_opus_via_ffmpeg(path: String) -> AudioStream:
 	var wav := AudioStreamWAV.new()
 	wav.data = raw_pcm
 	wav.format = AudioStreamWAV.FORMAT_16_BITS
-	wav.mix_rate = 44100
-	wav.stereo = false
+	wav.mix_rate = 48000
+	wav.stereo = true
 	return wav
 
 
@@ -171,52 +234,8 @@ func set_volume(stem_name: String, vol: float) -> void:
 		_stems[stem_name].player.volume_db = linear_to_db(_stems[stem_name].volume)
 
 
-func mute_stem(stem_name: String, muted: bool) -> void:
-	if _stems.has(stem_name):
-		_stems[stem_name].muted = muted
-		_update_mute_solo()
-
-
-func solo_stem(stem_name: String, soloed: bool) -> void:
-	if _stems.has(stem_name):
-		_stems[stem_name].solo = soloed
-		_update_mute_solo()
-
-
-func _update_mute_solo() -> void:
-	var any_solo: bool = false
-	for sn in _stems:
-		if _stems[sn].solo:
-			any_solo = true
-			break
-	for sn in _stems:
-		var info: StemInfo = _stems[sn]
-		if any_solo:
-			info.player.volume_db = linear_to_db(info.volume if info.solo else 0.0)
-		else:
-			info.player.volume_db = linear_to_db(0.0 if info.muted else info.volume)
-
-
 func set_latency(ms: float) -> void:
 	_latency_ms = ms
-
-
-func duck_drums(amount_db: float = -12.0, duration: float = 0.5) -> void:
-	if not _stems.has("drums"):
-		return
-	var info: StemInfo = _stems["drums"]
-	if not info.player.playing:
-		return
-	var target_db: float = info.player.volume_db + amount_db
-	var tween: Tween = create_tween()
-	tween.tween_method(_set_drums_volume_db, info.player.volume_db, target_db, 0.05)
-	tween.tween_interval(duration)
-	tween.tween_method(_set_drums_volume_db, target_db, linear_to_db(info.volume), 0.15)
-
-
-func _set_drums_volume_db(db: float) -> void:
-	if _stems.has("drums"):
-		_stems["drums"].player.volume_db = db
 
 
 func _clear_stems() -> void:

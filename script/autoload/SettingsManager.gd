@@ -18,10 +18,13 @@ var music_volume: float = 1.0
 
 var haptic_sensitivity: float = 1.0
 var haptic_enabled: bool = false
+var game_mode: int = 0  # GameManager.GameMode.DEFAULT
 var custom_lanes: Array = []
 var mirrored: bool = false
 var left_handed: bool = false
 var screen_shake: bool = false
+var show_fps: bool = false
+var countdown_threshold: float = 5.0
 
 
 func _ready() -> void:
@@ -44,17 +47,21 @@ func load_settings() -> void:
     master_volume = cfg.get_value("audio", "master_volume", 1.0)
     sfx_volume = cfg.get_value("audio", "sfx_volume", 1.0)
     music_volume = cfg.get_value("audio", "music_volume", 1.0)
+    game_mode = cfg.get_value("gameplay", "mode", 0)
     haptic_sensitivity = cfg.get_value("haptic", "sensitivity", 1.0)
     haptic_enabled = cfg.get_value("haptic", "enabled", false)
     custom_lanes = cfg.get_value("layout", "custom_lanes", [])
     mirrored = cfg.get_value("layout", "mirrored", false)
     left_handed = cfg.get_value("layout", "left_handed", false)
     screen_shake = cfg.get_value("visual", "screen_shake", false)
+    show_fps = cfg.get_value("visual", "show_fps", false)
+    countdown_threshold = cfg.get_value("gameplay", "countdown_threshold", 5.0)
 
 
 func save_settings() -> void:
     var cfg := ConfigFile.new()
 
+    cfg.set_value("gameplay", "mode", game_mode)
     cfg.set_value("gameplay", "note_speed", note_speed)
     cfg.set_value("timing", "perfect_ms", judgement_perfect_ms)
     cfg.set_value("timing", "excellent_ms", judgement_excellent_ms)
@@ -71,5 +78,7 @@ func save_settings() -> void:
     cfg.set_value("layout", "mirrored", mirrored)
     cfg.set_value("layout", "left_handed", left_handed)
     cfg.set_value("visual", "screen_shake", screen_shake)
+    cfg.set_value("visual", "show_fps", show_fps)
+    cfg.set_value("gameplay", "countdown_threshold", countdown_threshold)
 
     cfg.save(SETTINGS_PATH)

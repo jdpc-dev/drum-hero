@@ -32,12 +32,12 @@ func load_chart(path: String, root_path: String = "", difficulty_offset: int = -
 
 func get_notes_in_range(start_time: float, end_time: float) -> Array:
 	var result: Array = []
-	for note in note_data:
-		var t: float = note.time
-		if t >= start_time and t <= end_time:
-			result.append(note)
-		elif t > end_time:
+	var start_idx: int = find_next_note_index(start_time)
+	for i in range(start_idx, note_data.size()):
+		var note = note_data[i]
+		if note.time > end_time:
 			break
+		result.append(note)
 	return result
 
 
@@ -67,6 +67,20 @@ func get_time_signature_at(tick: int) -> Vector2i:
 		else:
 			break
 	return last_ts
+
+
+func find_next_note_index(from_time: float) -> int:
+	if note_data.is_empty():
+		return 0
+	var lo := 0
+	var hi := note_data.size() - 1
+	while lo <= hi:
+		var mid := (lo + hi) / 2
+		if note_data[mid].time < from_time:
+			lo = mid + 1
+		else:
+			hi = mid - 1
+	return lo
 
 
 func get_resolution() -> int:

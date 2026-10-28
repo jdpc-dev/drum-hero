@@ -9,14 +9,13 @@ enum NoteType {
     CRASH_ACCENT,
 }
 
-const DIFFICULTY_OFFSETS: Array = [0, 12, 24, 36, 48, 60]
+const DIFFICULTY_OFFSETS: Array = [60, 72, 84, 96, 120]
 const DIFFICULTY_NAMES: Dictionary = {
-    0: "Expert",
-    12: "Hard",
-    24: "Medium",
-    36: "Easy",
-    48: "Expert+",
-    60: "Extreme+",
+	60: "Easy",
+	72: "Medium",
+	84: "Hard",
+	96: "Expert",
+	120: "Expert+",
 }
 
 class NoteEvent:
@@ -58,26 +57,19 @@ class TimeSignatureEvent:
         denominator = den
 
 const LANE_MAP: Dictionary = {
-    36: 3,  # Kick -> lane 3
-    38: 2,  # Snare -> lane 2
-    40: 2,  # Snare (extra) -> lane 2
-    42: 0,  # Hi-Hat Closed -> lane 0
-    44: 0,  # Hi-Hat Closed (extra) -> lane 0
-    46: 0,  # Hi-Hat Open -> lane 0
-    48: 4,  # Tom 1 (High) -> lane 4
-    50: 4,  # Tom 1 (extra) -> lane 4
-    45: 5,  # Tom 2 (Mid) -> lane 5
-    47: 5,  # Tom 2 (extra) -> lane 5
-    41: 6,  # Tom 3 (Low) -> lane 6
-    43: 6,  # Tom 3 (extra) -> lane 6
-    49: 1,  # Crash -> lane 1
-    52: 1,  # Crash (extra) -> lane 1
-    55: 7,  # Ride -> lane 7
-    51: 7,  # Ride (extra) -> lane 7
-    53: 7,  # Ride (extra) -> lane 7
-    57: 1,  # Crash (extra) -> lane 1
-    59: 7,  # Ride (extra) -> lane 7
+	0: 3,   # Kick -> KICK lane
+	1: 2,   # Snare (Red) -> SNARE lane
+	2: 0,   # Hi-Hat Closed (Yellow) -> HH lane
+	3: 7,   # Ride (Blue) -> RIDE lane
+	4: 1,   # Crash (Green) -> CRASH lane
+	5: 2,   # Snare (alt) -> SNARE lane
+	6: 0,   # Hi-Hat Open -> HH lane
+	7: 7,   # Ride (bell/edge) -> RIDE lane
+	8: 1,   # Crash (alt) -> CRASH lane
+	9: 4,   # Tom 1 -> TOM 1 lane
+	10: 5,  # Tom 2 -> TOM 2 lane
+	11: 6,  # Tom 3 -> TOM 3 lane
 }
 
-const OPEN_HIHAT_NOTES: Array[int] = [46, 26]
-const CRASH_NOTES: Array[int] = [49, 57, 52]
+const OPEN_HIHAT_NOTES: Array[int] = [6]
+const CRASH_NOTES: Array[int] = [4, 8]

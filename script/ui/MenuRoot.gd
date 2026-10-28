@@ -4,6 +4,7 @@ extends CanvasLayer
 @onready var select_folder_button: Button = $SelectFolderButton
 @onready var add_files_button: Button = $AddFilesButton
 @onready var clear_folder_button: Button = $ClearFolderButton
+@onready var settings_button: Button = $SettingsButton
 @onready var song_list: ItemList = $SongList
 @onready var status_label: Label = $StatusLabel
 @onready var difficulty_container: HBoxContainer = $DifficultyContainer
@@ -25,6 +26,7 @@ func _ready() -> void:
 	select_folder_button.pressed.connect(_on_select_folder_pressed)
 	add_files_button.pressed.connect(_on_add_files_pressed)
 	clear_folder_button.pressed.connect(_on_clear_folder_pressed)
+	settings_button.pressed.connect(_on_settings_pressed)
 	song_list.item_selected.connect(_on_song_selected)
 	GameManager.set_state(GameManager.GameState.MENU)
 	_update_clear_visibility()
@@ -38,7 +40,8 @@ func _ready() -> void:
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_back_handled_time = Time.get_ticks_msec() / 1000.0
-		_handle_back()
+		if not _settings_is_open():
+			_handle_back()
 		get_viewport().set_input_as_handled()
 	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
 		get_tree().quit()
@@ -47,6 +50,8 @@ func _notification(what: int) -> void:
 func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if _file_dialog and is_instance_valid(_file_dialog):
+			return
+		if _settings_is_open():
 			return
 		var now: float = Time.get_ticks_msec() / 1000.0
 		if now - _back_handled_time < 0.5:
@@ -274,3 +279,17 @@ func _on_folder_canceled() -> void:
 func _on_clear_folder_pressed() -> void:
 	SongLoader.clear_all_custom()
 	_refresh_song_list()
+
+
+func _settings_is_open() -> bool:
+	for child in get_children():
+		if child is SettingsRoot:
+			return true
+	return false
+
+
+func _on_settings_pressed() -> void:
+	if _settings_is_open():
+		return
+	var settings := preload("res://scene/Settings.tscn").instantiate() as SettingsRoot
+	add_child(settings)

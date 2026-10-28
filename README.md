@@ -30,6 +30,7 @@ landscape orientation
 shows a 8 lanes: HIH CLOSED & HIH OPEN, CRASH, SNARE, KICK, TOM 1, TOM 2, TOM 3, RIDE
 offers 3 control settings: default (shows the 8 lanes in their original order), haptic (only shows 7 lanes, The KICK note goes down, covering all the lines, just like in Rock Band or Guitar Hero and its input its specified in "Haptic Kick Pedal Input.md"), custom (allows user to reorder drum lanes and switch haptics)
 visible song timeline at the top of the screen
+countdown indicator during long silences (intro and mid-song gaps)
 combo counter
 shock wave effect on CRASH note hit
 compatible with community-created songs for Clone Hero and YARG:
@@ -40,6 +41,7 @@ compatible with community-created songs for Clone Hero and YARG:
 ├── bass.opus
 ├── drums.opus
 ├── guitar.opus
+├── rhythm.opus
 ├── keys.opus
 ├── notes.mid
 ├── song.ini
