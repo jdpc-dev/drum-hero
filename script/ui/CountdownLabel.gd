@@ -11,9 +11,9 @@ func _ready() -> void:
 	_screen_size = get_viewport().get_visible_rect().size
 	layer = 5
 
-	var pl: float = SettingsManager.gameplay_padding_left if SettingsManager.gameplay_padding_enabled else 0.0
-	var pr: float = SettingsManager.gameplay_padding_right if SettingsManager.gameplay_padding_enabled else 0.0
-	var pt: float = SettingsManager.gameplay_padding_top if SettingsManager.gameplay_padding_enabled else 0.0
+	var pl: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left) if SettingsManager.gameplay_padding_enabled else 0.0
+	var pr: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_right) if SettingsManager.gameplay_padding_enabled else 0.0
+	var pt: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_top) if SettingsManager.gameplay_padding_enabled else 0.0
 	var content_w: float = _screen_size.x - pl - pr
 
 	_title_label = Label.new()
@@ -21,8 +21,8 @@ func _ready() -> void:
 	_title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_title_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_title_label.add_theme_font_size_override("font_size", 24)
-	_title_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.7))
-	_title_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_title_label.add_theme_color_override("font_color", Palette.TEXT_SOFT)
+	_title_label.add_theme_color_override("font_shadow_color", Palette.INK)
 	_title_label.add_theme_constant_override("shadow_offset_x", 2)
 	_title_label.add_theme_constant_override("shadow_offset_y", 2)
 	_title_label.position = Vector2(pl, pt + _screen_size.y * 0.35)
@@ -33,8 +33,8 @@ func _ready() -> void:
 	_time_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_time_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_time_label.add_theme_font_size_override("font_size", 64)
-	_time_label.add_theme_color_override("font_color", Color.WHITE)
-	_time_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+	_time_label.add_theme_color_override("font_color", Palette.BONE)
+	_time_label.add_theme_color_override("font_shadow_color", Palette.INK)
 	_time_label.add_theme_constant_override("shadow_offset_x", 3)
 	_time_label.add_theme_constant_override("shadow_offset_y", 3)
 	_time_label.position = Vector2(pl, pt + _screen_size.y * 0.42)

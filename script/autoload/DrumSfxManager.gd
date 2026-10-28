@@ -22,8 +22,6 @@ const POOL_SIZE: int = 16
 
 
 func _ready() -> void:
-	_load_all_samples()
-
 	for i in range(POOL_SIZE):
 		var p := AudioStreamPlayer.new()
 		p.name = "DrumSfxPlayer_" + str(i)
@@ -100,10 +98,23 @@ func _decode_opus_to_wav(path: String) -> AudioStream:
 	return wav
 
 
+func _load_pad_samples(pad: int) -> void:
+	if _samples.has(pad):
+		return
+	_samples[pad] = {}
+	for vel in range(3):
+		_samples[pad][vel] = []
+		for smp in range(3):
+			var stream: AudioStream = _load_sfx_file(pad, vel, smp)
+			if stream:
+				_samples[pad][vel].append(stream)
+
+
 func play_for_lane(lane_index: int, velocity: int = 2) -> void:
 	var pad: int = LANE_TO_PAD.get(lane_index, -1)
 	if pad < 0:
 		return
+	_load_pad_samples(pad)
 	var vel_samples: Array = _samples.get(pad, {}).get(velocity, [])
 	if vel_samples.is_empty():
 		return

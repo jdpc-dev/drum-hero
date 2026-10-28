@@ -7,9 +7,15 @@ var mode: GameMode = GameMode.DEFAULT
 var state: GameState = GameState.MENU
 
 var current_song_path: String = ""
+var current_song_title: String = ""
+var current_song_artist: String = ""
 var current_difficulty_offset: int = 0
 var current_difficulty_name: String = "Expert"
 var current_song_delay: float = 0.0
+# Duracion real del audio en segundos (song.ini / cabecera [Song]). El chart se
+# valida contra este valor para detectar si su mapa de tempo esta en la unidad
+# equivocada. 0 = desconocida.
+var current_song_length: float = 0.0
 
 signal game_state_changed(new_state: GameState)
 signal hit_registered(accuracy: int)

@@ -11,6 +11,11 @@ var _highlight_duration: float = 0.12
 
 var _touch_zones: Array[ColorRect] = []
 
+# Golpe en una pista, con la lane ya resuelta a indice logico (respeta el orden
+# de HAPTIC/CUSTOM). Lo emite el gameplay real y tambien el free mode, que
+# pasa null como hit detection porque no hay chart contra el que juzgar.
+signal lane_pressed(lane_index: int, position: Vector2)
+
 
 func setup(highway, hit_detection) -> void:
 	_highway_ref = highway
@@ -53,10 +58,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if key >= KEY_1 and key <= KEY_8:
 			var lane_index: int = key - KEY_1
 			if lane_index < _lane_count:
-				var did_hit: bool = _hit_detection.try_hit_lane(lane_index, Vector2.ZERO)
+				var did_hit: bool = _hit_detection != null and _hit_detection.try_hit_lane(lane_index, Vector2.ZERO)
 				if not did_hit:
 					DrumSfxManager.play_for_lane(lane_index)
 				_highlight_lane(lane_index)
+				lane_pressed.emit(lane_index, Vector2.ZERO)
 			return
 
 	if event is InputEventScreenTouch:
@@ -65,10 +71,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			var lane_index: int = _touch_to_lane(pos)
 			if lane_index >= 0:
 				_touch_lane_map[event.index] = lane_index
-				var did_hit: bool = _hit_detection.try_hit_lane(lane_index, pos)
+				var did_hit: bool = _hit_detection != null and _hit_detection.try_hit_lane(lane_index, pos)
 				if not did_hit:
 					DrumSfxManager.play_for_lane(lane_index)
 				_highlight_lane(lane_index)
+				lane_pressed.emit(lane_index, pos)
 				InputManager.handle_touch_event(event.index, pos, true, lane_index, _lane_count, _highway_ref.screen_w if _highway_ref else -1.0)
 		else:
 			var prev_lane: int = _touch_lane_map.get(event.index, -1)
@@ -87,10 +94,11 @@ func _unhandled_input(event: InputEvent) -> void:
 		if event.pressed:
 			var lane_index: int = _touch_to_lane(pos)
 			_touch_lane_map[0] = lane_index
-			var did_hit: bool = _hit_detection.try_hit_lane(lane_index, pos)
+			var did_hit: bool = _hit_detection != null and _hit_detection.try_hit_lane(lane_index, pos)
 			if not did_hit:
 				DrumSfxManager.play_for_lane(lane_index)
 			_highlight_lane(lane_index)
+			lane_pressed.emit(lane_index, pos)
 		else:
 			_touch_lane_map.erase(0)
 

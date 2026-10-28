@@ -15,7 +15,11 @@ var using_guitar_fallback: bool = false
 var _tom_marker_ticks: Dictionary = {}
 
 
-func load(path: String, root_path: String = "", difficulty_offset: int = -1, use_guitar_fallback: bool = false) -> bool:
+# expected_duration se acepta solo para mantener la misma interfaz que
+# DotChartParser. Los .mid declaran su tempo en microsegundos por beat, que es
+# la convencion que ya se leia bien, asi que no hace falta la correccion de
+# unidad ni usar la duracion del audio como referencia.
+func load(path: String, root_path: String = "", difficulty_offset: int = -1, use_guitar_fallback: bool = false, expected_duration: float = 0.0) -> bool:
 	var data: PackedByteArray = FileHelper.read_file(path)
 	if data.is_empty():
 		push_error("MidiParser: Cannot open file: ", path)
@@ -359,6 +363,145 @@ static func detect_difficulties(path: String, use_guitar_fallback: bool = false)
 			var diff_name: String = ChartData.DIFFICULTY_NAMES.get(off, "Unknown")
 			result.append({"offset": off, "name": diff_name})
 	return {"difficulties": result, "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
+
+
+static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = false) -> Dictionary:
+	var data: PackedByteArray = FileHelper.read_file(path)
+	if data.size() < 12:
+		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+	if data.slice(0, 4).get_string_from_ascii() != "MThd":
+		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+
+	var header_len: int = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7]
+	var pos: int = 8 + header_len
+	if pos >= data.size():
+		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+
+	var has_drum: bool = false
+	var guitar_used: bool = false
+	var found: Dictionary = {}
+	var DIFFS: Array[int] = [60, 72, 84, 96, 120]
+
+	while pos + 8 <= data.size():
+		if data.slice(pos, pos + 4).get_string_from_ascii() != "MTrk":
+			break
+		var track_len: int = (data[pos + 4] << 24) | (data[pos + 5] << 16) | (data[pos + 6] << 8) | data[pos + 7]
+		pos += 8
+		var track_end: int = mini(pos + track_len, data.size())
+
+		var is_drum: bool = false
+		var is_guitar: bool = false
+		var running_status: int = -1
+
+		while pos + 2 < track_end:
+			var delta: int = 0
+			while pos < track_end:
+				var b: int = data[pos]
+				delta = (delta << 7) | (b & 0x7F)
+				pos += 1
+				if not (b & 0x80):
+					break
+			if pos >= track_end:
+				break
+
+			var ev: int = data[pos]
+			pos += 1
+
+			if ev == 0xFF:
+				if pos >= track_end:
+					break
+				var mt: int = data[pos]
+				pos += 1
+				var mlen: int = 0
+				while pos < track_end:
+					var mb: int = data[pos]
+					mlen = (mlen << 7) | (mb & 0x7F)
+					pos += 1
+					if not (mb & 0x80):
+						break
+				if mt == 0x03 and not is_drum and not is_guitar:
+					if pos + mlen <= track_end:
+						var name: String = data.slice(pos, pos + mlen).get_string_from_ascii()
+						if name.begins_with("PART DRUMS"):
+							is_drum = true
+							has_drum = true
+						elif use_guitar_fallback and not has_drum and name.begins_with("PART GUITAR"):
+							is_guitar = true
+				elif mt == 0x2F:
+					pos += mlen
+					break
+				pos += mlen
+				continue
+
+			if (ev & 0x80) == 0:
+				if running_status < 0:
+					continue
+				pos -= 1
+				ev = running_status
+			else:
+				if ev != 0xF0 and ev != 0xF7:
+					running_status = ev
+
+			if (ev & 0xF0) == 0x90:
+				if pos + 1 < track_end:
+					var note: int = data[pos]
+					pos += 1
+					var vel: int = data[pos]
+					pos += 1
+					if (is_drum or is_guitar) and vel > 0:
+						if is_guitar:
+							var guitar_off: int = _guitar_note_offset(note)
+							if guitar_off >= 0:
+								found[guitar_off] = true
+								guitar_used = true
+						else:
+							for d in DIFFS:
+								if note >= d and note < d + 12:
+									found[d] = true
+									break
+				continue
+
+			if (ev & 0xF0) == 0x80:
+				pos += 2
+			elif (ev & 0xF0) == 0xA0 or (ev & 0xF0) == 0xB0 or (ev & 0xF0) == 0xE0:
+				pos += 2
+			elif (ev & 0xF0) == 0xC0 or (ev & 0xF0) == 0xD0:
+				pos += 1
+			elif ev == 0xF0 or ev == 0xF7:
+				var slen: int = 0
+				while pos < track_end:
+					var sb: int = data[pos]
+					slen = (slen << 7) | (sb & 0x7F)
+					pos += 1
+					if not (sb & 0x80):
+						break
+				pos += slen
+			elif ev == 0xF1 or ev == 0xF3:
+				pos += 1
+			elif ev == 0xF2:
+				pos += 2
+
+		pos = track_end
+
+	var ChartData = preload("res://script/chart/ChartData.gd")
+	var difficulties: Array = []
+	for off in ChartData.DIFFICULTY_OFFSETS:
+		if found.has(off):
+			difficulties.append({"offset": off, "name": ChartData.DIFFICULTY_NAMES.get(off, "Unknown")})
+
+	return {"difficulties": difficulties, "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
+
+
+static func _guitar_note_offset(note: int) -> int:
+	if note >= 96 and note < 102:
+		return 96
+	if note >= 72 and note < 78:
+		return 72
+	if note >= 84 and note < 90:
+		return 84
+	if note >= 60 and note < 66:
+		return 60
+	return -1
 
 
 func _read_vlq(data: PackedByteArray, offset: int) -> Dictionary:

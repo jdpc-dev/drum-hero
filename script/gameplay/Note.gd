@@ -13,10 +13,20 @@ var _is_kick_full_width: bool = false
 
 
 func _ready() -> void:
-	var lane: int = note_data.lane
 	_rect = ColorRect.new()
-	_rect.color = _get_color_for_lane(lane)
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(_rect)
+
+
+func reset(event: ChartData.NoteEvent) -> void:
+	note_data = event
+	_hit = false
+	_missed = false
+	visible = true
+	_rect.visible = true
+
+	var lane: int = event.lane
+	_rect.color = _get_color_for_lane(lane)
 
 	var hw: Node = lane_ref.highway_ref if lane_ref else null
 	_is_kick_full_width = (lane == 3 and hw != null and GameManager.mode == GameManager.GameMode.HAPTIC)
@@ -28,8 +38,6 @@ func _ready() -> void:
 		var lane_w: float = (hw.screen_w if hw else 1280.0) / float(total_lanes)
 		_rect.size = Vector2(lane_w * 0.95, lane_w * 0.25)
 		z_index = 1
-
-	add_child(_rect)
 
 
 func update_position(current_time: float) -> void:

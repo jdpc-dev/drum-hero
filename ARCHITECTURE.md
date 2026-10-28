@@ -16,14 +16,18 @@
 Main (CanvasLayer)                      ← MenuRoot.gd
 ├── Background (ColorRect)
 ├── Root (VBoxContainer)               — con PADDING 40px
-│   ├── HeaderBar (PanelContainer)     — título "DRUM HERO" + Settings
-│   ├── SearchBar (PanelContainer)     — LineEdit con filtro
+│   ├── HeaderBar (PanelContainer)     — AlbumArt + Search + Settings
+│   │   └── hbox (HBoxContainer)
+│   │       ├── AlbumArt (TextureRect) — 70×70, visible al seleccionar canción
+│   │       ├── SearchInput (LineEdit) — placeholder "Search: "
+│   │       ├── SettingsButton
+│   │       └── Spacer
 │   ├── SongListScroll (ScrollContainer) — lista scrolleable
 │   │   └── SongListContainer (VBoxContainer)
 │   │       ├── SongRow_N (PanelContainer)  — ► + artista + --,---pts
 │   │       └── ...
-│   ├── StatusLabel                    — "STATUS: chart OK - ..."
-├── PreviewStatusLabel             — "♫ Artist - Song" (mientras se reproduce preview, oculto si no hay)
+│   ├── StatusLabel                    — "STATUS: chart OK - ..." (oculto por defecto; Show Menu Status en Ajustes > Experimental)
+├── PreviewStatusLabel             — "♫ Artist - Song" (mientras se reproduce preview, oculto si no hay) | idle: "♫ Tap a song to preview"
 │   └── DiffContainer (HBoxContainer)  — Easy/Medium/Hard/Expert/Expert+
 │       └── [5 botones]                — desactivados si no disponibles
 
@@ -50,6 +54,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │       └── JUDGEMENT WINDOWS (read-only ±ms)
 │
 │   Tab Experimental:
+│       ├── FREE MODE (Open Free Mode)   — acceso directo a la pista vacía
 │       ├── CHART FALLBACK (Use PART GUITAR)
 │       ├── DEBUG (Show Judgment Areas)
 │       └── GAMEPLAY PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-200px)
@@ -71,10 +76,67 @@ Gameplay (Node2D)                       ← GameplayRoot.gd
 │   ├── ScoreLabel
 │   ├── ComboLabel
 │   ├── MultiplierLabel
-│   └── SongTimeline (TextureProgressBar)
+│   └── SongTimeline (Control)
 ├── HitDetection (Node)                 ← HitDetection.gd
 ├── TouchInput (Node)                   ← TouchInput.gd
 └── HapticKick (Node)                   ← HapticKick.gd
+
+FreeMode (Node2D)                       ← FreeModeRoot.gd
+├── Highway (Node2D)                    ← Highway.tscn (instancia real)
+├── HUD (CanvasLayer)
+│   ├── TitleLabel / HintLabel
+│   ├── PadNameLabel                    ← nombre del pad que acaba de sonar
+│   ├── HitsLabel                       ← contador de golpes
+│   ├── BackButton                      ← vuelve al menú
+│   ├── FpsLabel                        ← solo si Show FPS
+│   └── CalibrationLabel                ← solo con kick por sensor
+└── TouchInput (Node)                   ← sin HitDetection
+```
+
+### Modo libre (drum testing)
+
+Se entra desde **Ajustes → Experimental → Open Free Mode**. Es una escena
+propia, no una canción sintética: no hay chart, puntuación, combo ni pantalla de
+resultados, así que no puede ensuciar los récords de `user://scores.cfg`.
+
+Reutiliza `Highway.tscn` a propósito, para que el orden de pistas, el layout, el
+*gameplay padding* y la exclusión de gestos de Android sean exactamente los del
+juego. Lo único que **no** monta frente a `Gameplay.tscn` son `HitDetection` y
+`HapticKick`:
+
+- `TouchInput` recibe `null` como `HitDetection`, de forma que su rama "no se
+  acertó ninguna nota" es la que dispara el sample del pad. El sample no se
+  reproduce por otra vía o sonaría dos veces.
+- El kick del acelerómetro se escucha conectando `InputManager.kick_detected`
+  directamente, porque `HapticKick` solo sabe reenviar a `HitDetection`, que aquí
+  no existe. La conexión solo se hace si el kick está habilitado
+  (`SettingsManager.haptic_enabled` o modo `HAPTIC`) y se comprueba
+  `is_connected()` antes de desconectar en `_exit_to_menu()`.
+
+El botón emite `SettingsRoot.free_mode_requested`; el cambio de escena lo hace
+`MenuRoot` (el panel de Ajustes es un overlay suyo, no una escena):
+
+```
+SettingsRoot._on_free_mode_pressed() → free_mode_requested
+MenuRoot._on_free_mode_requested()   → _stop_preview()
+                                     _is_switching_scene = true
+                                     change_scene_to_file(FreeMode.tscn)
+```
+
+`MenuRoot._is_switching_scene` protege `_on_settings_closed()`: al cambiar de
+escena, el panel se desmonta con el menú y su `tree_exited` se dispara durante la
+destrucción. Sin ese guard, ese cierre reescanearía la biblioteca de canciones
+con el árbol ya a medio tirar.
+
+**ChartParser es un autoload y sobrevive a los cambios de escena.** Por eso
+`FreeModeRoot._ready()` llama a `ChartParser.clear()`: sin él, las notas de la
+última canción seguida seguirían bajando por la pista y se contarían como
+falladas al instante.
+
+### Test
+
+```
+godot --headless --path . res://tools/test_freemode.tscn  # pista vacía + pads + salida
 ```
 
 ---
@@ -89,13 +151,14 @@ Registrados en `project.godot` bajo `[autoload]`. Se inicializan antes que cualq
 | `AudioManager` | Carga stems multi-pista (song, drums, bass, guitar, rhythm, keys, vocals). Salta `song` si existen stems individuales para evitar duplicación. Decodifica `.opus` a estéreo vía `ffmpeg`. Ofrece `duck_drums()` para silenciar batería temporalmente. | — |
 | `InputManager` | Ruteo de input táctil y pipeline de sensor háptico (acelerómetro para kick). Detección en dos fases: lift (pico en eje Z de pantalla) → cruce por cero → KICK. Estados: `KickState` (IDLE / KICK_DOWN / COOLDOWN). | — |
 | `SettingsManager` | Persistencia de configuración (archivo `user://settings.cfg`). Juicios, sensibilidad, modo háptico, orden de lanes, fallback de guitarra. | — |
-| `SongLoader` | Escanea `res://Songs/` y `user://DrumHero`, parsea `song.ini`, expone lista de canciones con metadatos. Detecta fuente del chart (PART DRUMS vs PART GUITAR). Cada song entry incluye `preview_path` (str), `preview_start_time` (int, en milisegundos, -1 si no definido), `song_length` (float). `get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en `user://` (FileAccess) como en `res://` empaquetados (ResourceLoader). | — |
-| `ChartParser` | Carga `notes.mid` vía `MidiParser.gd`, construye arreglo de `NoteEvent` con tiempo en segundos. Soporta fallback a PART GUITAR si PART DRUMS no existe. `get_notes_in_range()` usa búsqueda binaria (`find_next_note_index`) para saltar al rango solicitado. | `ChartData.gd` (clases de datos) |
-| `TimingEngine` | Reloj maestro. Si hay audio usa `AudioManager.get_position()`, sino delta de frames. Emite `time_updated`, `song_ended`. | `AudioManager` |
+| `SongLoader` | Escanea una lista de raíces configurables (ver *Bibliotecas de canciones externas*), parsea `song.ini`, expone lista de canciones con metadatos. Detecta fuente del chart (PART DRUMS vs PART GUITAR). Cada song entry incluye `preview_path` (str), `preview_start_time` (int, en milisegundos, -1 si no definido), `song_length` (float). `get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en `user://` (FileAccess) como en `res://` empaquetados (ResourceLoader). `album_path` busca `album.jpg` primero y falla a `album.png` si no existe. El escaneo es interrumpible: `begin_scan()` / `scan_step()` / `pump_scan()` lo avanzan por lotes, `request_scan()` lo encola y `cancel_scan()` lo para sin perder lo encontrado (ver *Recorrido*). Emite `scan_progress` y `scan_finished`, y expone `unreadable_roots`, `truncated_roots` y `cancelled_roots` para diagnóstico. | — |
+| `ChartParser` | Carga `notes.mid` (vía `MidiParser.gd`) o `notes.chart` (vía `DotChartParser.gd`) según extensión del archivo. Produce el mismo arreglo de `NoteEvent` para ambos formatos. Soporta fallback a PART GUITAR / `[ExpertSingle]` si no hay batería. `get_notes_in_range()` usa búsqueda binaria (`find_next_note_index`) para saltar al rango solicitado. `clear()` vacía el chart; lo llama el modo libre, que monta la Highway sin notas (ver *Modo libre*). | `ChartData.gd` (clases de datos) |
+| `TimingEngine` | Reloj maestro. Si hay audio usa `AudioManager.get_position()`, sino delta de frames. Emite `time_updated`, `song_ended` (una sola vez, ver *Fin de canción*). `stop()` congela el reloj donde esté; `start()` lo rearma. | `AudioManager` |
 | `ScoreManager` | Puntaje, combo, multiplicador, rachas. API: `register_hit(diff)`, `register_miss()`, `reset()`. | — |
 | `EffectManager` | Pool de efectos visuales (`ParticleBurst`, `Shockwave`, `JudgementPopup`). Genera SFX (beeps programáticos). | — |
 | `DrumGraphics` | Genera texturas vectoriales para notas y hit lines por lane (double cymbal, cymbal, drumstick, pedal). Texturas de 128×128 pre-generadas en `_ready()`. | — |
-| `AndroidBridge` | Puente GDScript→Android nativo. Gestiona `GestureExclusion` plugin para excluir bordes del back gesture. Solo activo en Android; no-op en desktop. | — |
+| `AndroidBridge` | Puente GDScript→Android nativo. Gestiona los plugins `GestureExclusion` (excluir bordes del back gesture) y `AllFilesAccess` (conceder *All files access* y sondear legibilidad de rutas). Solo activo en Android; no-op en desktop. | — |
+| `HighScoreStore` | Mejores puntuaciones por canción+dificultad (archivo `user://scores.cfg`, ver *Mejores puntuaciones*). | — |
 
 ### Flujo de dependencias
 
@@ -158,6 +221,7 @@ _usuario toca SongRow
       ├─ _update_selection_ui()          ← pone "► " en la fila seleccionada
       ├─ _update_status_for_song()       ← "STATUS: chart OK - audio OK"
       ├─ _update_difficulty_visibility() ← habilita/deshabilita botones
+      ├─ _load_album_art(original_index) ← carga carátula en HeaderBar
       └─ _start_preview_animation(original_index)
 ```
 
@@ -349,7 +413,7 @@ y=100%  +----+----+----+----+----+----+----+----+
 
 ### Gameplay padding (experimental)
 
-Cuando `gameplay_padding_enabled` está activo, el Highway se posiciona en `(pad_left, pad_top)` y `screen_w`/`screen_h` se reducen a las dimensiones efectivas (`viewport - pad_left - pad_right`, `viewport - pad_top - pad_bottom`). Esto desplaza automáticamente lanes, notas, hit line, beat lines y touch zones. El HUD (CanvasLayer) se ajusta manualmente sumando los paddings individuales a los offsets de cada label. Cada lado se configura independientemente con un slider (0-200px, default 40).
+Cuando `gameplay_padding_enabled` está activo, el Highway se posiciona en `(pad_left, pad_top)` y `screen_w`/`screen_h` se reducen a las dimensiones efectivas (`viewport - pad_left - pad_right`, `viewport - pad_top - pad_bottom`). Esto desplaza automáticamente lanes, notas, hit line, beat lines y touch zones. El HUD (CanvasLayer) se ajusta manualmente sumando los paddings individuales a los offsets de cada label. Cada lado se configura independientemente con un slider (0-100dp, default left/right=75, top/bottom=0). Los valores se almacenan en dp (density-independent pixels) y se convierten a píxeles lógicos de Godot al aplicarse. Solo disponible en Android — en desktop la UI se muestra deshabilitada.
 
 ### Android gesture exclusion (plugin nativo)
 
@@ -389,6 +453,28 @@ En Android, la navegación por gestos intercepta toques en los bordes de la pant
 - `export_plugin.gd` → (extends `EditorExportPlugin`) maneja inclusión del `.aar` en exports Android
 
 **Nota sobre paths:** `_get_android_libraries()` retorna paths relativos a `res://addons/`, por lo que deben incluir el prefijo del directorio del plugin (`GestureExclusion/bin/debug/...`).
+
+**Plugins deben estar registrados en `project.godot`:** el paso 6 ("Habilitar plugin en Project Settings → Plugins") no es opcional — sin escribir el `plugin.cfg` en `[editor_plugins] enabled=PackedStringArray(...)`, el `EditorExportPlugin` nunca se instancia, `_get_android_libraries()` no se llama, y el `.aar` no entra al APK. El síntoma es silencioso: `Engine.has_singleton("GestureExclusion")` devuelve `false` y la función affected queda como no-op sin ningún error.
+
+### Android All files access (plugin nativo)
+
+`MANAGE_EXTERNAL_STORAGE` está declarado en `export_presets.cfg` pero **no se concede solo**. No es un *dangerous permission* del modelo de runtime de Android (no se concede vía `requestPermissions()` ni `OS.request_permissions()`), sino un permiso especial de AppOps que el usuario activa en Ajustes del sistema. Además con `gradle_build/use_gradle_build=false` el template prebuilt no pide nada por su cuenta.
+
+El plugin `AllFilesAccess` expone en GDScript:
+- `has_all_files_access()` → `Environment.isExternalStorageManager()` (API 30+; en `< 30` devuelve `true`, donde `READ/WRITE_EXTERNAL_STORAGE` ya bastan)
+- `requestAllFilesAccess()` → lanza el intent `Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION` apuntando al propio paquete, con fallback a `ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION`
+- `isPathReadable(path)` / `isDirectory(path)` → `File.canRead()` / `File.isDirectory()`, más fiable que `DirAccess` bajo scoped storage
+
+Concedido el permiso, `DirAccess` y `FileAccess` funcionan sobre rutas absolutas de `/storage/emulated/0/...` (All files access ignora scoped storage), que es lo que permite escanear bibliotecas de canciones arbitrarias sin copiarlas. El fallback `content://` de `FileHelper` queda como red de seguridad para cuando el permiso no está concedido.
+
+**Prerequisitos para build** (idénticos a `GestureExclusion`): Android Build Template instalado, JDK 17, y compilar desde `AllFilesAccessPlugin/`:
+```
+./gradlew :plugin:assembleDebug
+./gradlew :plugin:assembleRelease
+```
+y copiar los `.aar` a `addons/AllFilesAccess/bin/{debug,release}/AllFilesAccess.aar`.
+
+**Nota de toolchain:** el build usa `compileSdk = 34` con `buildToolsVersion = "37.0.0"` (el SDK instalado no tiene build-tools 34.0.0) y AGP 8.5.2.
 
 ### Spawn de notas
 
@@ -469,6 +555,101 @@ TimingEngine.time_updated
 
 ---
 
+## Fin de canción
+
+### Qué marca el final
+
+La canción termina con el **audio**, no con las notas. `GameplayRoot._start_loading()` pasa a `TimingEngine.start(ChartParser.get_duration_seconds(), delay)`, y esa duración es `max(última nota, duración real del audio)`: las notas suelen acabar antes que la música y la barra de tiempo tiene que llegar al 100 % con el audio todavía sonando.
+
+`TimingEngine._process()` declara el fin en cuanto se cumple cualquiera de estas dos condiciones:
+
+1. `audio_position >= chart_duration` (caso normal, y también el caso sin audio, donde el reloj avanza con delta).
+2. `AudioManager.is_stream_finished()`: el stream base llegó a su final aunque `_is_playing` siga en `true`.
+
+La segunda cubre el `song.ini` con una duración equivocada: sin ella el reloj se quedaba clavado en la posición del último sample y `song_ended` no llegaba nunca.
+
+Antes de emitir, `audio_position` se clampa a `chart_duration`, así que el último `time_updated` lleva el valor exacto de fin de canción y la `SongTimeline` queda al 100 %.
+
+#### Cómo se detecta el final del stream (y por qué no se lee la posición)
+
+`AudioManager.is_stream_finished()` devuelve un latch que enciende la **señal `finished`** del player del stem base (`_on_stem_finished`), no una consulta al player. Es la única forma fiable, porque en el frame exacto en que el stream acaba las dos consultas disponibles mienten:
+
+| Consulta | Al final natural del stream | Motivo |
+|---|---|---|
+| `player.get_playback_position()` | devuelve **0.0** | Godot reinicia la posición al terminar el stream |
+| `player.playing` | `false` | …pero también es `false` con `stream_paused`, así que un `stop()` de la pausa parecería un final de canción |
+
+La posición a 0 es lo que rompía el flujo: una guarda del tipo `raw_position > 0.0 and is_stream_finished()` nunca se cumplía en el frame del final (0 no es > 0), así que el reloj saltaba a ~0, `audio_position >= chart_duration` no volvía a darse y **la canción se quedaba colgada sin llegar nunca a `song_ended`**. La señal `finished` solo se emite al acabar el stream de forma natural: ni `stop()` ni la pausa la emiten, así que no hay falsos positivos al pausar, reiniciar o cambiar de canción. El latch se rearma en `AudioManager.play()`.
+
+Para que el reloj y el final hablen siempre del mismo stream, `get_position()`, `get_length()` e `is_stream_finished()` resuelven el stem base con `_base_stem_name()`.
+
+### Reloj congelado
+
+`TimingEngine` tiene dos guardas además de `_paused`:
+
+| Guarda | Qué significa | La pone / la quita |
+|---|---|---|
+| `_running` | El reloj corre entre `start()` y `stop()`. Arranca en `true` para que el tiempo fluya también en el menú. | `start()` / `stop()` |
+| `_finished` | El fin ya se anunció; no se vuelve a emitir `song_ended`. | `_finish()` / `start()` |
+
+Sin `_running`, `stop()` dejaba el reloj en su rama de `audio_position += delta` (ya no hay ni pausa ni audio reproduciéndose) y la barra de tiempo volvía a llenarse desde cero por debajo de la pantalla de resultados.
+
+### Secuencia hasta la pantalla de resultados
+
+```
+TimingEngine._process()   audio_position >= chart_duration
+  → _finish()                                  (una sola vez)
+    → song_ended
+      → GameplayRoot._on_song_ended()
+        → await RESULT_TAIL_DELAY (0.5 s)      (estado aún PLAYING)
+          → GameplayRoot._show_result()
+            → Highway.flush_unjudged_notes()   (notas sin juzgar = misses)
+            → GameManager.set_state(RESULT)
+              → GameplayRoot._on_state_changed()
+                → TimingEngine.stop()           (reloj y audio congelados)
+            → ResultOverlay (CanvasLayer, layer 15)
+```
+
+Durante el margen de 1.5 s el estado sigue siendo `PLAYING`: el jugador todavía puede acertar las notas que quedaron dentro de la ventana de golpe, y el reloj no avanza (ya está en `_finished`).
+
+### Notas sin juzgar
+
+`Highway.flush_unjudged_notes()` → `Lane.flush_as_miss()` cuenta como falladas las notas que siguen en pantalla. Sin audio, `chart_duration` coincide con la última nota, así que esas notas nunca pasan por la ventana de miss de `Lane._update_active()` y el recuento final quedaría corto. No muestran popup de juicio: no hubo golpe que juzgar.
+
+No es lo mismo que `Highway.restart()`, que descarta las notas sin puntuar (replay).
+
+### Pantalla de resultados
+
+`ResultOverlay` (CanvasLayer, layer 15) se construye entero por código e imprime `ScoreManager` (score, precisión, combo máximo, hits/misses) más el título de la canción y la dificultad. Emite `retry_requested` y `exit_requested`; el callback es `GameplayRoot._restart_song()` / `_exit_to_menu()`. El overlay de pausa vive en la layer 10 y el de carga en la 20.
+
+`AndroidBridge.clear_exclusion()` **no** se llama al terminar: seguimos dentro del gameplay y las zonas táctiles no han cambiado. Solo se limpia al salir (`_exit_to_menu`, `stop_gameplay`).
+
+El botón de atrás (Android y `ui_cancel`) pasa por `GameplayRoot._handle_back()`: con el panel visible sale al menú, si la canción ya terminó pero el panel todavía no aparece no hace nada, y en cualquier otro caso pausa.
+
+### Archivos involucrados
+
+| Archivo | Rol |
+|---|---|
+| `script/autoload/TimingEngine.gd` | Guardas `_running` / `_finished`, clamp y `_finish()` |
+| `script/autoload/AudioManager.gd` | `is_stream_finished()` — latch de la señal `finished` del stem base, y `_base_stem_name()` |
+| `script/gameplay/GameplayRoot.gd` | `song_ended` → tail → `RESULT` → overlay; `RESULT_TAIL_DELAY` |
+| `script/ui/ResultOverlay.gd` | Panel de resultados |
+| `script/gameplay/Highway.gd` / `Lane.gd` | `flush_unjudged_notes()` / `flush_as_miss()` |
+| `script/autoload/GameManager.gd` | `current_song_title` / `current_song_artist` para el panel |
+
+### Test
+
+```
+godot --headless --path . res://tools/test_song_end.tscn   # reloj + overlay + audio real
+godot --headless --path . res://tools/test_song_end_e2e.tscn # escena Gameplay.tscn de verdad
+```
+
+`test_song_end` cubre: `song_ended` se emite una sola vez, el reloj se detiene en `chart_duration`, la barra no se vacía tras `stop()`, `start()` rearma el reloj, el panel vuelca los stats de `ScoreManager` y —con los stems reales de una canción— que el fin de stream se detecta aunque la posición vuelva a 0, que la pausa no lo dispara y que una segunda pasada vuelve a terminar.
+
+`test_song_end_e2e` monta `scene/Gameplay.tscn` con una canción real, la deja llegar al final (saltando el player cerca del final) y comprueba la cadena completa: `PLAYING` → `song_ended` → cola de 1.5 s → `RESULT` → `ResultOverlay` en pantalla con los datos de la partida, y que **REPLAY** vuelve a jugar y desmonta el panel.
+
+---
+
 ## Sistema de entrada
 
 ### Táctil / mouse
@@ -485,6 +666,15 @@ TimingEngine.time_updated
 **Optimización de rendimiento**: Las llamadas a `EffectManager.trigger_particle_burst()` y `EffectManager.show_judgement()` dentro de `Lane.try_hit()` se ejecutan mediante `call_deferred()`. Esto saca la creación de nodos de efectos visuales de la fase de `_input()` y las mueve al final del frame, evitando bloqueos del frame en dispositivos móviles cuando el jugador toca la pantalla. La lógica crítica (hit detection, scoring, audio) permanece sincrónica.
 
 **Touch zones cacheadas**: Las zonas táctiles (`TouchZone_*`) se cachean en `_touch_zones` (Array[ColorRect]) durante `setup()` mediante `_cache_touch_zones()`. Cada zona almacena su `lane_idx` en metadata (`set_meta("lane_idx", ...)`) para evitar búsqueda por nombre y parseo de strings en `_update_touch_zones()`. El array cacheado se actualiza solo si se reconstruyen los lanes.
+
+**Señal `lane_pressed`**: `TouchInput` emite `lane_pressed(lane_index, position)` en
+las tres rutas de entrada (teclado, touch y mouse), justo antes de la llamada a
+`HitDetection`. Sirve para que quien monta la escena reciba el golpe aunque no
+haya hit detection, que es el caso del modo libre (ver *Modo libre*).
+
+**Hit detection opcional**: las llamadas a `HitDetection` comprueban que el
+`_hit_detection` no sea `null`, para permitir montar `TouchInput` sin nodo de
+judgement. Con `null` solo suena el sample del pad.
 
 ### InputManager
 
@@ -513,14 +703,190 @@ Teclas **1–8** del teclado numérico mapean a lanes **0–7**. Implementado en
 
 ---
 
+## Bibliotecas de canciones externas
+
+Además de las canciones empaquetadas en `res://Songs/`, el jugador puede apuntar el juego a bibliotecas propias (Clone Hero, YARG, Rock Band, Phase Shift) **sin copiar los archivos**: se referencian in situ.
+
+### Raíces de escaneo
+
+`SongLoader.get_scan_roots()` construye la lista de raíces, en este orden:
+1. `res://Songs` (siempre)
+2. `get_user_song_dir()` — la carpeta propia de la app (se crea si no existe)
+3. `SYSTEM_DIR_DOWNLOADS` y/o `SYSTEM_DIR_DOCUMENTS`, según `library_preset_downloads` / `library_preset_documents`
+4. `SettingsManager.library_roots` — rutas tecleadas por el usuario
+
+Todas pasan por `_append_root()`, que las normaliza con `simplify_path()` y descarta duplicados. Las rutas relativas se expanden con `ProjectSettings.globalize_path()`.
+
+En primera ejecución en Android los presets se activan solos (junto a `gameplay_padding_enabled`); en desktop arrancan desactivados para no escanear `~/Downloads` sin que el usuario lo pida. Configuración persistida en la sección `[library]` de `user://settings.cfg`: `roots`, `preset_downloads`, `preset_documents`, `recursive`, `max_depth`.
+
+### Recorrido
+
+El recorrido es **interrumpible**: `SongLoader` no tiene una función recursiva que barra el disco entero de una sentada, sino un recorrido por lotes que la UI avanza frame a frame.
+
+- `begin_scan()` deja `SongLoader` listo (limpia `song_list` y el diagnóstico, calcula las raíces) y devuelve `false` si ya había un escaneo en marcha. Como es singleton solo admite uno: el segundo llamante espera, no machaca la lista a medio construir.
+- `scan_step(dir_budget, deadline_usec)` camina hasta `dir_budget` directorios o hasta pasar `deadline_usec`, y devuelve `true` cuando el escaneo ha terminado.
+- `pump_scan(deadline_usec)` es el atajo para quien tiene UI delante: un frame de escaneo con `MAX_DIRS_PER_FRAME` (64) y `SCAN_FRAME_BUDGET_MS` (8), y devuelve `true` solo cuando no queda nada pendiente —ni escaneo en marcha ni otro encolado detrás—. El escaneo se sirve, se pausa o se cancela en un frame, no en un bloque.
+- `request_scan()` encola un escaneo para cuando `SongLoader` quede libre (Ajustes pidiendo un reescaneo mientras el menú escanea). `abort_scan()` es la salida de emergencia: limpia la petición y cierra el escaneo a medias, para que `is_scanning` nunca quede en `true` y bloquee el siguiente.
+- `scan_songs()` es el modo de una sentada (`scan_step` sin tope) para los tests y cualquier llamante sin UI que responder.
+- `cancel_scan()` se respeta en el siguiente lote, como muy tarde un frame después. Lo ya encontrado se queda en `song_list`, y `scan_finished` sale con `cancelled = true`.
+
+El estado del recorrido vive en una pila explícita (`[ruta, profundidad]`), no en la recursión de GDScript: así un lote puede cortarse entre directorios sin dejar frames a medias en la pila. El orden de visita es el mismo que con recursión (las subcarpetas se apilan invertidas para salir en orden alfabético), y una raíz solo se cierra —y con ella su marca de truncado— cuando la pila se vacía (`_close_current_root()`).
+
+`_scan_one_dir()` es el cuerpo del recorrido y devuelve solo por estado:
+
+- Una carpeta es canción si contiene `notes.mid` o `notes.chart` como **hijo directo**. Si lo es, se registra y **no** se desciende en ella.
+- Si no, se desciende a sus subdirectorios hasta `library_max_depth` (por defecto 3). Al agotar la profundidad se marca `_depth_truncated`.
+- Las entradas que empiezan por `.` se ignoran.
+- `_scanned_paths` deduplica por ruta canónica, así que raíces solapadas (p. ej. `Download/` y `Download/MiLib/`) no producen canciones duplicadas, y los symlinks que formen ciclos no cuelgan el escaneo.
+- `MAX_DIRS_PER_ROOT` (4000) cota el trabajo por raíz; al alcanzarlo también se marca truncado.
+
+El listado se hace **una sola vez por directorio**: `notes.mid` / `notes.chart` se detectan sobre las entradas ya listadas, en vez de sondear con `FileAccess.open()`. Esto evita hasta 2 aperturas fallidas (y 2 más del fallback `content://` de `FileHelper` en Android) por cada carpeta de un árbol profundo.
+
+### Progreso y cancelación en la UI
+
+`SongLoader` emite `scan_progress(root_index, root_total, current_dir, dirs_visited, songs_found)` al final de cada lote y `scan_finished(songs_found, cancelled)` al cerrar. El primer evento ya cuenta el recorrido entero, para que el último número que ve la UI sea el bueno. `script/ui/ScanFeedback.gd` es el sitio único donde se formatea ese progreso, y lo comparten las dos superficies:
+
+- **Ajustes ▸ Canciones** — `Rescan now` dispara `_scan_summary_and_rescan()`, que pide el escaneo y lo bombea desde `_process`. El panel muestra barra, `i/N` con las canciones encontradas y la carpeta actual, con `Cancel` al lado. Al terminar, `_update_scan_summary()` añade el aviso por raíz cancelada.
+- **Menú** — `_refresh_song_list()` usa el mismo overlay de carga, pero solo con `Cancel` y carpeta cuando lo que se está cargando es la biblioteca; al cargar una canción se mantiene el porcentaje, que sí es fiable, y el escaneo no lo enseña porque `i/N` no es un porcentaje.
+
+El botón de cancelar no corta en seco: pide `cancel_scan()` y muestra "Cancelling...". La lista se reconstruye con lo encontrado, que es un prefijo exacto del recorrido completo.
+
+Cualquier escaneo en marcha se aborta en `_exit_tree()` y al cambiar de pestaña en Ajustes: si la UI desaparece a mitad, `SongLoader` no debe quedar con `is_scanning = true`.
+
+### Diagnóstico
+
+- `SongLoader.unreadable_roots` — raíces que no se pudieron abrir. En Android sin *All files access* concedido es el síntoma típico: `Download/` y `Documents/` no son listables bajo scoped storage.
+- `SongLoader.truncated_roots` — raíces cuyo recorrido se cortó por `max_depth` o por `MAX_DIRS_PER_ROOT`, o sea que puede haber canciones más profundas sin descubrir.
+- `SongLoader.cancelled_roots` — raíces a medio recorrer cuando se canceló. Van aparte de las truncadas porque el aviso es distinto: ahí el jugador sabe que paró él.
+
+### Permiso requerido
+
+En Android 11+ (`API 30`) leer `/storage/emulated/0/...` fuera de las carpetas propias exige *All files access* (`MANAGE_EXTERNAL_STORAGE`). Ver la sección del plugin `AllFilesAccess`. Sin el permiso concedido las raíces/user-defined devuelven `unreadable_roots` y la biblioteca aparece vacía — de ahí que la UI deba reportar esas raíces explícitamente en vez de mostrar "0 canciones".
+
+### Requisito de `song.ini`
+
+`song.ini` ya **no es obligatorio**: una carpeta con `notes.mid` o `notes.chart` entra en la lista aunque no tenga metadatos. Antes se descartaba silenciosamente, lo que hacía inútil una biblioteca de Clone Hero cruda.
+
+`_derive_metadata()` combina tres fuentes, aplicando **precedencia campo a campo** (cada campo no vacío de una fuente de mayor prioridad pisa al de las anteriores):
+
+| Prioridad | Fuente | Aporta |
+|---|---|---|
+| 1 (menor) | Nombre de carpeta | `name`, `artist`, `charter` |
+| 2 | Cabecera `[Song]` del `.chart` | `name`, `artist`, `album`, `genre`, `year`, `charter`, `delay` (desde `Offset`) |
+| 3 (mayor) | `song.ini` | todo lo anterior + `song_length`, `preview_start_time`, `diff_drums` |
+
+Las claves de `song.ini` de Clone Hero coinciden con las que ya leía el juego, así que se usan tal cual.
+
+**Nombre de carpeta.** Se parsea con la convención `"<Artist> - <Song> (<Charter>)"`. Si el nombre **no** contiene `" - "`, se usa el nombre de la **carpeta padre** como artista — cubre el layout anidado `biblioteca/Artista/Canción`, que es el más común. El padre solo se usa si no es la propia raíz del escaneo (si no, `Download/Canción` daría artista `Download`) y si no está bajo `res://` o `user://`.
+
+Un trailing `(...)` **no** se separa como charter cuando no hay `" - "`: muchos títulos reales lo llevan (`Song (Remix)`, `Song (Live)`) y `charter` no se muestra en la UI, así que no merece el riesgo de mutilar títulos.
+
+**`song.ini` con comillas.** `_parse_ini` desenvuelve las comillas que envuelven el valor (usando `DotChartParser.strip_quotes()`). Antes `"Crystal Castles"` se mostraba en la lista con las comillas incluidas.
+
+**`Year` corrupto.** Charts reales traen valores como `Year = ", 2008"`. `_extract_year()` extrae los primeros 4 dígitos; si no encuentra exactamente 4, devuelve el valor original sin tocar.
+
+**`song_length`.** Solo proviene de `song.ini`. Sin él queda en 0 y `MenuRoot` **omite el prefijo de duración** en vez de mostrar `0:00`. No se deriva del chart porque exigiría parsear el tempo map completo en cada canción durante el escaneo, a cambio de un dato puramente decorativo.
+
+### Pestaña SONGS (Settings)
+
+`SettingsRoot` tiene una pestaña **SONGS** entre HUD y Experimental. Contiene:
+
+- **STORAGE ACCESS** — estado de All Files Access. En Android muestra *Grant access* mientras no se haya concedido y *Open Android settings* una vez concedida. En otras plataformas muestra que el acceso es automático.
+- **LIBRARY LOCATIONS** — checks de `Download`/`Documents`, profundidad máxima (0 = solo esa carpeta) y *Search subfolders*.
+- **EXTRA FOLDERS** — lista de raíces personalizadas con botón *Remove*, más un `LineEdit` para añadir rutas absolutas. Las rutas se normalizan con `simplify_path()`, se anteponen `/` si faltan y se descartan duplicados. Las rutas que no existen se muestran en rojo en la lista.
+- **Rescan now** y **Cancel**, con barra de progreso, `i/N` de ubicaciones, canciones encontradas y carpeta actual mientras dura el escaneo (ver *Progreso y cancelación en la UI*).
+- Un resumen del último escaneo que reporta el número de canciones, el número de ubicaciones, y las raíces ilegibles, truncadas por profundidad o canceladas a medias.
+- **Reset SONGS to Defaults**.
+
+Cambios de biblioteca persisten al instante (`SettingsManager.save_settings()`), pero el reescaneo no ocurre en cada toggle: `MenuRoot._library_changed()` compara un snapshot y solo refresca la lista al cerrar Ajustes. Rescanear por cada toggle sería un walk del disco por cada checkbox.
+
+`AndroidBridge` es un autoload; `OS.request_permissions()` no se usa para All Files Access porque no incluye `MANAGE_EXTERNAL_STORAGE`.
+
+### Carriles de batería en charts `.chart`
+
+`CHART_LANE_MAP` (ChartData.gd) mapea los carriles del chart a las 8 carriles del juego (HH, CRASH, SNARE, KICK, TOM 1, TOM 2, TOM 3, RIDE):
+
+| Chart | Juego | |
+|---|---|---|
+| 0 | KICK | |
+| 1 | SNARE | |
+| 2 | HH | |
+| 3 | RIDE | |
+| 4 | CRASH | |
+| 5, 66 | TOM 1 | |
+| 6, 67 | TOM 2 | |
+| 7, 68 | TOM 3 | |
+
+**Toms en 66/67/68.** Los charts `.chart` de Clone Hero/Phase Shift codifican los toms en los carriles 66, 67 y 68, no en 5/6/7. Esto se dedujo de `Songs/Caos - La Planta (jdpc.dev)/notes.chart`, el único chart del proyecto con batería: usa 0-4 y 66/67/68, exactamente 8 carriles que encajan uno a uno con las carriles del juego. Antes esos toms se descartaban, dejando fuera 718 de las 2027 notas de Expert.
+
+El carril **65** se deja sin mapear a propósito: no aparece en ningún chart del proyecto y el juego solo tiene 3 toms, así que no hay carril donde colocar un posible cuarto tom. Se descarta y aparece en el aviso de carriles desconocidos.
+
+**Aviso de carriles descartados.** `_warn_skipped_lanes()` acumula los descartes por carril y emite **un** `push_warning` por chart (`lane 65 x3, lane 99 x1`). Antes `DotChartParser` avisaba por nota, lo que generaba miles de líneas de log idénticas en charts con muchos carriles desconocidos. El diccionario `_skipped_lanes` se conserva tras `load()` para diagnóstico.
+
+### Audio `.opus` no reproducible
+
+`AudioManager._load_audio_stream()` no decodifica `.opus` en Android (`_decode_opus_via_ffmpeg()` devuelve `null` a propósito) y solo cae a un `song.ogg`/`preview.ogg` hermano. Una biblioteca de Clone Hero con `song.opus` entraba en la lista pero **sonaba en silencio sin ningún aviso**.
+
+`SongLoader._detect_blocked_audio()` marca la entrada con `audio_blocked: true` cuando existe `song.opus` y no `song.ogg`. Se informa en dos sitios: el resumen de la pestaña SONGS ("N song(s) ... convert them with tools/convert_opus_to_ogg.sh") y la barra de estado de la lista de canciones, para que sea visible sin abrir Ajustes. Convertir con `tools/convert_opus_to_ogg.sh --remove-opus` deja el aviso en cero, porque al existir `song.ogg` la función devuelve `false` aunque el `.opus` siga ahí.
+
+### Permiso de All Files Access en la UI
+
+`AndroidBridge` expone cuatro operaciones al singleton `AllFilesAccess`:
+
+| Método | Efecto |
+|---|---|
+| `has_all_files_access()` | `Environment.isExternalStorageManager()` (siempre `true` en Android ≤10) |
+| `request_all_files_access()` | Concede el permiso; en Android ≤10 **abre Ajustes** en vez de no hacer nada |
+| `open_all_files_settings()` | Abre siempre la pantalla de Ajustes, tenga o no el permiso |
+| `is_storage_plugin_available()` | Si el singleton llegó al APK |
+| `get_storage_last_error()` | `no_activity`, `no_settings_activity`, `no_app_details_activity`, `plugin_missing` o `""` |
+
+**Por qué el botón "Open Android settings" no abría nada.** `requestAllFilesAccess()` hacía `return true` sin lanzar ningún intent en dos casos: Android ≤10 y permiso ya concedido. El botón etiquetado "Open Android settings" por tanto era un botón muerto. Se separaron las dos responsabilidades en `requestAllFilesAccess()` (conceder) y `openAllFilesSettings()` (abrir Ajustes siempre), y la etiqueta del botón decide a cuál llamar.
+
+**Ningún fallo es silencioso.** `_on_permission_pressed()` comprueba el retorno booleano; si no se pudo abrir nada, el panel muestra el motivo (`get_storage_last_error()`) e indica la ruta manual. Si el singleton no está en el APK, el panel lo dice y deshabilita el botón en vez de dejar un control inerte.
+
+**Refresco al volver.** `SettingsRoot` reevalúa el permiso en `NOTIFICATION_APPLICATION_FOCUS_IN` y `NOTIFICATION_WM_WINDOW_FOCUS_IN`, porque regresar de Ajustes no dispara ninguna señal de Godot. Si el permiso pasó a estar concedido, reescanea la biblioteca. En Android 11+ el sistema puede matar el proceso al conceder el permiso; en ese caso el estado se lee correctamente al reabrir la app.
+
+### Requisito de build: "Use Gradle Build" debe estar activo
+
+Los plugins Android (`AllFilesAccess`, `GestureExclusion`) se distribuyen como AAR y **solo llegan al APK si el export usa Gradle**. Con `gradle_build/use_gradle_build=false` Godot empaqueta el APK precompilado e inyecta solo el PCK: no hay build donde fusionar los AAR, así que el singleton Java no existe y `AndroidBridge` devuelve `false` en silencio. El síntoma era un botón "Grant access" inerte y ningún crash.
+
+Tres condiciones deben cumplirse:
+
+1. **Plantilla de build instalada.** `android/build/` debe contener el `build.gradle` raíz. En un clon nuevo hay que usar *Project > Install Android Build Template* (o `godot --headless --install-android-build-template --quit`); `android/build/` está en `.gitignore`, así que no viaja en el repo.
+2. **`gradle_build/use_gradle_build=true`** en `export_presets.cfg`. Dejar `gradle_build/gradle_build_directory` **vacío**: con un valor explícito como `res://android/build` la validación de plantilla de Godot falla.
+3. **Java 11 o superior.** AGP 8.6.1 rechaza un JVM 8. Se ajusta en *Editor Settings > Export > Android > Java SDK Path*.
+
+**Ruta del AAR.** `_get_android_libraries()` debe devolver rutas `res://` completas y con el prefijo del addon, p. ej. `res://addons/AllFilesAccess/bin/debug/AllFilesAccess.aar`. Antes ambos plugins devolvían `AllFilesAccess/bin/debug/...`, sin `res://` ni `addons/`, y el path no resolvía.
+
+El `build.gradle` de la plantilla recoge los plugins de dos formas: `implementation files(pluginsBinaries)` con lo que devuelve `_get_android_libraries()`, y un `fileTree` **no recursivo** sobre `addons/` (`include: ['*.jar', '*.aar']`), que no alcanza un AAR en `addons/<plugin>/bin/debug/`. Por eso la ruta importa.
+
+**Verificación.** Un export de debug con la configuración correcta produce un APK que contiene los paquetes `com.drum.hero.allfilesaccess` y `com.drum.hero.gestureexclusion`, y en el manifest:
+
+```
+org.godotengine.plugin.v2.AllFilesAccess  ->  com.drum.hero.allfilesaccess.AllFilesAccessPlugin
+org.godotengine.plugin.v2.GestureExclusion -> com.drum.hero.gestureexclusion.GestureExclusionPlugin
+```
+
+Ese `meta-data` es lo que hace que Godot registre el singleton en `Engine.has_singleton()`.
+
+### Limitaciones conocidas
+
+- El chart debe ser hijo directo de la carpeta de la canción (la convención de Clone Hero/YARG y la documentada en `README.md`). Un layout `cancion/charts/notes.mid` no se detecta.
+- El nombre del chart se compara sin distinguir mayúsculas durante el escaneo, y el nombre real del archivo encontrado se pasa a `_scan_song()`, así que `Notes.MID` también funciona.
+- El audio `.opus` no se decodifica en Android; la biblioteca necesita `.ogg` (o `.wav`/`.mp3` empaquetado).
+
+---
+
 ## Formato de canciones
 
-Las canciones incluidas en el APK están en `res://Songs/` con archivos `.ogg` (convertidos desde `.opus` por `tools/convert_opus_to_ogg.sh` antes del build). Las canciones del usuario van en `user://DrumHero` (desktop) o almacenamiento externo (Android) con `.opus` o `.ogg`.
+Las canciones incluidas en el APK están en `res://Songs/` con archivos `.ogg` (convertidos desde `.opus` por `tools/convert_opus_to_ogg.sh` antes del build). Ese script acepta `--remove-opus` para borrar el `.opus` una vez existe un `.ogg` válido, y solo borra bajo `Songs/`: los `.opus` de `asset/drumSfx/` están versionados en git y se conservan siempre. El borrado exige que el `.ogg` no esté vacío y empiece por los bytes mágicos `OggS`, se pide confirmación una vez antes del primer borrado (`--yes` la omite) y `DRY_RUN=true` no borra nada. Las canciones del usuario van en `user://DrumHero` (desktop) o almacenamiento externo (Android) con `.opus` o `.ogg`. Se pueden añadir raíces propias —ver [Bibliotecas de canciones externas](#bibliotecas-de-canciones-externas).
 
 ```
 Songs/<artist> - <song>/
-├── song.ini           ← metadatos (artista, nombre, dificultad, etc.)
-├── notes.mid          ← chart MIDI (mapeo Clone Hero / YARG)
+├── song.ini           ← metadatos (opcional; el nombre de carpeta y la cabecera [Song] del .chart cubren el resto)
+├── notes.mid          ← chart MIDI (mapeo Rock Band / Clone Hero) — prioridad
+├── notes.chart        ← chart .chart (Feedback format, Clone Hero) — fallback si no hay .mid
 ├── song.ogg           ← mezcla completa
 ├── preview.ogg        ← preview corto (opcional, 30s — fallback a song.ogg si no existe)
 ├── drums.ogg          ← solo batería (opcional)
@@ -529,7 +895,8 @@ Songs/<artist> - <song>/
 ├── rhythm.ogg         ← guitarra rítmica (opcional)
 ├── keys.ogg           ← solo teclado (opcional)
 ├── vocals.ogg         ← solo voces (opcional)
-├── album.jpg          ← carátula
+├── album.jpg          ← carátula (prioritario)
+├── album.png          ← carátula (fallback si no hay album.jpg)
 └── background.jpg     ← fondo de pantalla
 ```
 
@@ -564,9 +931,13 @@ El formato sigue el estándar **Rock Band MIDI**: cada dificultad ocupa una octa
 
 Notas fuera de estos rangos (GM raw 36–51, special 110+) se ignoran. El `_resolve_difficulty()` itera `DIFFICULTY_OFFSETS = [60, 72, 84, 96, 120]` y la primera coincidencia en rango 0–11 determina la dificultad y el lane.
 
-### Detección de fuente del chart (PART DRUMS / PART GUITAR)
+### Detección de fuente del chart (.mid / .chart)
 
-El parser (`MidiParser.gd`) busca pistas MIDI cuyo nombre comience con `"PART DRUMS"`. Si no se encuentran notas de batería y la opción `use_guitar_fallback` está activada, el parser re-intenta con pistas `"PART GUITAR"`.
+`SongLoader` detecta automáticamente el formato: busca `notes.mid` primero; si no existe, busca `notes.chart`. `ChartParser.load_chart()` delega en el parser según la extensión del archivo.
+
+#### MIDI (`MidiParser.gd`)
+
+Busca pistas MIDI cuyo nombre comience con `"PART DRUMS"`. Si no se encuentran notas de batería y la opción `use_guitar_fallback` está activada, el parser re-intenta con pistas `"PART GUITAR"`.
 
 **Flujo de detección:**
 
@@ -593,25 +964,31 @@ MidiParser.load(path, ..., use_guitar_fallback)
 | `has_drum_track` | `bool` | `true` si se encontró una pista "PART DRUMS" |
 | `using_guitar_fallback` | `bool` | `true` si se usó PART GUITAR como fallback |
 
+#### .chart (`DotChartParser.gd`)
+
+El parser identifica secciones `[EasyDrums]`, `[MediumDrums]`, `[HardDrums]`, `[ExpertDrums]`, `[ExpertPlusDrums]`. Cada sección contiene las notas de esa dificultad en formato `tick = N lane length`. El mapeo de lanes usa `ChartData.CHART_LANE_MAP`: lanes 0–4 para batería básica (Kick, Snare, HH, Ride, Crash) y lanes 5–7 para toms (Pro Drums). Soporta guitarra como fallback buscando secciones `[EasySingle]`–`[ExpertSingle]`.
+
+**Diferencia clave con MIDI:** En `.chart` el número de lane codifica directamente si es tom o platillo (no se necesitan tom markers). Lanes 2–4 son siempre platillos; lanes 5–7 son siempre toms.
+
 **Detección de dificultades:**
 
-`MidiParser.detect_difficulties()` retorna un diccionario con:
+Ambos parsers exponen `detect_difficulties()` que retorna un diccionario con:
 
 ```gdscript
 {
     "difficulties": [...],          # Array de dificultades disponibles
-    "has_drum_chart": bool,         # Si existía PART DRUMS
-    "guitar_fallback_used": bool    # Si se usó PART GUITAR
+    "has_drum_chart": bool,         # Si existía PART DRUMS / sección Drums
+    "guitar_fallback_used": bool    # Si se usó PART GUITAR / [Single] como fallback
 }
 ```
 
 `SongLoader` almacena estos campos en cada entrada de la lista de canciones, y `MenuRoot` los muestra en la etiqueta de estado:
 
-- **Sin PART DRUMS y sin fallback** → muestra "no drum chart"
-- **Sin PART DRUMS pero con fallback activo** → muestra "using guitar chart"
-- **Con PART DRUMS** → sin mensaje adicional
+- **Sin pista de batería y sin fallback** → muestra "no drum chart"
+- **Sin pista de batería pero con fallback activo** → muestra "using guitar chart"
+- **Con pista de batería** → sin mensaje adicional
 
-**Nota:** Si un MIDI tiene ambas pistas (PART DRUMS y PART GUITAR), se prioriza PART DRUMS siempre. El fallback solo se activa cuando PART DRUMS no produce notas.
+**Nota (MIDI):** Si un MIDI tiene ambas pistas (PART DRUMS y PART GUITAR), se prioriza PART DRUMS siempre. El fallback solo se activa cuando PART DRUMS no produce notas.
 
 ---
 
@@ -639,6 +1016,15 @@ MidiParser.load(path, ..., use_guitar_fallback)
 ---
 
 ## Configuración
+
+## Mejores puntuaciones
+
+`HighScoreStore` guarda el mejor score por pareja canción+dificultad en `user://scores.cfg` (un `ConfigFile` propio, a propósito: `SettingsManager.save_settings()` regenera su fichero con solo sus claves y borraría secciones ajenas).
+
+- **Clave**: `md5(song.path) + "|" + difficulty_offset`. `song.path` es la identidad de la canción (`res://Songs/...` o ruta absoluta); el hash evita caracteres que romperían el formato INI de `ConfigFile`. La dificultad usa el código de chart (60/72/84/96/120), el mismo que expone `song.difficulties` y que `GameManager.current_difficulty_offset` recibe en la partida real.
+- **Cuándo se guarda**: `GameplayRoot._show_result()`, justo después de `Highway.flush_unjudged_notes()` (el score ya es definitivo) y antes de `set_state(RESULT)`. Solo toca disco si supera el récord anterior.
+- **Cuándo se muestra**: `MenuRoot._create_song_row()` pinta en la etiqueta de score de cada fila `ScoreData.format_score(get_best_for_song(path, difficulties))`; sin récord mantiene el placeholder `--,---pts`. `get_best_for_song` devuelve el máximo entre las dificultades del chart.
+- El store es un autoload que carga el fichero en `_ready()`; al volver del gameplay `Main.tscn` se re-instancia y las filas ya muestran el récord recién logrado.
 
 `SettingsManager` persiste en `user://settings.cfg` usando `ConfigFile`. Valores por defecto:
 
@@ -674,11 +1060,12 @@ MidiParser.load(path, ..., use_guitar_fallback)
 | `use_guitar_fallback` | false | Usar PART GUITAR como fallback si falta PART DRUMS |
 | `note_speed` | 1.0 | Velocidad de scroll de notas |
 | `show_judgment_areas` | false | Dibujar zonas de juicio en el hit line |
+| `show_menu_status` | false | Mostrar la línea de status del menú principal (chart/audio de la canción seleccionada, canciones encontradas) |
 | `gameplay_padding_enabled` | false | Condensar gameplay con padding para evitar toques en bordes |
-| `gameplay_padding_left` | 40.0 | Padding izquierdo en px (0-200) |
-| `gameplay_padding_right` | 40.0 | Padding derecho en px (0-200) |
-| `gameplay_padding_top` | 40.0 | Padding superior en px (0-200) |
-| `gameplay_padding_bottom` | 40.0 | Padding inferior en px (0-200) |
+| `gameplay_padding_left` | 75.0 | Padding izquierdo en dp (0-100, solo Android) |
+| `gameplay_padding_right` | 75.0 | Padding derecho en dp (0-100, solo Android) |
+| `gameplay_padding_top` | 0.0 | Padding superior en dp (0-100, solo Android) |
+| `gameplay_padding_bottom` | 0.0 | Padding inferior en dp (0-100, solo Android) |
 
 ### Layout del menú de Settings
 
@@ -686,14 +1073,14 @@ El menú de configuración (`SettingsRoot.gd`) usa un layout con **tabs** para o
 
 - **CONTROLS** — Modo de control (Default/Haptic/Custom), orden de lanes, ajustes hápticos, layout (mirrored/left handed). Incluye botón "Reset CONTROLS to Defaults".
 - **HUD** — Opciones visuales (FPS, screen shake, hit feedback), gameplay (note speed, countdown), ventanas de juicio (read-only). Incluye botón "Reset HUD to Defaults".
-- **Experimental** — Fallback de chart (PART GUITAR), áreas de juicio (debug), overlay háptico (Show Haptic Debug), gameplay padding. Incluye botón "Reset EXPERIMENTAL to Defaults".
+- **Experimental** — Fallback de chart (PART GUITAR), áreas de juicio (debug), overlay háptico (Show Haptic Debug), status del menú principal (Show Menu Status), gameplay padding. Incluye botón "Reset EXPERIMENTAL to Defaults".
 
 Cada botón "Reset [SECTION] to Defaults" restaura todos los valores de esa sección a sus valores por defecto y reconstruye la UI del tab activo.
 
 **Métodos de reseteo en `SettingsManager.gd`:**
 - `reset_controls_to_defaults()` — restablece `game_mode`, `custom_lanes`, `haptic_*`, `mirrored`, `left_handed` y sincroniza `GameManager.mode`.
 - `reset_hud_to_defaults()` — restablece `show_fps`, `screen_shake`, `show_hit_feedback`, `note_speed`, `countdown_threshold`.
-- `reset_experimental_to_defaults()` — restablece `use_guitar_fallback`, `show_judgment_areas`, `haptic_show_debug`, `gameplay_padding_*`.
+- `reset_experimental_to_defaults()` — restablece `use_guitar_fallback`, `show_judgment_areas`, `show_menu_status`, `haptic_show_debug`, `gameplay_padding_*`.
 
 **Nota técnica:** En Android, los `Control` nodes hijos de un `CanvasLayer` que no están dentro de un `ScrollContainer` no se renderizan correctamente. Para solucionarlo, el header y tab bar usan un `ScrollContainer` fijo (sin scroll) mientras el contenido usa un `ScrollContainer` scrolleable.
 

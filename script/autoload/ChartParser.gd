@@ -2,32 +2,55 @@ extends Node
 
 var note_data: Array = []
 var _difficulty_offset: int = -1
+var _expected_duration: float = 0.0
 
 var _tempo_map: Array = []
 var _time_signature_map: Array = []
 var _resolution: int = 480
 
 
-func load_chart(path: String, root_path: String = "", difficulty_offset: int = -1) -> bool:
+func load_chart(path: String, root_path: String = "", difficulty_offset: int = -1, expected_duration: float = 0.0) -> bool:
 	note_data.clear()
 	_tempo_map.clear()
 	_time_signature_map.clear()
 	_difficulty_offset = difficulty_offset
-	var MidiParserClass = preload("res://script/chart/MidiParser.gd")
-	var midi = MidiParserClass.new()
-	var success: bool = midi.load(path, root_path, difficulty_offset, SettingsManager.use_guitar_fallback)
+	_expected_duration = maxf(0.0, expected_duration)
+	var ext: String = path.get_extension().to_lower()
+	var parser
+	if ext == "mid":
+		var MidiParserClass = preload("res://script/chart/MidiParser.gd")
+		parser = MidiParserClass.new()
+	elif ext == "chart":
+		var DotChartParserClass = preload("res://script/chart/DotChartParser.gd")
+		parser = DotChartParserClass.new()
+	else:
+		push_error("ChartParser: Unsupported format: ", ext)
+		return false
+	var success: bool = parser.load(path, root_path, difficulty_offset, SettingsManager.use_guitar_fallback, _expected_duration)
 	if not success:
 		return false
-	_resolution = midi.get_ticks_per_beat()
-	_tempo_map = midi.get_tempo_events()
-	_time_signature_map = midi.get_time_signature_events()
+	_resolution = parser.get_ticks_per_beat()
+	_tempo_map = parser.get_tempo_events()
+	_time_signature_map = parser.get_time_signature_events()
 	if difficulty_offset >= 0:
-		note_data = midi.get_drum_notes_for_offset(difficulty_offset)
+		note_data = parser.get_drum_notes_for_offset(difficulty_offset)
 	else:
-		note_data = midi.get_drum_notes()
+		note_data = parser.get_drum_notes()
 	if note_data.is_empty():
 		push_warning("ChartParser: No drum notes found in ", path)
 	return true
+
+
+# Descarta el chart cargado. El free mode entra a proposito con la pista vacia:
+# sin esto, Highway._process() seguiría lanzando las notas de la ultima cancion
+# jugada y las contaria como falladas al instante.
+func clear() -> void:
+	note_data.clear()
+	_tempo_map.clear()
+	_time_signature_map.clear()
+	_resolution = 480
+	_expected_duration = 0.0
+	_difficulty_offset = -1
 
 
 func get_notes_in_range(start_time: float, end_time: float) -> Array:
@@ -87,10 +110,19 @@ func get_resolution() -> int:
 	return _resolution
 
 
-func get_duration_seconds() -> float:
+# Ultimo instante covered por el chart: el tick de la ultima nota. Sirve para
+# diagnostico; el final real de la cancion lo incluye el audio.
+func get_chart_end_seconds() -> float:
 	if note_data.is_empty():
 		return 0.0
 	return note_data[-1].time
+
+
+# Duracion total de la cancion. La ultima nota del chart suele caer antes del
+# final del audio (intro/outro), asi que se toma el maximo de ambos: usar solo el
+# tick de la ultima nota vaciaba la barra de tiempo antes de tiempo.
+func get_duration_seconds() -> float:
+	return maxf(get_chart_end_seconds(), _expected_duration)
 
 
 func get_tempo_events() -> Array:

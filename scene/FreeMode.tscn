@@ -1,0 +1,15 @@
+[gd_scene load_steps=4 format=3]
+
+[ext_resource type="Script" path="res://script/gameplay/FreeModeRoot.gd" id="1_fmroot"]
+[ext_resource type="PackedScene" uid="uid://d2ycbv0bsfm54" path="res://scene/UI/Highway.tscn" id="2_highway"]
+[ext_resource type="Script" path="res://script/input/TouchInput.gd" id="3_touch"]
+
+[node name="FreeMode" type="Node2D"]
+script = ExtResource("1_fmroot")
+
+[node name="Highway" parent="." instance=ExtResource("2_highway")]
+
+[node name="HUD" type="CanvasLayer" parent="."]
+
+[node name="TouchInput" type="Node" parent="."]
+script = ExtResource("3_touch")

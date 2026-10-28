@@ -15,6 +15,8 @@ Community songs are generally distributed in one of two formats:
 - `.chart` (Clone Hero native format)
 - `.mid` (Rock Band / C3 / YARG standard)
 
+**Drum Hero soporta ambos formatos.** `SongLoader` detecta automáticamente el archivo disponible: busca `notes.mid` primero; si no existe, busca `notes.chart`. Ambos producen la misma representación interna de notas (`NoteEvent`). Ver `DotChartParser.gd` para el parser de `.chart` y `MidiParser.gd` para MIDI.
+
 Both formats store a separate note chart for each difficulty.
 
 ---

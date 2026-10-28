@@ -41,6 +41,9 @@
 +-----------------------------------------------------------------------------+
 |                      STATUS: chart OK - missing audio                       |
 +-----------------------------------------------------------------------------+
+| (fila de status oculta por defecto; se activa con "Show Menu Status" en     |
+|  Ajustes > Experimental)                                                    |
++-----------------------------------------------------------------------------+
 | Easy            Medium            Hard            Expert            Expert+ |
 +-----------------------------------------------------------------------------+
 
@@ -98,8 +101,31 @@
 +-----------------------------------------------------------------------------+
 | EXPERIMENTAL TAB                                                            |
 +-----------------------------------------------------------------------------+
+| FREE MODE                                                                   |
+| [ Open Free Mode ]                                                          |
+| Drum testing without a song: empty highway, tap any pad to hear it.        |
+|                                                                             |
 | Use PART GUITAR as fallback                                                 |
 | For songs without PART DRUMS, use PART GUITAR notes as a drum chart         |
++-----------------------------------------------------------------------------+
+
+## ASCII FREE MODE REFERENCE
+
++-----------------------------------------------------------------------------+
+|                                 FREE MODE                   [ BACK TO MENU ] |
+|                                                                             |
+|      Tap a pad or press 1-8  -  no song, no score                           |
+|                                                                             |
+|                                    SNARE                                    |
+|                                  3 hits                                     |
+|                                                                             |
+|  |  HH  | CRASH | SNARE |  KICK  | TOM 1 | TOM 2 | TOM 3 |  RIDE  |           |
+|  +------+-------+-------+--------+-------+-------+-------+--------+           |
+|  ========================================================================   |
++-----------------------------------------------------------------------------+
+| Tap any pad (or press 1-8) to play its sample. The pad name and a hit       |
+| counter appear in the middle; the kick also fires from the motion sensor     |
+| when haptic kick is enabled. No notes, no score, no results.                |
 +-----------------------------------------------------------------------------+
 
 ## PROJECT DESCRIPTION
@@ -126,6 +152,6 @@ compatible with community-created songs for Clone Hero and YARG:
 ├── rhythm.opus
 ├── keys.opus
 ├── notes.mid
-├── song.ini
+├── song.ini          ← opcional; sin él se usan el nombre de carpeta y la cabecera [Song] del chart
 ├── song.opus
 └── vocals.opus

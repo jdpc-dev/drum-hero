@@ -18,8 +18,8 @@ func _supports_platform(platform: EditorExportPlatform) -> bool:
 
 func _get_android_libraries(platform: EditorExportPlatform, debug: bool) -> PackedStringArray:
 	if debug:
-		return PackedStringArray(["GestureExclusion/bin/debug/GestureExclusion.aar"])
-	return PackedStringArray(["GestureExclusion/bin/release/GestureExclusion.aar"])
+		return PackedStringArray(["res://addons/GestureExclusion/bin/debug/GestureExclusion.aar"])
+	return PackedStringArray(["res://addons/GestureExclusion/bin/release/GestureExclusion.aar"])
 
 
 func _get_android_dependencies(platform: EditorExportPlatform, debug: bool) -> PackedStringArray:

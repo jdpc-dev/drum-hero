@@ -13,7 +13,7 @@ var _hit_line_textures: Dictionary = {}
 
 
 func _ready() -> void:
-    _generate_all()
+    call_deferred("_generate_all")
 
 
 func _generate_all() -> void:
@@ -23,10 +23,14 @@ func _generate_all() -> void:
 
 
 func get_note_texture(lane_index: int) -> Texture2D:
+    if _note_textures.is_empty():
+        _generate_all()
     return _note_textures.get(lane_index, _note_textures[0])
 
 
 func get_hit_line_texture(lane_index: int) -> Texture2D:
+    if _hit_line_textures.is_empty():
+        _generate_all()
     return _hit_line_textures.get(lane_index, _hit_line_textures[0])
 
 

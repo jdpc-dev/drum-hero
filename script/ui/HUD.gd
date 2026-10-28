@@ -11,9 +11,26 @@ func _ready() -> void:
 	ScoreManager.score_changed.connect(_on_score_changed)
 	ScoreManager.combo_changed.connect(_on_combo_changed)
 	ScoreManager.multiplier_changed.connect(_on_multiplier_changed)
+	_apply_label_colors()
 	if SettingsManager.show_fps:
 		_ensure_fps_label()
 	_apply_padding()
+
+
+# ScoreLabel y MultiplierLabel traen label_settings, y en Godot ese recurso gana
+# sobre theme_override_colors: si el color se deja en la escena, el override se
+# ignora en silencio. Por eso el color va en un LabelSettings duplicado.
+func _apply_label_colors() -> void:
+	_tint_label(score_label, Palette.TEXT)
+	_tint_label(multiplier_label, Palette.CHROME)
+
+
+func _tint_label(label: Label, color: Color) -> void:
+	if label == null or label.label_settings == null:
+		return
+	var settings: LabelSettings = label.label_settings.duplicate()
+	settings.font_color = color
+	label.label_settings = settings
 
 
 func _process(_delta: float) -> void:
@@ -34,17 +51,18 @@ func _ensure_fps_label() -> void:
 	_fps_label.name = "FPSLabel"
 	_fps_label.position = Vector2(10, 20)
 	_fps_label.add_theme_font_size_override("font_size", 14)
-	_fps_label.add_theme_color_override("font_color", Color(0, 1, 0, 0.7))
+	_fps_label.add_theme_color_override("font_color", Palette.ASH_DIM)
 	add_child(_fps_label)
 
 
 func _apply_padding() -> void:
 	if not SettingsManager.gameplay_padding_enabled:
 		return
-	var pl: float = SettingsManager.gameplay_padding_left
-	var pr: float = SettingsManager.gameplay_padding_right
-	var pt: float = SettingsManager.gameplay_padding_top
+	var pl: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left)
+	var pr: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_right)
+	var pt: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_top)
 	if score_label:
+		score_label.offset_left += pl
 		score_label.offset_right -= pr
 		score_label.offset_top += pt
 	if multiplier_label:
@@ -52,11 +70,6 @@ func _apply_padding() -> void:
 		multiplier_label.offset_top += pt
 	if combo_label:
 		combo_label.offset_top += pt
-	if has_node("SongTimeline"):
-		var timeline: Control = get_node("SongTimeline") as Control
-		timeline.offset_left += pl
-		timeline.offset_right -= pr
-		timeline.offset_top += pt
 	if _fps_label:
 		_fps_label.position = Vector2(10 + pl, 20 + pt)
 

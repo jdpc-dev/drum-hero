@@ -42,11 +42,15 @@ class TempoEvent:
     var tick: int
     var bpm: float
     var micros_per_tick: float
+    # Valor crudo del evento de tempo tal cual aparece en el archivo. En .chart
+    # la unidad no es estandar y se resuelve despues (ver DotChartParser).
+    var raw_value: float
 
-    func _init(t: int, b: float, mpt: float):
+    func _init(t: int, b: float, mpt: float, raw: float = 0.0):
         tick = t
         bpm = b
         micros_per_tick = mpt
+        raw_value = raw
 
 class TimeSignatureEvent:
     var tick: int
@@ -76,4 +80,26 @@ const TOM_LANE_MAP: Dictionary = {
 	2: 4,   # Yellow + tom marker -> TOM 1 lane
 	3: 5,   # Blue + tom marker -> TOM 2 lane
 	4: 6,   # Green + tom marker -> TOM 3 lane
+}
+
+const CHART_LANE_MAP: Dictionary = {
+	0: 3,   # Kick -> KICK lane
+	1: 2,   # Red (Snare) -> SNARE lane
+	2: 0,   # Yellow -> HH lane (cymbal)
+	3: 7,   # Blue -> RIDE lane (cymbal)
+	4: 1,   # Green -> CRASH lane (cymbal)
+	5: 4,   # Yellow Tom -> TOM 1 lane
+	6: 5,   # Blue Tom -> TOM 2 lane
+	7: 6,   # Green Tom -> TOM 3 lane
+	66: 4,  # Tom alto -> TOM 1 lane
+	67: 5,  # Tom medio -> TOM 2 lane
+	68: 6,  # Tom bajo -> TOM 3 lane
+}
+
+const CHART_DIFFICULTY_SECTIONS: Dictionary = {
+	"EasyDrums": 60,
+	"MediumDrums": 72,
+	"HardDrums": 84,
+	"ExpertDrums": 96,
+	"ExpertPlusDrums": 120,
 }

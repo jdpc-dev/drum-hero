@@ -6,6 +6,7 @@ var hit_line_y: float = 0.0
 
 var _pending_queue: Array = []
 var _active_notes: Array = []
+var _note_pool: Array[Note] = []
 
 var highway_ref: Node
 
@@ -19,8 +20,11 @@ var _lane_color: Color
 var _is_slashing: bool = false
 var _slash_timer: float = 0.0
 var _slash_duration: float = 0.12
-var _slash_left: ColorRect
-var _slash_right: ColorRect
+var _slash_alpha: float = 0.0
+var _slash_lw: float = 0.0
+var _slash_center_x: float = 0.0
+var _slash_top_y: float = 0.0
+var _slash_bg_h: float = 0.0
 
 
 func _ready() -> void:
@@ -41,20 +45,6 @@ func _ready() -> void:
 	_bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg_rect)
 
-	_slash_left = ColorRect.new()
-	_slash_left.color = _lane_color
-	_slash_left.color.a = 0.0
-	_slash_left.z_index = 2
-	_slash_left.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_slash_left)
-
-	_slash_right = ColorRect.new()
-	_slash_right.color = _lane_color
-	_slash_right.color.a = 0.0
-	_slash_right.z_index = 2
-	_slash_right.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(_slash_right)
-
 
 func queue_note(event: ChartData.NoteEvent) -> void:
 	_pending_queue.append(event)
@@ -67,15 +57,14 @@ func update_notes(delta: float, current_time: float) -> void:
 
 
 func _spawn_pending(current_time: float) -> void:
-	var spawn_time: float = current_time + 2.0
+	var spawn_time: float = current_time + highway_ref.get_travel_time()
 	var i: int = 0
 	while i < _pending_queue.size():
 		var event: ChartData.NoteEvent = _pending_queue[i]
 		if event.time <= spawn_time:
-			var note := note_scene.instantiate() as Note
-			note.note_data = event
+			var note: Note = _get_note()
 			note.lane_ref = self
-			add_child(note)
+			note.reset(event)
 			_active_notes.append(note)
 			_pending_queue.remove_at(i)
 		else:
@@ -107,7 +96,7 @@ func _remove_note(index: int) -> void:
 	if index < _active_notes.size():
 		var note: Note = _active_notes[index]
 		_active_notes.remove_at(index)
-		note.queue_free()
+		_return_note(note)
 
 
 func try_hit(current_time: float, touch_position: Vector2) -> bool:
@@ -138,7 +127,7 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 				ScoreManager.register_hit(nearest_diff)
 				GameManager.hit_registered.emit(accuracy)
 				_active_notes.erase(nearest)
-				nearest.queue_free()
+				_return_note(nearest)
 				highway_ref.flash_hit_line(lane_index)
 				_highlight()
 				EffectManager.call_deferred("trigger_particle_burst",
@@ -163,45 +152,77 @@ func _highlight() -> void:
 	_slash_timer = _slash_duration
 
 
+func _draw() -> void:
+	if not _is_slashing or _slash_alpha <= 0.0:
+		return
+	var half_w: float = (1.0 - _slash_timer / _slash_duration) * _slash_lw * 0.5
+	var left_rect := Rect2(_slash_center_x - half_w, _slash_top_y, half_w, _slash_bg_h)
+	var right_rect := Rect2(_slash_center_x, _slash_top_y, half_w, _slash_bg_h)
+	draw_rect(left_rect, Color(_lane_color.r, _lane_color.g, _lane_color.b, _slash_alpha))
+	draw_rect(right_rect, Color(_lane_color.r, _lane_color.g, _lane_color.b, _slash_alpha))
+
+
 func _update_highlight(delta: float) -> void:
 	if not _is_slashing:
 		return
 	_slash_timer -= delta
 	if _slash_timer <= 0.0:
 		_is_slashing = false
-		_slash_left.color.a = 0.0
-		_slash_right.color.a = 0.0
+		_slash_alpha = 0.0
+		queue_redraw()
 		return
 
 	var total: int = highway_ref.active_lane_count
-	var lw: float = highway_ref.screen_w / float(total)
-	var bg_h: float = highway_ref.highway_bottom_y - highway_ref.highway_top_y
+	_slash_lw = highway_ref.screen_w / float(total)
+	_slash_bg_h = highway_ref.highway_bottom_y - highway_ref.highway_top_y
 	var vi: int = highway_ref.get_lane_visual_index(lane_index)
-	var center_x: float = lw * vi + lw * 0.5
-	var top_y: float = highway_ref.highway_top_y
+	_slash_center_x = _slash_lw * vi + _slash_lw * 0.5
+	_slash_top_y = highway_ref.highway_top_y
 
 	var t: float = _slash_timer / _slash_duration
 	var progress: float = 1.0 - t
-	var half_w: float = progress * lw * 0.5
 
-	var alpha: float
 	if progress < 0.15:
-		alpha = progress / 0.15
+		_slash_alpha = progress / 0.15
 	else:
-		alpha = 1.0 - (progress - 0.15) / 0.85
-	alpha = clampf(alpha, 0.0, 1.0) * 0.85
+		_slash_alpha = 1.0 - (progress - 0.15) / 0.85
+	_slash_alpha = clampf(_slash_alpha, 0.0, 1.0) * 0.85
 
-	_slash_left.color.a = alpha
-	_slash_left.position = Vector2(center_x - half_w, top_y)
-	_slash_left.size = Vector2(half_w, bg_h)
+	queue_redraw()
 
-	_slash_right.color.a = alpha
-	_slash_right.position = Vector2(center_x, top_y)
-	_slash_right.size = Vector2(half_w, bg_h)
+
+func _get_note() -> Note:
+	for note in _note_pool:
+		if not note.visible:
+			return note
+	var note := note_scene.instantiate() as Note
+	add_child(note)
+	_note_pool.append(note)
+	return note
+
+
+func _return_note(note: Note) -> void:
+	note.visible = false
+	note._rect.visible = false
 
 
 func clear() -> void:
 	for note in _active_notes:
-		note.queue_free()
+		_return_note(note)
 	_active_notes.clear()
 	_pending_queue.clear()
+
+
+# Registra como fallidas las notas que siguen en pantalla y limpia la pista. Se
+# llama al terminar la cancion: sin audio, chart_duration coincide con la ultima
+# nota, asi que esas notas nunca llegan a pasar por la ventana de miss y el
+# recuento final quedaria corto. No muestra popup de juicio: no hubo golpe que
+# juzgar.
+func flush_as_miss() -> int:
+	var flushed: int = _active_notes.size()
+	for note in _active_notes:
+		note._on_miss()
+		ScoreManager.register_miss()
+		GameManager.miss_registered.emit()
+	clear()
+	return flushed

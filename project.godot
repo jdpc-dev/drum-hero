@@ -12,7 +12,7 @@ config_version=5
 
 config/name="Drum Hero"
 config/description="A mobile rhythm game focused exclusively on the drum instrument."
-config/version="6.0.0"
+config/version="7.0.0"
 run/main_scene="res://scene/Main.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7")
@@ -37,6 +37,7 @@ EffectManager="*res://script/autoload/EffectManager.gd"
 DrumGraphics="*res://script/autoload/DrumGraphics.gd"
 DrumSfxManager="*res://script/autoload/DrumSfxManager.gd"
 AndroidBridge="*res://script/autoload/AndroidBridge.gd"
+HighScoreStore="*res://script/autoload/HighScoreStore.gd"
 
 [display]
 
@@ -45,13 +46,17 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/AllFilesAccess/plugin.cfg", "res://addons/GestureExclusion/plugin.cfg", "res://addons/debugger/plugin.cfg")
+
 [input_devices]
 
 sensors/enable_accelerometer=true
 
 [physics]
 
-common/physics_max_ticks_per_second=120
+common/physics_max_ticks_per_second=60
 
 [rendering]
 

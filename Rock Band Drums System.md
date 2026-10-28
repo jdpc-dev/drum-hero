@@ -63,7 +63,9 @@ Hi-Hat (cymbal, default)
 
 The same logic applies to Blue and Green.
 
-**Important:** In MIDI, notes are cymbals by default. Tom markers transform notes into toms. This is the opposite of the .chart format, where notes are toms by default and cymbal markers transform them into cymbals.
+**Important:** In MIDI, notes are cymbals by default. Tom markers transform notes into toms. Drum Hero's `.chart` importer (`DotChartParser.gd`) uses a different convention: **the lane number itself encodes tom vs cymbal**. Lanes 2–4 (Yellow, Blue, Green) are always cymbals; lanes 5–7 are always toms. No modifier markers needed.
+
+*(Note: Some engines interpret `.chart` format as "notes are toms by default, cymbal markers transform them into cymbals". Drum Hero does not follow that convention — separate lane values are used instead, matching the Feedback/Clone Hero Pro Drums spec.)*
 
 ---
 

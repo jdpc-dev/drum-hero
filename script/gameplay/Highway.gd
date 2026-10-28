@@ -7,6 +7,13 @@ var _kick_lane: Lane
 @export var lane_scene: PackedScene
 @export var hit_line_scene: PackedScene
 
+# Segundos que tarda una nota en recorrer la pista con note_speed = 1.0. Es la
+# unica constante de tiempo de viaje del juego: spawn, posicion, lineas de
+# compas y pixeles por segundo se derivan de get_travel_time().
+const BASE_TRAVEL_TIME: float = 2.0
+
+# note_speed multiplica la velocidad del scroll: 2.0 -> las notas llegan al
+# doble de rapidez y solo necesitan la mitad de tiempo de viaje.
 var note_speed: float = 1.0
 var active_lane_count: int = 8
 
@@ -38,7 +45,24 @@ var _bg_sprite: Sprite2D
 signal lanes_built()
 
 
+# Tiempo de viaje de una nota de la parte superior de la pista a la linea de
+# golpeo, en segundos.
+func get_travel_time() -> float:
+	return BASE_TRAVEL_TIME / clampf(note_speed, 0.1, 10.0)
+
+
+# Velocidad real del scroll en pixeles por segundo.
+func get_pixels_per_second() -> float:
+	var height: float = highway_bottom_y - highway_top_y
+	if height <= 0.0:
+		return 0.0
+	return height / get_travel_time()
+
+
 func _ready() -> void:
+	# Antes de construir las pistas: HitLine y las ventanas de juicio cachean
+	# los pixeles por segundo derivados de note_speed.
+	note_speed = SettingsManager.note_speed
 	_refresh_screen_size()
 	_label_settings = preload("res://asset/fonts/label_settings.tres")
 	_add_background()
@@ -52,10 +76,10 @@ func generate_beat_lines() -> void:
 func _refresh_screen_size() -> void:
 	var vs: Vector2 = get_viewport_rect().size
 	if SettingsManager.gameplay_padding_enabled:
-		pad_left = SettingsManager.gameplay_padding_left
-		pad_right = SettingsManager.gameplay_padding_right
-		pad_top = SettingsManager.gameplay_padding_top
-		pad_bottom = SettingsManager.gameplay_padding_bottom
+		pad_left = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left)
+		pad_right = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_right)
+		pad_top = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_top)
+		pad_bottom = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_bottom)
 	else:
 		pad_left = 0.0
 		pad_right = 0.0
@@ -161,18 +185,20 @@ func _generate_beat_timestamps() -> void:
 		current_mpt = tempos[0].micros_per_tick
 
 	while current_time < duration:
+		# El compase se actualiza antes de calcular la duracion del pulso: si no,
+		# el cambio 3/4 -> 4/4 se aplicaria un pulso tarde.
+		while ts_idx + 1 < time_sigs.size() and time_sigs[ts_idx + 1].tick <= current_tick:
+			ts_idx += 1
+			beats_per_bar = time_sigs[ts_idx].numerator
+			current_denominator = maxi(1, time_sigs[ts_idx].denominator)
+
 		var beat_duration: float = 4.0 / float(current_denominator)
 		var beat_ticks: int = int(resolution * beat_duration)
 		var seconds_per_beat: float = float(beat_ticks) * current_mpt / 1000000.0
 
-		if ts_idx + 1 < time_sigs.size() and time_sigs[ts_idx + 1].tick <= current_tick:
-			ts_idx += 1
-			beats_per_bar = time_sigs[ts_idx].numerator
-			current_denominator = time_sigs[ts_idx].denominator
-
 		var bar_beat: int = 0
 		while bar_beat < beats_per_bar:
-			if tempo_idx + 1 < tempos.size() and tempos[tempo_idx + 1].tick <= current_tick:
+			while tempo_idx + 1 < tempos.size() and tempos[tempo_idx + 1].tick <= current_tick:
 				tempo_idx += 1
 				current_bpm = tempos[tempo_idx].bpm
 				current_mpt = tempos[tempo_idx].micros_per_tick
@@ -248,7 +274,7 @@ func _process(delta: float) -> void:
 		return
 	var time: float = TimingEngine.get_time()
 	var all_notes: Array = ChartParser.note_data
-	var spawn_window: float = time + 2.0
+	var spawn_window: float = time + get_travel_time()
 
 	while _next_note_index < all_notes.size():
 		var note_data = all_notes[_next_note_index]
@@ -271,45 +297,46 @@ func _process(delta: float) -> void:
 
 
 func _update_beat_lines(current_time: float) -> void:
-	for bl in _beat_line_pool:
-		bl.hide()
-
-	var scroll_distance: float = (highway_bottom_y - highway_top_y) * note_speed
-	var bottom_cutoff: float = 2.0 * (hit_line_y - highway_bottom_y) / scroll_distance if scroll_distance > 0 else 0.0
+	var pixels_per_second: float = get_pixels_per_second()
+	var bottom_cutoff: float = (hit_line_y - highway_bottom_y) / pixels_per_second if pixels_per_second > 0.0 else 0.0
 	var visible_range_start: float = current_time + bottom_cutoff
-	var visible_range_end: float = current_time + 2.0
+	var visible_range_end: float = current_time + get_travel_time()
 
 	var i: int = _beat_line_cursor
 	while i < _beat_timestamps.size() and _beat_timestamps[i].time < visible_range_start:
 		i += 1
 	_beat_line_cursor = i
 
+	var needed: int = 0
+	var first_idx: int = i
 	while i < _beat_timestamps.size():
 		var bt = _beat_timestamps[i]
 		if bt.time > visible_range_end:
 			break
-
-		var line: ColorRect = _get_beat_line()
-		var time_ahead: float = bt.time - current_time
-		var y: float = hit_line_y - (time_ahead * scroll_distance) / 2.0
-		line.position = Vector2(0, y)
-		line.size = Vector2(screen_w, 2.0 if bt.is_measure else 1.0)
-		line.color = Color(1, 1, 1, 0.4 if bt.is_measure else 0.12)
-		line.show()
+		needed += 1
 		i += 1
 
+	while _beat_line_pool.size() < needed:
+		var new_line := ColorRect.new()
+		new_line.color = Palette.BONE
+		new_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		new_line.z_index = -1
+		add_child(new_line)
+		_beat_line_pool.append(new_line)
 
-func _get_beat_line() -> ColorRect:
-	for cl in _beat_line_pool:
-		if not cl.visible:
-			return cl
-	var new_line := ColorRect.new()
-	new_line.color = Color.WHITE
-	new_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	new_line.z_index = -1
-	add_child(new_line)
-	_beat_line_pool.append(new_line)
-	return new_line
+	var show_count: int = mini(needed, _beat_line_pool.size())
+	for j in range(show_count):
+		var bt = _beat_timestamps[first_idx + j]
+		var line: ColorRect = _beat_line_pool[j]
+		var time_ahead: float = bt.time - current_time
+		var y: float = hit_line_y - time_ahead * pixels_per_second
+		line.position = Vector2(0, y)
+		line.size = Vector2(screen_w, 2.0 if bt.is_measure else 1.0)
+		line.color = Palette.BEAT_MEASURE if bt.is_measure else Palette.BEAT_BEAT
+		line.show()
+
+	for j in range(show_count, _beat_line_pool.size()):
+		_beat_line_pool[j].hide()
 
 
 func restart() -> void:
@@ -321,6 +348,19 @@ func restart() -> void:
 		_kick_lane.clear()
 	for bl in _beat_line_pool:
 		bl.hide()
+
+
+# Al terminar la cancion, las notas todavia en pantalla se cuentan como falladas
+# para que hits + misses cuadre con el total del chart. Devuelve cuantas se
+# registraron. No es lo mismo que restart(): ahi las notas se descartan sin
+# puntuar.
+func flush_unjudged_notes() -> int:
+	var flushed: int = 0
+	for lane in lane_nodes:
+		flushed += lane.flush_as_miss()
+	if _kick_lane:
+		flushed += _kick_lane.flush_as_miss()
+	return flushed
 
 
 func get_lane_screen_rect(lane_index: int) -> Rect2:
@@ -354,8 +394,7 @@ func note_position(tick: int, lane_index: int, note_time: float, current_time: f
 	var x: float = lane_w * vi + lane_w * 0.5
 
 	var time_ahead: float = note_time - current_time
-	var scroll_distance: float = (highway_bottom_y - highway_top_y) * note_speed
-	var y_offset: float = (time_ahead * scroll_distance) / 2.0
+	var y_offset: float = time_ahead * get_pixels_per_second()
 	var y: float = hit_line_y - y_offset
 
 	return Vector2(x, y)

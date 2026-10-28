@@ -12,6 +12,12 @@ var _hit_zone_center_y: float = 0.0
 var _pixels_per_second: float = 0.0
 var _judgment_area_rects: Array[ColorRect] = []
 
+# Separacion horizontal entre hitlines, como fraccion de lane_w.
+# El gap interior reparte INNER_GAP_RATIO a medias entre dos bloques vecinos,
+# mientras que en los extremos del screen queda completo contra el borde.
+const EDGE_GAP_RATIO: float = 0.05
+const INNER_GAP_RATIO: float = 0.05
+
 
 func setup(highway: Node) -> void:
 	_highway = highway
@@ -23,24 +29,28 @@ func setup(highway: Node) -> void:
 	var hit_zone_h: float = highway.hit_line_bottom_y - highway.hit_line_top_y
 	_hit_zone_center_y = hit_zone_h * 0.5
 
-	var scroll_distance: float = highway.highway_bottom_y - highway.highway_top_y
-	_pixels_per_second = scroll_distance / 2.0
+	_pixels_per_second = highway.get_pixels_per_second()
 
 	var bg_line := ColorRect.new()
-	bg_line.color = Color(0.5, 0.5, 0.5, 0.25)
+	bg_line.color = Palette.HIT_LINE_BAR_DIM
 	bg_line.size = Vector2(highway.screen_w, 2.0)
 	bg_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg_line)
 
 	var lane_colors: Array[Color] = highway._get_lane_colors()
 
+	var edge_gap: float = lane_w * EDGE_GAP_RATIO
+	var inner_gap: float = lane_w * INNER_GAP_RATIO
+
 	for i in range(count):
 		var lane_idx: int = lane_nodes[i].lane_index
+		var left_gap: float = edge_gap if i == 0 else inner_gap * 0.5
+		var right_gap: float = edge_gap if i == count - 1 else inner_gap * 0.5
 		var rect := ColorRect.new()
 		rect.color = lane_colors[lane_idx]
 		rect.color.a = 0.35
-		rect.size = Vector2(lane_w * 0.9, hit_zone_h * 0.6)
-		rect.position = Vector2(lane_w * i + lane_w * 0.05, hit_zone_h * 0.2)
+		rect.size = Vector2(lane_w - left_gap - right_gap, hit_zone_h * 0.6)
+		rect.position = Vector2(lane_w * i + left_gap, hit_zone_h * 0.2)
 		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(rect)
 		_hit_line_rects.append(rect)

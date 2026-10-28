@@ -9,7 +9,11 @@ class StemInfo:
 var _stems: Dictionary = {}
 var _master_player: AudioStreamPlayer
 var _is_playing: bool = false
-var _latency_ms: float = 0.0
+# Latch de "el stream base llego a su final". Lo enciende la senal finished del
+# player, que solo salta al acabar el stream de forma natural: ni stop() ni la
+# pausa interna emiten finished, asi que no hay falsos positivos al pausar,
+# reiniciar o cambiar de cancion.
+var _stream_finished: bool = false
 
 const STEM_FILES: Dictionary = {
 	"song": "song",
@@ -60,8 +64,15 @@ func _load_stem(song_path: String, stem_name: String, stem_base: String, volume_
 	if volume_scale < 1.0:
 		info.player.volume_db = linear_to_db(volume_scale)
 	add_child(info.player)
+	info.player.finished.connect(_on_stem_finished.bind(stem_name))
 	_stems[stem_name] = info
 	return true
+
+
+func _on_stem_finished(stem_name: String) -> void:
+	# El reloj sigue al stream base, asi que su final es el final de la cancion.
+	if stem_name == _base_stem_name():
+		_stream_finished = true
 
 
 func load_stems(song_path: String) -> bool:
@@ -72,19 +83,18 @@ func load_stems(song_path: String) -> bool:
 	loaded_any = _load_stem(song_path, "song", "song") or loaded_any
 
 	# Load individual stems alongside the full mix
-	var has_song: bool = _stems.has("song")
 	for stem_name in STEM_FILES:
 		if stem_name == "song":
 			continue
 		var stem_base: String = STEM_FILES[stem_name]
-		var vol: float = 0.5 if has_song else 1.0
+		var vol: float = 1.0
 		if _load_stem(song_path, stem_name, stem_base, vol):
 			loaded_any = true
 
 	# Load multi-layer drum variants (drums_2, drums_3)
 	if _stems.has("drums"):
 		for i in [2, 3]:
-			var vol: float = 0.5 if has_song else 1.0
+			var vol: float = 1.0
 			if _load_stem(song_path, "drums_" + str(i), "drums_" + str(i), vol):
 				loaded_any = true
 
@@ -192,6 +202,7 @@ func play() -> void:
 	if _stems.is_empty():
 		return
 	_is_playing = true
+	_stream_finished = false
 	for stem_name in _stems:
 		var info: StemInfo = _stems[stem_name]
 		info.player.play()
@@ -221,21 +232,51 @@ func stop() -> void:
 		_stems[stem_name].player.stop()
 
 
+# La mezcla base manda; si no existe, el primer stem cargado. Todo el reloj del
+# gameplay depende de este valor, asi que is_stream_finished() usa el mismo stem.
+func _base_stem_name() -> String:
+	if _stems.has("song"):
+		return "song"
+	var keys: Array = _stems.keys()
+	if keys.is_empty():
+		return ""
+	return keys[0]
+
+
 func get_position() -> float:
-	if _stems.is_empty():
+	var info: StemInfo = _stems.get(_base_stem_name())
+	if info == null:
 		return 0.0
-	var first_key = _stems.keys()[0]
-	return _stems[first_key].player.get_playback_position()
+	return info.player.get_playback_position()
+
+
+# Duracion del stream mas largo (la mezcla base si existe). Se usa para validar
+# el chart contra el audio real.
+func get_length() -> float:
+	var longest: float = 0.0
+	for stem_name in _stems:
+		var info: StemInfo = _stems[stem_name]
+		if info.stream == null:
+			continue
+		var length: float = info.stream.get_length()
+		if length > longest:
+			longest = length
+	return longest
 
 
 func set_volume(stem_name: String, vol: float) -> void:
+
 	if _stems.has(stem_name):
 		_stems[stem_name].volume = clamp(vol, 0.0, 2.0)
 		_stems[stem_name].player.volume_db = linear_to_db(_stems[stem_name].volume)
 
 
 func set_latency(ms: float) -> void:
-	_latency_ms = ms
+	# La latencia de salida real no se puede medir desde el script, asi que no
+	# se corrige aqui. La calibracion vive en un solo sitio
+	# (SettingsManager.audio_offset_ms) y la aplica TimingEngine; este metodo se
+	# conserva como punto de entrada compatible.
+	SettingsManager.audio_offset_ms = ms
 
 
 func _clear_stems() -> void:
@@ -246,10 +287,23 @@ func _clear_stems() -> void:
 			remove_child(info.player)
 			info.player.queue_free()
 	_stems.clear()
+	_stream_finished = false
 
 
 func is_playing() -> bool:
 	return _is_playing
+
+
+# El stream base dejo de sonar aunque el flag manual siga en true. is_playing()
+# responde a play()/pause()/stop() del juego, no al estado real del player: si el
+# audio se acaba antes que el chart, el reloj se quedaria clavado.
+#
+# Se usa la senal finished y no "not player.playing" porque playing tambien es
+# false con el player en pausa (stream_paused) y get_playback_position() vuelve
+# a 0 justo cuando el stream termina: las dos consultables mienten en el
+# instante preciso del fin de cancion.
+func is_stream_finished() -> bool:
+	return _stream_finished
 
 
 func loaded_any() -> bool:
