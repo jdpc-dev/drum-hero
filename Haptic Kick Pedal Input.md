@@ -86,9 +86,9 @@ toward_accel
   │
   ▼
 two-phase gesture detection:
-  Phase 1 (lift): toward > 1.0 → mark _lift_detected
+  Phase 1 (lift): toward > eff_activation → mark _lift_detected
   Phase 2 (zero-cross): toward <= 0.0 && _lift_detected → emit KICK
-  Abort: toward < 0.5 && _lift_detected → reset lift
+  Abort: toward < eff_release && _lift_detected → reset lift
 ```
 
 ## Calibration
@@ -98,6 +98,7 @@ On song start:
 1. Get `Input.get_gravity()` — if available, calibrate in ~0.5 s.
 2. If no gravity sensor, calibrate in `haptic_calibration_duration` (default 1.5 s) using a low-pass estimate.
 3. The detection axis is always `Vector3.BACK` (screen normal) — calibration only captures the gravity direction for proper gravity removal.
+4. `_lift_detected` is reset to `false` at calibration start to prevent ghost kicks on session restart.
 
 ---
 
@@ -107,9 +108,9 @@ The detector behaves as a finite state machine with two phases (lift tracking + 
 
 ```
 IDLE phase:
-  [toward > 1.0] → _lift_detected = true
+  [toward > eff_activation] → _lift_detected = true
   [_lift_detected && toward <= 0.0] → transition to KICK_DOWN, emit KICK
-  [_lift_detected && toward < 0.5] → _lift_detected = false (abort)
+  [_lift_detected && toward < eff_release] → _lift_detected = false (abort)
 
 IDLE → [lift detected] → IDLE (lift flag set) → [zero crossing] → KICK_DOWN → COOLDOWN → IDLE
                                    ↘ [abort] → IDLE (lift flag reset)
@@ -137,9 +138,10 @@ This two-phase detection prevents false positives from single-direction impulses
 
 ## Hysteresis
 
-* Lift threshold: `toward > 1.0` (hardcoded, not affected by sensitivity slider)
-* Abort threshold: `toward < 0.5` (hardcoded — if lift fades before crossing zero, reset)
-* KICK_DOWN release: `toward < effective_release` where `effective_release = haptic_release_threshold / sensitivity`
+* Lift threshold: `toward > eff_activation` where `eff_activation = haptic_activation_threshold / sensitivity`
+* Abort threshold: `toward < eff_release` where `eff_release = haptic_release_threshold / sensitivity` (if lift fades before crossing zero, reset)
+* KICK_DOWN release: `toward < eff_release` (same formula as abort)
+* Zero-crossing: `toward <= 0.0` (hardcoded, always fires the KICK)
 
 ---
 
@@ -168,12 +170,13 @@ Processing pipeline:
 The Sensitivity slider (range 0.1–3.0, default 1.0) is applied as a **divisor**:
 
 ```
-effective_threshold = base_threshold / sensitivity
+eff_activation = haptic_activation_threshold / sensitivity
+eff_release    = haptic_release_threshold / sensitivity
 ```
 
-Higher sensitivity = lower effective threshold = easier to trigger kick.
+Higher sensitivity = lower effective thresholds = easier to trigger kick.
 
-The sensitivity affects only the KICK_DOWN release threshold. The lift and abort thresholds (1.0 and 0.5) are fixed to match natural gesture acceleration values.
+Both the lift and abort/release thresholds scale with sensitivity, making the whole gesture more or less responsive as a unit.
 
 ---
 
@@ -213,22 +216,22 @@ The implementation should never introduce separate concepts such as Left Kick or
 All detection parameters are externally configurable through the settings UI and saved to `user://settings.cfg`.
 
 | Parameter | Default | Description |
-|---|---|---|
-| `haptic_sensitivity` | 1.0 | Divisor applied to release threshold (higher = more sensitive) |
-| `haptic_activation_threshold` | 1.5 | Base activation threshold (not directly used in lift detection — lift uses fixed 1.0) |
-| `haptic_release_threshold` | 0.3 | Release threshold for KICK_DOWN state |
+|---|---|---|---|
+| `haptic_sensitivity` | 1.0 | Divisor for both effective thresholds (higher = more sensitive) |
+| `haptic_activation_threshold` | 1.0 | Base activation threshold (÷ by sensitivity → lift threshold) |
+| `haptic_release_threshold` | 0.5 | Base release threshold (÷ by sensitivity → abort & KICK_DOWN release) |
 | `haptic_smoothing_strength` | 0.4 | Filter responsiveness (0 = max smoothing, 1 = no filter) |
 | `haptic_cooldown_duration` | 0.15 | Time in COOLDOWN state (s) |
 | `haptic_min_interval` | 0.08 | Minimum interval between consecutive KICK events (s) |
 | `haptic_calibration_duration` | 1.5 | Calibration time without gravity sensor (s) |
 | `haptic_show_debug` | false | Show on-screen haptic debug overlay |
 
-## Lift / abort thresholds (hardcoded)
+## Lift / abort thresholds (effective, divided by sensitivity)
 
-| Threshold | Value | Purpose |
+| Threshold | Effective Value | Purpose |
 |---|---|---|
-| Lift activation | 1.0 | `toward > 1.0` marks `_lift_detected` |
-| Lift abort | 0.5 | `toward < 0.5` resets `_lift_detected` without firing |
+| Lift activation | `haptic_activation_threshold / sensitivity` | `toward > eff_activation` marks `_lift_detected` |
+| Lift abort | `haptic_release_threshold / sensitivity` | `toward < eff_release` resets `_lift_detected` without firing |
 | Zero-crossing | 0.0 | `toward <= 0.0` + `_lift_detected` fires the KICK |
 
 ---

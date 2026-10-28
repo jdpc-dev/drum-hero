@@ -2,6 +2,7 @@ extends Node
 
 var audio_position: float = 0.0
 var chart_duration: float = 0.0
+var audio_offset: float = 0.0
 var _paused: bool = false
 var _has_audio: bool = false
 
@@ -13,7 +14,7 @@ func _process(delta: float) -> void:
     if _paused:
         return
     if _has_audio and AudioManager.is_playing():
-        audio_position = AudioManager.get_position()
+        audio_position = AudioManager.get_position() - audio_offset
     else:
         audio_position += delta
     time_updated.emit(audio_position)
@@ -22,9 +23,10 @@ func _process(delta: float) -> void:
         song_ended.emit()
 
 
-func start(duration: float) -> void:
+func start(duration: float, offset: float = 0.0) -> void:
     chart_duration = duration
-    audio_position = 0.0
+    audio_offset = offset
+    audio_position = max(0.0, -offset)
     _paused = false
     _has_audio = AudioManager.loaded_any()
     AudioManager.play()
@@ -43,6 +45,7 @@ func resume() -> void:
 func stop() -> void:
     _paused = false
     audio_position = 0.0
+    audio_offset = 0.0
     AudioManager.stop()
 
 

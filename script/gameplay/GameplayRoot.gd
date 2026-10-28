@@ -189,7 +189,7 @@ func _start_loading() -> void:
 		await get_tree().create_timer(0.0).timeout
 
 	GameManager.set_state(GameManager.GameState.PLAYING)
-	TimingEngine.start(duration)
+	TimingEngine.start(duration, GameManager.current_song_delay / 1000.0)
 
 	if SettingsManager.haptic_enabled or GameManager.mode == GameManager.GameMode.HAPTIC:
 		InputManager.haptic_kick_enabled = true

@@ -91,6 +91,7 @@ func _scan_song(song_path: String) -> void:
 		"preview_path": preview_path,
 		"preview_start_time": preview_start,
 		"song_length": int(ini_data.get("song_length", 0)),
+		"delay": int(ini_data.get("delay", 0)),
 	}
 	if not entry.notes_path.is_empty():
 		var diff_result: Dictionary = _detect_song_difficulties(entry.notes_path)

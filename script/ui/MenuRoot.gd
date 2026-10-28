@@ -39,6 +39,14 @@ var _preview_song_path: String = ""
 var _preview_loaded_stream: AudioStream = null
 var _preview_status_label: Label
 
+const PREVIEW_STEM_NAMES := ["drums", "bass", "guitar", "keys", "rhythm", "vocals"]
+var _preview_stem_paths: Array[String] = []
+var _preview_stem_streams: Dictionary = {}
+var _preview_stem_players: Array[AudioStreamPlayer] = []
+var _preview_stem_thread: Thread
+var _preview_stem_load_done: bool = false
+var _preview_stem_load_result: Dictionary = {}
+
 const PREVIEW_ANIM_FRAMES := [".", "..", "..."]
 const PREVIEW_ANIM_INTERVAL := 0.3
 const PREVIEW_ANIM_DELAY := 1.5
@@ -151,6 +159,24 @@ func _process(delta: float) -> void:
 		if _preview_elapsed >= PREVIEW_MAX_DURATION:
 			_stop_preview()
 			_preview_status_label.text = "Preview ended"
+		if _preview_stem_load_done and not _preview_stem_load_result.is_empty():
+			_preview_stem_load_done = false
+			if _preview_stem_thread and _preview_stem_thread.is_started():
+				_preview_stem_thread.wait_to_finish()
+				_preview_stem_thread = null
+			for path in _preview_stem_load_result:
+				var stream: AudioStream = _preview_stem_load_result[path]
+				if not stream:
+					continue
+				var current_pos: float = _preview_player.get_playback_position()
+				var player := AudioStreamPlayer.new()
+				player.stream = stream
+				player.bus = "Music"
+				player.volume_db = linear_to_db(SettingsManager.preview_volume * 0.5)
+				add_child(player)
+				player.play(current_pos)
+				_preview_stem_players.append(player)
+			_preview_stem_load_result = {}
 
 
 func _build_ui() -> void:
@@ -473,6 +499,7 @@ func _on_difficulty_pressed(offset: int) -> void:
 	GameManager.current_song_path = song.path
 	GameManager.current_difficulty_offset = found.offset
 	GameManager.current_difficulty_name = found.name
+	GameManager.current_song_delay = float(song.get("delay", 0))
 	get_tree().change_scene_to_file("res://scene/Gameplay.tscn")
 
 func _on_search_changed(new_text: String) -> void:
@@ -588,6 +615,13 @@ func _start_preview_animation(original_index: int) -> void:
 	_preview_anim_delay = PREVIEW_ANIM_DELAY
 	_preview_load_timeout = PREVIEW_LOAD_TIMEOUT
 	_preview_status_label.text = PREVIEW_ANIM_FRAMES[0]
+	var song_preview_path: String = song.get("preview_path", "")
+	if song_preview_path.is_empty():
+		_preview_stem_paths.clear()
+		for stem in PREVIEW_STEM_NAMES:
+			var stem_path: String = SongLoader.get_stem_path(song.path, stem)
+			if not stem_path.is_empty():
+				_preview_stem_paths.append(stem_path)
 
 
 func _play_preview(original_index: int) -> void:
@@ -603,13 +637,22 @@ func _play_preview(original_index: int) -> void:
 	_preview_song_path = song.path
 	_preview_player.stream = _preview_loaded_stream
 	_preview_player.volume_db = linear_to_db(SettingsManager.preview_volume)
-	_preview_player.play()
 	_preview_elapsed = 0.0
 	var preview_path: String = song.get("preview_path", "")
 	if preview_path.is_empty():
 		var start_time: int = song.get("preview_start_time", -1)
-		var seek_pos: float = 30.0 if start_time <= 0 else float(start_time)
-		_preview_player.seek(seek_pos)
+		var seek_pos: float = 30.0 if start_time < 0 else float(start_time) / 1000.0
+		_preview_player.play(seek_pos)
+		if not _preview_stem_paths.is_empty():
+			_preview_stem_load_done = false
+			_preview_stem_load_result = {}
+			if OS.get_name() == "Android":
+				_preview_load_stems_func(_preview_stem_paths)
+			else:
+				_preview_stem_thread = Thread.new()
+				_preview_stem_thread.start(_preview_load_stems_func.bind(_preview_stem_paths.duplicate()))
+	else:
+		_preview_player.play()
 	_preview_status_label.text = "♫  " + song.artist + " - " + song.name
 
 
@@ -627,6 +670,19 @@ func _stop_preview() -> void:
 	if _preview_player.playing:
 		_preview_player.stop()
 	_preview_player.stream = null
+	for player in _preview_stem_players:
+		if player.playing:
+			player.stop()
+		remove_child(player)
+		player.queue_free()
+	_preview_stem_players.clear()
+	_preview_stem_paths.clear()
+	_preview_stem_streams.clear()
+	_preview_stem_load_result = {}
+	_preview_stem_load_done = false
+	if _preview_stem_thread and _preview_stem_thread.is_started():
+		_preview_stem_thread.wait_to_finish()
+		_preview_stem_thread = null
 	_preview_song_path = ""
 	_preview_elapsed = 0.0
 	_preview_status_label.text = ""
@@ -635,6 +691,14 @@ func _stop_preview() -> void:
 func _preview_load_func(path: String) -> void:
 	_preview_load_result = AudioManager._load_audio_stream(path)
 	_preview_load_done = true
+
+
+func _preview_load_stems_func(paths: Array[String]) -> void:
+	var results: Dictionary = {}
+	for path in paths:
+		results[path] = AudioManager._load_audio_stream(path)
+	_preview_stem_load_result = results
+	_preview_stem_load_done = true
 
 
 func _get_cached_stream(path: String) -> AudioStream:

@@ -104,13 +104,13 @@ func _load_audio_stream(path: String) -> AudioStream:
 			var ogg_path: String = path.get_basename() + ".ogg"
 			return _load_audio_stream(ogg_path)
 
-	if ext == "ogg":
-		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
+	if ResourceLoader.exists(path):
+		var stream: AudioStream = load(path)
 		if stream:
 			return stream
 
-	if ResourceLoader.exists(path):
-		var stream: AudioStream = load(path)
+	if ext == "ogg":
+		var stream: AudioStream = AudioStreamOggVorbis.load_from_file(path)
 		if stream:
 			return stream
 

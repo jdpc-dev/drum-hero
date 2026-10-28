@@ -301,19 +301,6 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	_haptic_add_threshold_slider(parent, "Min Interval (s)", SettingsManager.haptic_min_interval, 0.02, 0.3, 0.01, _on_haptic_min_interval_changed, _on_haptic_any_drag_ended)
 	_haptic_add_threshold_slider(parent, "Smoothing", SettingsManager.haptic_smoothing_strength, 0.01, 0.5, 0.01, _on_haptic_smoothing_changed, _on_haptic_any_drag_ended)
 
-	parent.add_child(_spacer(5))
-	var haptic_debug_hbox := HBoxContainer.new()
-	haptic_debug_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var haptic_debug_check := CheckBox.new()
-	haptic_debug_check.text = "Show Haptic Debug"
-	haptic_debug_check.add_theme_font_size_override("font_size", 18)
-	haptic_debug_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
-	haptic_debug_check.set_pressed_no_signal(SettingsManager.haptic_show_debug)
-	haptic_debug_check.toggled.connect(_on_haptic_debug_toggled)
-	haptic_debug_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	haptic_debug_hbox.add_child(haptic_debug_check)
-	parent.add_child(haptic_debug_hbox)
-
 	var advanced_desc := Label.new()
 	advanced_desc.text = "Activation = lift threshold, Release = when kick resets ( ÷ by Sensitivity slider )."
 	advanced_desc.add_theme_font_size_override("font_size", 14)
@@ -339,6 +326,9 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	left_handed_check.set_pressed_no_signal(SettingsManager.left_handed)
 	left_handed_check.toggled.connect(_on_left_handed_toggled)
 	parent.add_child(left_handed_check)
+
+	parent.add_child(_spacer(30))
+	_add_reset_section_button(parent, "CONTROLS", _on_reset_controls)
 
 
 func _build_hud_content(parent: VBoxContainer) -> void:
@@ -466,6 +456,9 @@ func _build_hud_content(parent: VBoxContainer) -> void:
 		row.add_child(val_lbl)
 		parent.add_child(row)
 
+	parent.add_child(_spacer(30))
+	_add_reset_section_button(parent, "HUD", _on_reset_hud)
+
 
 func _build_experimental_content(parent: VBoxContainer) -> void:
 	_add_section_title(parent, "CHART FALLBACK")
@@ -503,6 +496,21 @@ func _build_experimental_content(parent: VBoxContainer) -> void:
 	areas_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
 	parent.add_child(areas_desc)
 
+	parent.add_child(_spacer(10))
+	var haptic_debug_check := CheckBox.new()
+	haptic_debug_check.text = "Show Haptic Debug"
+	haptic_debug_check.add_theme_font_size_override("font_size", 22)
+	haptic_debug_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	haptic_debug_check.set_pressed_no_signal(SettingsManager.haptic_show_debug)
+	haptic_debug_check.toggled.connect(_on_haptic_debug_toggled)
+	parent.add_child(haptic_debug_check)
+
+	var haptic_debug_desc := Label.new()
+	haptic_debug_desc.text = "Visualize accelerometer data and haptic kick detection state"
+	haptic_debug_desc.add_theme_font_size_override("font_size", 14)
+	haptic_debug_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(haptic_debug_desc)
+
 	parent.add_child(_spacer(20))
 	_add_section_title(parent, "GAMEPLAY PADDING")
 	parent.add_child(_spacer(10))
@@ -529,6 +537,9 @@ func _build_experimental_content(parent: VBoxContainer) -> void:
 	_padding_bottom_slider = _make_padding_slider(parent, "Bottom", SettingsManager.gameplay_padding_bottom, _on_padding_bottom_changed)
 
 	_apply_padding_sliders_editable(SettingsManager.gameplay_padding_enabled)
+
+	parent.add_child(_spacer(30))
+	_add_reset_section_button(parent, "EXPERIMENTAL", _on_reset_experimental)
 
 
 func _build_credits_content(parent: VBoxContainer) -> void:
@@ -640,6 +651,14 @@ static func _spacer(h: int) -> Control:
 	return c
 
 
+func _add_reset_section_button(parent: VBoxContainer, section_name: String, callback: Callable) -> void:
+	var btn := Button.new()
+	btn.text = "Reset " + section_name + " to Defaults"
+	btn.custom_minimum_size = Vector2(280, 40)
+	btn.pressed.connect(callback)
+	parent.add_child(btn)
+
+
 func _load_current_settings() -> void:
 	var current_mode: int = SettingsManager.game_mode
 	for i in _mode_buttons.size():
@@ -739,6 +758,21 @@ func _on_reset_lanes() -> void:
 	SettingsManager.custom_lanes = [0, 1, 2, 3, 4, 5, 6, 7]
 	SettingsManager.save_settings()
 	_rebuild_custom_lane_ui(SettingsManager.custom_lanes)
+
+
+func _on_reset_controls() -> void:
+	SettingsManager.reset_controls_to_defaults()
+	_build_tab_content()
+
+
+func _on_reset_hud() -> void:
+	SettingsManager.reset_hud_to_defaults()
+	_build_tab_content()
+
+
+func _on_reset_experimental() -> void:
+	SettingsManager.reset_experimental_to_defaults()
+	_build_tab_content()
 
 
 func _on_fps_toggled(toggled: bool) -> void:

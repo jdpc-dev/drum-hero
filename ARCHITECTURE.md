@@ -89,7 +89,7 @@ Registrados en `project.godot` bajo `[autoload]`. Se inicializan antes que cualq
 | `AudioManager` | Carga stems multi-pista (song, drums, bass, guitar, rhythm, keys, vocals). Salta `song` si existen stems individuales para evitar duplicación. Decodifica `.opus` a estéreo vía `ffmpeg`. Ofrece `duck_drums()` para silenciar batería temporalmente. | — |
 | `InputManager` | Ruteo de input táctil y pipeline de sensor háptico (acelerómetro para kick). Detección en dos fases: lift (pico en eje Z de pantalla) → cruce por cero → KICK. Estados: `KickState` (IDLE / KICK_DOWN / COOLDOWN). | — |
 | `SettingsManager` | Persistencia de configuración (archivo `user://settings.cfg`). Juicios, sensibilidad, modo háptico, orden de lanes, fallback de guitarra. | — |
-| `SongLoader` | Escanea `res://Songs/` y `user://DrumHero`, parsea `song.ini`, expone lista de canciones con metadatos. Detecta fuente del chart (PART DRUMS vs PART GUITAR). Cada song entry incluye `preview_path` (str), `preview_start_time` (float, -1 si no definido), `song_length` (float). `get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en `user://` (FileAccess) como en `res://` empaquetados (ResourceLoader). | — |
+| `SongLoader` | Escanea `res://Songs/` y `user://DrumHero`, parsea `song.ini`, expone lista de canciones con metadatos. Detecta fuente del chart (PART DRUMS vs PART GUITAR). Cada song entry incluye `preview_path` (str), `preview_start_time` (int, en milisegundos, -1 si no definido), `song_length` (float). `get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en `user://` (FileAccess) como en `res://` empaquetados (ResourceLoader). | — |
 | `ChartParser` | Carga `notes.mid` vía `MidiParser.gd`, construye arreglo de `NoteEvent` con tiempo en segundos. Soporta fallback a PART GUITAR si PART DRUMS no existe. `get_notes_in_range()` usa búsqueda binaria (`find_next_note_index`) para saltar al rango solicitado. | `ChartData.gd` (clases de datos) |
 | `TimingEngine` | Reloj maestro. Si hay audio usa `AudioManager.get_position()`, sino delta de frames. Emite `time_updated`, `song_ended`. | `AudioManager` |
 | `ScoreManager` | Puntaje, combo, multiplicador, rachas. API: `register_hit(diff)`, `register_miss()`, `reset()`. | — |
@@ -224,8 +224,14 @@ _play_preview()
   ├─ _preview_player.play()                 ← en bus "Music"
   ├─ _preview_elapsed = 0.0                 ← reset timer duración
   ├─ Si no hay preview_path (usando song.ogg):
-  │   ├─ preview_start_time > 0 → seek a ese segundo
-  │   └─ preview_start_time <= 0 o null → seek a segundo 30
+  │   ├─ preview_start_time > 0 → seek a preview_start_time / 1000 (ms→s)
+  │   ├─ preview_start_time <= 0 o null → seek a segundo 30
+  │   └─ Inicia carga asíncrona de stems (drums, bass, guitar, keys, rhythm, vocals)
+  │       ├─ Desktop: en Thread separado
+  │       ├─ Android: síncrono
+  │       └─ Al terminar: crea AudioStreamPlayer por cada stem
+  │           con volume_db = linear_to_db(preview_volume * 0.5),
+  │           play() y seek() sincronizado al playback_position actual
   └─ PreviewStatusLabel.text = "♫  Queen - Bohemian Rhapsody"
 ```
 
@@ -248,9 +254,11 @@ _stop_preview()                              ← llamado al:
 
 ```
 MenuRoot (CanvasLayer)
-  └── PreviewStatusLabel (Label)    ← ". → .. → ... → ♫  Artist - Song"
-  └── PreviewPlayer (AudioStreamPlayer)  ← bus = "Music"
-  └── Thread (_preview_thread)      ← carga async de audio
+  ├── PreviewStatusLabel (Label)    ← ". → .. → ... → ♫  Artist - Song"
+  ├── PreviewPlayer (AudioStreamPlayer)  ← bus = "Music"
+  ├── StemPlayer_n (AudioStreamPlayer)   ← bus = "Music" (0..N, por cada stem cargado)
+  ├── Thread (_preview_thread)      ← carga async de preview principal
+  └── Thread (_preview_stem_thread) ← carga async de stems (solo fallback)
 ```
 
 **Consideraciones técnicas:**
@@ -263,7 +271,8 @@ MenuRoot (CanvasLayer)
 - **`.ogg` nativo:** `AudioStreamOggVorbis.load_from_file()` se usa en todas las plataformas (desktop + Android). Si falla, el fallback usa `FileHelper.read_file()` → `AudioStreamOggVorbis.new()`. En desktop, `load_from_file()` carga ~5MB compressed en lugar de ~46MB PCM (ffmpeg).
 - **Limpieza de referencia:** `_stop_preview()` pone `_preview_player.stream = null` para liberar el AudioStream inmediatamente en lugar de esperar a que `_play_preview()` lo reemplace.
 - **Duración limitada:** el preview se detiene automáticamente tras `PREVIEW_MAX_DURATION = 30s`. Evita reproducir la canción completa como preview.
-- **Seek por preview_start_time:** cuando se usa `song.ogg` como fallback (sin `preview.ogg`), se aplica `_preview_player.seek()` al valor de `preview_start_time` de `song.ini`. Si el valor es -1, 0 o null, se busca al segundo 30. Con `preview.ogg` se reproduce desde el inicio (0s).
+- **Seek por preview_start_time:** cuando se usa `song.ogg` como fallback (sin `preview.ogg`), se aplica `_preview_player.seek()` al valor de `preview_start_time` de `song.ini` dividido por 1000 (está en milisegundos, seek usa segundos). Si el valor es -1, 0 o null, se busca al segundo 30. Con `preview.ogg` se reproduce desde el inicio (0s).
+- **Stems en fallback:** al usar `song.ogg` como fallback, también se cargan los stems individuales (`drums.ogg`, `guitar.ogg`, `bass.ogg`, `keys.ogg`, `rhythm.ogg`, `vocals.ogg`) si existen. Se crea un `AudioStreamPlayer` por cada stem encontrado en el bus `"Music"` con volumen a 0.5× `preview_volume`. La carga es asíncrona (thread en desktop, síncrona en Android). Los stems se sincronizan con `_preview_player.get_playback_position()` para mantener coherencia temporal.
 - **Android .opus skip:** en Android, `_resolve_preview_path()` ignora archivos `preview.opus` (ffmpeg no disponible) y cae a `song.ogg` via `get_stem_path()`. En desktop, `.opus` se decodifica normalmente. `SongLoader.get_stem_path()` usa `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en almacenamiento externo como en `res://` empaquetados.
 - **Timeout de carga:** si el stream no carga en `PREVIEW_LOAD_TIMEOUT = 5s`, la animación se detiene y muestra "Preview unavailable". Evita el loop infinito de dots en caso de error.
 - **Anti-spam táctil:** `_select_song()` tiene early-return si la canción ya está seleccionada (`original_index == _selected_song_index`). `_on_song_row_input()` usa `InputEventScreenTouch` para distinguir tap de drag (threshold 8px).
@@ -497,8 +506,8 @@ Teclas **1–8** del teclado numérico mapean a lanes **0–7**. Implementado en
 2. **Gravity removal**: `linear_accel = filtered_accel - gravity_estimate`. La gravedad se obtiene de `Input.get_gravity()` o de un filtro pasabajos sobre el acelerómetro.
 3. **Smoothing**: Filtro exponencial `lerp_factor = 1.0 - pow(1.0 - strength, delta * 60.0)`, default `strength = 0.4`.
 4. **Detección en dos fases**:
-   - **Lift**: cuando `toward > 1.0` se marca `_lift_detected`.
-   - **Abort**: si `toward < 0.5` antes del cruce por cero, se resetea `_lift_detected`.
+   - **Lift**: cuando `toward > eff_activation` se marca `_lift_detected` (con `eff_activation = haptic_activation_threshold / sensitivity`).
+   - **Abort**: si `toward < eff_release` antes del cruce por cero, se resetea `_lift_detected`.
    - **KICK**: cuando `toward <= 0.0` y `_lift_detected` es true, se dispara `kick_detected`. Así el kick ocurre al inicio del retorno.
 5. **Calibración**: al empezar la canción, captura la orientación actual (~0.5 s si hay sensor de gravedad, ~1.5 s si no). Eje de detección siempre es `Vector3.BACK` (no depende de la orientación).
 
@@ -646,8 +655,8 @@ MidiParser.load(path, ..., use_guitar_fallback)
 | `music_volume` | 1.0 | Volumen de música |
 | `haptic_enabled` | false | Kick por sensor |
 | `haptic_sensitivity` | 1.0 | Sensibilidad del sensor (÷, más alto = más sensible) |
-| `haptic_activation_threshold` | 1.5 | Umbral base de activación (dividido por sensibilidad) |
-| `haptic_release_threshold` | 0.3 | Umbral de liberación post-kick |
+| `haptic_activation_threshold` | 1.0 | Umbral base de activación (÷ por sensibilidad) |
+| `haptic_release_threshold` | 0.5 | Umbral de liberación post-kick (÷ por sensibilidad) |
 | `haptic_smoothing_strength` | 0.4 | Filtro exponencial (0=suavizado máximo, 1=sin filtro) |
 | `haptic_cooldown_duration` | 0.15 | Tiempo mínimo en COOLDOWN (s) |
 | `haptic_min_interval` | 0.08 | Intervalo mínimo entre kicks (s) |
@@ -675,9 +684,16 @@ MidiParser.load(path, ..., use_guitar_fallback)
 
 El menú de configuración (`SettingsRoot.gd`) usa un layout con **tabs** para organizar las opciones:
 
-- **CONTROLS** — Modo de control (Default/Haptic/Custom), orden de lanes, ajustes hápticos, layout (mirrored/left handed)
-- **HUD** — Opciones visuales (FPS, screen shake, hit feedback), gameplay (note speed, countdown), ventanas de juicio (read-only)
-- **Experimental** — Fallback de chart (PART GUITAR), áreas de juicio (debug)
+- **CONTROLS** — Modo de control (Default/Haptic/Custom), orden de lanes, ajustes hápticos, layout (mirrored/left handed). Incluye botón "Reset CONTROLS to Defaults".
+- **HUD** — Opciones visuales (FPS, screen shake, hit feedback), gameplay (note speed, countdown), ventanas de juicio (read-only). Incluye botón "Reset HUD to Defaults".
+- **Experimental** — Fallback de chart (PART GUITAR), áreas de juicio (debug), overlay háptico (Show Haptic Debug), gameplay padding. Incluye botón "Reset EXPERIMENTAL to Defaults".
+
+Cada botón "Reset [SECTION] to Defaults" restaura todos los valores de esa sección a sus valores por defecto y reconstruye la UI del tab activo.
+
+**Métodos de reseteo en `SettingsManager.gd`:**
+- `reset_controls_to_defaults()` — restablece `game_mode`, `custom_lanes`, `haptic_*`, `mirrored`, `left_handed` y sincroniza `GameManager.mode`.
+- `reset_hud_to_defaults()` — restablece `show_fps`, `screen_shake`, `show_hit_feedback`, `note_speed`, `countdown_threshold`.
+- `reset_experimental_to_defaults()` — restablece `use_guitar_fallback`, `show_judgment_areas`, `haptic_show_debug`, `gameplay_padding_*`.
 
 **Nota técnica:** En Android, los `Control` nodes hijos de un `CanvasLayer` que no están dentro de un `ScrollContainer` no se renderizan correctamente. Para solucionarlo, el header y tab bar usan un `ScrollContainer` fijo (sin scroll) mientras el contenido usa un `ScrollContainer` scrolleable.
 

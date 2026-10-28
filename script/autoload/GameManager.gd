@@ -9,6 +9,7 @@ var state: GameState = GameState.MENU
 var current_song_path: String = ""
 var current_difficulty_offset: int = 0
 var current_difficulty_name: String = "Expert"
+var current_song_delay: float = 0.0
 
 signal game_state_changed(new_state: GameState)
 signal hit_registered(accuracy: int)

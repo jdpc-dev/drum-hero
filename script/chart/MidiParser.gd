@@ -274,23 +274,25 @@ func _calculate_timing() -> void:
 		_time_sig_events.append(ev)
 
 	_notes.sort_custom(func(a, b): return a.tick < b.tick)
+	_tempo_events.sort_custom(func(a, b): return a.tick < b.tick)
 
-	var current_mpt: float = 500000.0 / float(_ticks_per_beat)
+	var current_mpt: float
 	var tempo_idx: int = 0
 	var current_tick: int = 0
 	var current_time: float = 0.0
 
+	if _tempo_events.size() > 0 and _tempo_events[0].tick <= 0:
+		current_mpt = _tempo_events[0].micros_per_tick
+	else:
+		current_mpt = 500000.0 / float(_ticks_per_beat)
+		tempo_idx = -1
+
 	for note in _notes:
-		if tempo_idx + 1 < _tempo_events.size():
-			var next_tempo_tick: int = _tempo_events[tempo_idx + 1].tick
-			while note.tick >= next_tempo_tick:
-				current_time += float(next_tempo_tick - current_tick) * current_mpt / 1000000.0
-				current_tick = next_tempo_tick
-				tempo_idx += 1
-				current_mpt = _tempo_events[tempo_idx].micros_per_tick
-				if tempo_idx + 1 >= _tempo_events.size():
-					break
-				next_tempo_tick = _tempo_events[tempo_idx + 1].tick
+		while tempo_idx + 1 < _tempo_events.size() and note.tick >= _tempo_events[tempo_idx + 1].tick:
+			current_time += float(_tempo_events[tempo_idx + 1].tick - current_tick) * current_mpt / 1000000.0
+			current_tick = _tempo_events[tempo_idx + 1].tick
+			tempo_idx += 1
+			current_mpt = _tempo_events[tempo_idx].micros_per_tick
 
 		note.time = current_time + float(note.tick - current_tick) * current_mpt / 1000000.0
 
