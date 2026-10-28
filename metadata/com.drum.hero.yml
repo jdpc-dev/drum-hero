@@ -28,7 +28,7 @@ Repo: https://github.com/jdpcdev/drum-hero.git
 Builds:
   - versionName: '7.0.0'
     versionCode: 700
-    commit: a0b0fbfd67c76cbb3fc433399d18f871fb8d6b55
+    commit: e378270a3541ac3bc206cea4a5e73e8f93ded90c
     subdir: android/build
     sudo:
       - apt-get update
