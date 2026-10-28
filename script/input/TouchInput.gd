@@ -44,7 +44,7 @@ func _process(delta: float) -> void:
 
 var _is_touch_device: bool = DisplayServer.is_touchscreen_available()
 
-func _input(event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if GameManager.state != GameManager.GameState.PLAYING:
 		return
 

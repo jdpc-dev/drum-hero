@@ -18,4 +18,6 @@ func _on_kick_detected() -> void:
     if not SettingsManager.haptic_enabled and GameManager.mode != GameManager.GameMode.HAPTIC:
         return
     if _hit_detection:
-        _hit_detection.try_kick()
+        var did_hit: bool = _hit_detection.try_kick()
+        if not did_hit:
+            DrumSfxManager.play_for_lane(3)

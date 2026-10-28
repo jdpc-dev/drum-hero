@@ -2,6 +2,7 @@ class_name Highway
 extends Node2D
 
 var lane_nodes: Array = []
+var _kick_lane: Lane
 
 @export var lane_scene: PackedScene
 @export var hit_line_scene: PackedScene
@@ -20,8 +21,10 @@ var hit_line_ref: HitLine
 
 var screen_w: float = 1280.0
 var screen_h: float = 720.0
-var pad_x: float = 0.0
-var pad_y: float = 0.0
+var pad_left: float = 0.0
+var pad_right: float = 0.0
+var pad_top: float = 0.0
+var pad_bottom: float = 0.0
 
 var _label_settings: LabelSettings
 var _beat_line_pool: Array[ColorRect] = []
@@ -48,11 +51,19 @@ func generate_beat_lines() -> void:
 
 func _refresh_screen_size() -> void:
 	var vs: Vector2 = get_viewport_rect().size
-	pad_x = SettingsManager.gameplay_padding_amount if SettingsManager.gameplay_padding_enabled else 0.0
-	pad_y = pad_x
-	position = Vector2(pad_x, pad_y)
-	screen_w = vs.x - 2.0 * pad_x
-	screen_h = vs.y - 2.0 * pad_y
+	if SettingsManager.gameplay_padding_enabled:
+		pad_left = SettingsManager.gameplay_padding_left
+		pad_right = SettingsManager.gameplay_padding_right
+		pad_top = SettingsManager.gameplay_padding_top
+		pad_bottom = SettingsManager.gameplay_padding_bottom
+	else:
+		pad_left = 0.0
+		pad_right = 0.0
+		pad_top = 0.0
+		pad_bottom = 0.0
+	position = Vector2(pad_left, pad_top)
+	screen_w = vs.x - pad_left - pad_right
+	screen_h = vs.y - pad_top - pad_bottom
 	highway_top_y = screen_h * 0.025
 	highway_bottom_y = screen_h * 0.65
 	hit_line_top_y = screen_h * 0.65
@@ -88,14 +99,15 @@ func _build_lanes() -> void:
 		add_child(lane)
 		lane_nodes.append(lane)
 
+	_build_kick_lane()
+
 	var hit_line := hit_line_scene.instantiate() as HitLine
 	add_child(hit_line)
 	hit_line.setup(self)
 	hit_line_ref = hit_line
 
 	_build_touch_zones()
-	if SettingsManager.gameplay_padding_enabled:
-		AndroidBridge.set_lane_exclusion(pad_x, screen_w / float(active_lane_count), active_lane_count, pad_y, labels_y)
+	AndroidBridge.set_lane_exclusion(pad_left, screen_w / float(active_lane_count), active_lane_count, pad_right, pad_top, labels_y)
 	lanes_built.emit()
 
 
@@ -193,6 +205,32 @@ static func _get_lane_colors() -> Array[Color]:
 	]
 
 
+func _build_kick_lane() -> void:
+	if GameManager.mode == GameManager.GameMode.HAPTIC:
+		_kick_lane = lane_scene.instantiate() as Lane
+		_kick_lane.lane_index = 3
+		_kick_lane.highway_ref = self
+		_kick_lane.visible = true
+		add_child(_kick_lane)
+		for child in _kick_lane.get_children():
+			if child is ColorRect:
+				child.visible = false
+	else:
+		_kick_lane = null
+
+
+func get_kick_lane() -> Lane:
+	return _kick_lane
+
+
+func get_lane_visual_index(lane_index: int) -> int:
+	var order: Array[int] = _get_lane_order()
+	for i in range(order.size()):
+		if order[i] == lane_index:
+			return i
+	return lane_index
+
+
 func _get_lane_order() -> Array[int]:
 	var mode: int = GameManager.mode
 	if mode == GameManager.GameMode.HAPTIC:
@@ -220,10 +258,14 @@ func _process(delta: float) -> void:
 			if lane.lane_index == note_data.lane:
 				lane.queue_note(note_data)
 				break
+		if _kick_lane and note_data.lane == 3:
+			_kick_lane.queue_note(note_data)
 		_next_note_index += 1
 
 	for lane in lane_nodes:
 		lane.update_notes(delta, time)
+	if _kick_lane:
+		_kick_lane.update_notes(delta, time)
 
 	_update_beat_lines(time)
 
@@ -275,6 +317,8 @@ func restart() -> void:
 	_beat_line_cursor = 0
 	for lane in lane_nodes:
 		lane.clear()
+	if _kick_lane:
+		_kick_lane.clear()
 	for bl in _beat_line_pool:
 		bl.hide()
 
@@ -291,6 +335,8 @@ func flash_hit_line(lane_index: int) -> void:
 
 
 func get_hit_global_position(lane_index: int) -> Vector2:
+	if lane_index == 3 and GameManager.mode == GameManager.GameMode.HAPTIC:
+		return global_position + Vector2(screen_w * 0.5, highway_bottom_y + 24)
 	var total: int = lane_nodes.size()
 	if total == 0:
 		return global_position
@@ -304,7 +350,8 @@ func get_hit_global_position(lane_index: int) -> Vector2:
 func note_position(tick: int, lane_index: int, note_time: float, current_time: float) -> Vector2:
 	var total_lanes: int = lane_nodes.size()
 	var lane_w: float = screen_w / float(total_lanes)
-	var x: float = lane_w * lane_index + lane_w * 0.5
+	var vi: int = get_lane_visual_index(lane_index)
+	var x: float = lane_w * vi + lane_w * 0.5
 
 	var time_ahead: float = note_time - current_time
 	var scroll_distance: float = (highway_bottom_y - highway_top_y) * note_speed

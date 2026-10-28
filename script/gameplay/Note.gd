@@ -9,18 +9,25 @@ var _missed: bool = false
 var _rect: ColorRect
 
 
+var _is_kick_full_width: bool = false
+
+
 func _ready() -> void:
 	var lane: int = note_data.lane
 	_rect = ColorRect.new()
 	_rect.color = _get_color_for_lane(lane)
 	_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 
-	var total_lanes: int = 8
 	var hw: Node = lane_ref.highway_ref if lane_ref else null
-	if hw:
-		total_lanes = hw.lane_nodes.size()
-	var lane_w: float = (hw.screen_w if hw else 1280.0) / float(total_lanes)
-	_rect.size = Vector2(lane_w * 0.95, lane_w * 0.25)
+	_is_kick_full_width = (lane == 3 and hw != null and GameManager.mode == GameManager.GameMode.HAPTIC)
+
+	if _is_kick_full_width:
+		_rect.size = Vector2(hw.screen_w, (hw.screen_w / float(hw.lane_nodes.size())) * 0.25)
+	else:
+		var total_lanes: int = hw.lane_nodes.size() if hw else 8
+		var lane_w: float = (hw.screen_w if hw else 1280.0) / float(total_lanes)
+		_rect.size = Vector2(lane_w * 0.95, lane_w * 0.25)
+		z_index = 1
 
 	add_child(_rect)
 
@@ -32,7 +39,10 @@ func update_position(current_time: float) -> void:
 	var pos: Vector2 = highway.call("note_position",
 		note_data.tick, lane_ref.lane_index, note_data.time, current_time
 	)
-	_rect.position = Vector2(pos.x - _rect.size.x * 0.5, pos.y - _rect.size.y * 0.5)
+	if _is_kick_full_width:
+		_rect.position = Vector2(highway.screen_w * 0.5 - _rect.size.x * 0.5, pos.y - _rect.size.y * 0.5)
+	else:
+		_rect.position = Vector2(pos.x - _rect.size.x * 0.5, pos.y - _rect.size.y * 0.5)
 
 
 func _on_hit() -> void:

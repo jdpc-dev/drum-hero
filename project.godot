@@ -12,6 +12,7 @@ config_version=5
 
 config/name="Drum Hero"
 config/description="A mobile rhythm game focused exclusively on the drum instrument."
+config/version="5.0.0"
 run/main_scene="res://scene/Main.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7")
@@ -44,9 +45,9 @@ window/size/viewport_height=720
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
-[editor_plugins]
+[input_devices]
 
-enabled=PackedStringArray("res://addons/GestureExclusion/plugin.cfg")
+sensors/enable_accelerometer=true
 
 [physics]
 

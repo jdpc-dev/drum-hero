@@ -21,7 +21,7 @@ public class GestureExclusionPlugin extends GodotPlugin {
     }
 
     @UsedByGodot
-    public void setExclusionRects(int left, int top, int right, int bottom) {
+    public void setExclusionRects(int left, int top, int right, int bottom, int viewportW, int viewportH) {
         Activity activity = getActivity();
         if (activity == null) return;
 
@@ -31,11 +31,22 @@ public class GestureExclusionPlugin extends GodotPlugin {
         int viewWidth = decorView.getWidth();
         int viewHeight = decorView.getHeight();
 
+        if (viewportW <= 0 || viewportH <= 0) return;
+
+        float scaleX = (float) viewWidth / (float) viewportW;
+        float scaleY = (float) viewHeight / (float) viewportH;
+
         if (left > 0) {
-            rects.add(new Rect(0, max(0, top), min(left, 200), min(bottom, viewHeight)));
+            int r = Math.min((int)(left * scaleX + 0.5f), viewWidth);
+            int t = Math.max(0, (int)(top * scaleY + 0.5f));
+            int b = Math.min((int)(bottom * scaleY + 0.5f), viewHeight);
+            rects.add(new Rect(0, t, r, b));
         }
-        if (right > 0 && right < viewWidth) {
-            rects.add(new Rect(max(viewWidth - 200, right), max(0, top), viewWidth, min(bottom, viewHeight)));
+        if (right > 0 && right < viewportW) {
+            int l = Math.max(0, viewWidth - (int)((viewportW - right) * scaleX + 0.5f));
+            int t = Math.max(0, (int)(top * scaleY + 0.5f));
+            int b = Math.min((int)(bottom * scaleY + 0.5f), viewHeight);
+            rects.add(new Rect(l, t, viewWidth, b));
         }
 
         decorView.setSystemGestureExclusionRects(rects);
@@ -48,13 +59,5 @@ public class GestureExclusionPlugin extends GodotPlugin {
 
         View decorView = activity.getWindow().getDecorView();
         decorView.setSystemGestureExclusionRects(new ArrayList<>());
-    }
-
-    private static int max(int a, int b) {
-        return Math.max(a, b);
-    }
-
-    private static int min(int a, int b) {
-        return Math.min(a, b);
     }
 }

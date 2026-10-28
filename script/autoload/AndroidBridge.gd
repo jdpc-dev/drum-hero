@@ -10,12 +10,13 @@ func _ready() -> void:
 		_plugin = Engine.get_singleton("GestureExclusion")
 
 
-func set_lane_exclusion(pad_x: float, lane_w: float, lane_count: int, pad_y: float, labels_y: float) -> void:
+func set_lane_exclusion(pad_left: float, lane_w: float, lane_count: int, pad_right: float, pad_top: float, labels_y: float) -> void:
 	if not _plugin:
 		return
-	var left_w: int = mini(int(pad_x + lane_w), 200)
-	var right_x: int = maxi(int(pad_x + lane_w * (lane_count - 1)), 0)
-	_plugin.setExclusionRects(left_w, int(pad_y), right_x, int(labels_y))
+	var vp: Vector2 = get_viewport().get_visible_rect().size
+	var left_w: int = int(pad_left + lane_w)
+	var right_x: int = int(pad_left + lane_w * (lane_count - 1))
+	_plugin.setExclusionRects(left_w, int(pad_top), right_x, int(labels_y), int(vp.x), int(vp.y))
 
 
 func clear_exclusion() -> void:

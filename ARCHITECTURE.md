@@ -52,7 +52,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │   Tab Experimental:
 │       ├── CHART FALLBACK (Use PART GUITAR)
 │       ├── DEBUG (Show Judgment Areas)
-│       └── GAMEPLAY PADDING (Enable + slider 20-60px)
+│       └── GAMEPLAY PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-200px)
 
 Gameplay (Node2D)                       ← GameplayRoot.gd
 ├── Highway (Node2D)                    ← Highway.gd
@@ -87,7 +87,7 @@ Registrados en `project.godot` bajo `[autoload]`. Se inicializan antes que cualq
 |---|---|---|
 | `GameManager` | Máquina de estados (MENU / LOADING / PLAYING / PAUSED / RESULT). Contiene `current_song_path`, `mode`, `state`. Emite `hit_registered`, `miss_registered`, `game_state_changed`. | — |
 | `AudioManager` | Carga stems multi-pista (song, drums, bass, guitar, rhythm, keys, vocals). Salta `song` si existen stems individuales para evitar duplicación. Decodifica `.opus` a estéreo vía `ffmpeg`. Ofrece `duck_drums()` para silenciar batería temporalmente. | — |
-| `InputManager` | Ruteo de input táctil y pipeline de sensor háptico (acelerómetro para kick). Estado interno `KickState` (IDLE / KICK_DOWN / COOLDOWN). | — |
+| `InputManager` | Ruteo de input táctil y pipeline de sensor háptico (acelerómetro para kick). Detección en dos fases: lift (pico en eje Z de pantalla) → cruce por cero → KICK. Estados: `KickState` (IDLE / KICK_DOWN / COOLDOWN). | — |
 | `SettingsManager` | Persistencia de configuración (archivo `user://settings.cfg`). Juicios, sensibilidad, modo háptico, orden de lanes, fallback de guitarra. | — |
 | `SongLoader` | Escanea `res://Songs/` y `user://DrumHero`, parsea `song.ini`, expone lista de canciones con metadatos. Detecta fuente del chart (PART DRUMS vs PART GUITAR). Cada song entry incluye `preview_path` (str), `preview_start_time` (float, -1 si no definido), `song_length` (float). `get_stem_path()` y `_scan_song()` usan `FileHelper.file_exists() OR ResourceLoader.exists()` para encontrar archivos tanto en `user://` (FileAccess) como en `res://` empaquetados (ResourceLoader). | — |
 | `ChartParser` | Carga `notes.mid` vía `MidiParser.gd`, construye arreglo de `NoteEvent` con tiempo en segundos. Soporta fallback a PART GUITAR si PART DRUMS no existe. `get_notes_in_range()` usa búsqueda binaria (`find_next_note_index`) para saltar al rango solicitado. | `ChartData.gd` (clases de datos) |
@@ -340,7 +340,7 @@ y=100%  +----+----+----+----+----+----+----+----+
 
 ### Gameplay padding (experimental)
 
-Cuando `gameplay_padding_enabled` está activo, el Highway se posiciona en `(pad, pad)` y `screen_w`/`screen_h` se reducen a las dimensiones efectivas (`viewport - 2*pad`). Esto desplaza automáticamente lanes, notas, hit line, beat lines y touch zones. El HUD (CanvasLayer) se ajusta manualmente sumando `pad` a los offsets de cada label. El valor de padding es configurable con un slider (20-60px, default 40).
+Cuando `gameplay_padding_enabled` está activo, el Highway se posiciona en `(pad_left, pad_top)` y `screen_w`/`screen_h` se reducen a las dimensiones efectivas (`viewport - pad_left - pad_right`, `viewport - pad_top - pad_bottom`). Esto desplaza automáticamente lanes, notas, hit line, beat lines y touch zones. El HUD (CanvasLayer) se ajusta manualmente sumando los paddings individuales a los offsets de cada label. Cada lado se configura independientemente con un slider (0-200px, default 40).
 
 ### Android gesture exclusion (plugin nativo)
 
@@ -350,7 +350,10 @@ En Android, la navegación por gestos intercepta toques en los bordes de la pant
 1. `Highway._build_lanes()` → llama a `AndroidBridge.set_lane_exclusion()` después de construir touch zones
 2. `AndroidBridge` obtiene el singleton `GestureExclusion` vía `Engine.get_singleton()`
 3. El plugin Java calcula los rectángulos de exclusión (max 200px por borde, max 4 rects)
-4. Al salir del gameplay (`_exit_to_menu`, `_restart_song`, `stop_gameplay`) → `AndroidBridge.clear_exclusion()`
+4. Al salir del gameplay (`_exit_to_menu`, `stop_gameplay`) → `AndroidBridge.clear_exclusion()`
+   - **Nota:** `_restart_song()` NO llama a `clear_exclusion()` porque no reconstruye lanes — las posiciones no cambian, los rects siguen siendo válidos
+
+**Independencia del padding:** La exclusión de gestos funciona siempre que el plugin esté compilado y habilitado, independientemente de `gameplay_padding_enabled`. Los rects cubren los bordes de los lanes exteriores (HH y RIDE) para evitar interferencia del back gesture. Cuando el padding está desactivado, `pad_x` y `pad_y` son 0, pero los rects siguen cubriendo las zonas correctas.
 
 **Limitaciones de la API Android:**
 - `setSystemGestureExclusionRects()` solo afecta el **back gesture** (swipe lateral), NO el home/recents (swipe inferior)
@@ -363,9 +366,20 @@ En Android, la navegación por gestos intercepta toques en los bordes de la pant
 **Prerequisitos para build:**
 1. Instalar Android Build Template: `Project → Install Android Build Template...`
 2. Habilitar Gradle build: `gradle_build/use_gradle_build=true` en export settings
-3. Compilar el `.aar` del plugin desde `GestureExclusionPlugin/` con Gradle
-4. Copiar `addons/GestureExclusion/` al proyecto Godot
-5. Habilitar plugin en `Project Settings → Plugins`
+3. Java 17 JDK instalado (Gradle 8.11.1 + AGP 8.6.1 no soportan Java <11 ni >22)
+4. Compilar el `.aar` del plugin desde `GestureExclusionPlugin/` con Gradle:
+   ```
+   JAVA_HOME=/usr/lib/jvm/jdk-17.0.12-oracle-x64 ./gradlew :plugin:assembleDebug
+   ```
+5. Copiar `plugin/build/outputs/aar/plugin-debug.aar` → `addons/GestureExclusion/bin/debug/GestureExclusion.aar`
+6. Habilitar plugin en `Project Settings → Plugins`
+
+**Estructura del plugin (dos scripts):**
+- `plugin.cfg` → apunta a `plugin_main.gd` (extends `EditorPlugin`)
+- `plugin_main.gd` → wrapper que registra el export plugin via `add_export_plugin()`
+- `export_plugin.gd` → (extends `EditorExportPlugin`) maneja inclusión del `.aar` en exports Android
+
+**Nota sobre paths:** `_get_android_libraries()` retorna paths relativos a `res://addons/`, por lo que deben incluir el prefijo del directorio del plugin (`GestureExclusion/bin/debug/...`).
 
 ### Spawn de notas
 
@@ -477,7 +491,16 @@ Teclas **1–8** del teclado numérico mapean a lanes **0–7**. Implementado en
 
 ### Kick háptico (acelerómetro)
 
-`HapticKick.gd` se conecta a `InputManager.kick_detected`. El pipeline de detección está en `InputManager._process()`: aplica filtro de suavizado, estimación de gravedad, y detecta picos en el eje forward. La calibración dura 1.5 s.
+`HapticKick.gd` se conecta a `InputManager.kick_detected`. El pipeline de detección está en `InputManager._process()`:
+
+1. **Sensor**: `Input.get_accelerometer()` en el eje +Z del dispositivo (normal de la pantalla, `Vector3.BACK`). Fallback a `Input.get_gravity()` si el acelerómetro devuelve ceros.
+2. **Gravity removal**: `linear_accel = filtered_accel - gravity_estimate`. La gravedad se obtiene de `Input.get_gravity()` o de un filtro pasabajos sobre el acelerómetro.
+3. **Smoothing**: Filtro exponencial `lerp_factor = 1.0 - pow(1.0 - strength, delta * 60.0)`, default `strength = 0.4`.
+4. **Detección en dos fases**:
+   - **Lift**: cuando `toward > 1.0` se marca `_lift_detected`.
+   - **Abort**: si `toward < 0.5` antes del cruce por cero, se resetea `_lift_detected`.
+   - **KICK**: cuando `toward <= 0.0` y `_lift_detected` es true, se dispara `kick_detected`. Así el kick ocurre al inicio del retorno.
+5. **Calibración**: al empezar la canción, captura la orientación actual (~0.5 s si hay sensor de gravedad, ~1.5 s si no). Eje de detección siempre es `Vector3.BACK` (no depende de la orientación).
 
 ---
 
@@ -622,7 +645,14 @@ MidiParser.load(path, ..., use_guitar_fallback)
 | `sfx_volume` | 1.0 | Volumen de efectos |
 | `music_volume` | 1.0 | Volumen de música |
 | `haptic_enabled` | false | Kick por sensor |
-| `haptic_sensitivity` | 1.0 | Sensibilidad del sensor háptico |
+| `haptic_sensitivity` | 1.0 | Sensibilidad del sensor (÷, más alto = más sensible) |
+| `haptic_activation_threshold` | 1.5 | Umbral base de activación (dividido por sensibilidad) |
+| `haptic_release_threshold` | 0.3 | Umbral de liberación post-kick |
+| `haptic_smoothing_strength` | 0.4 | Filtro exponencial (0=suavizado máximo, 1=sin filtro) |
+| `haptic_cooldown_duration` | 0.15 | Tiempo mínimo en COOLDOWN (s) |
+| `haptic_min_interval` | 0.08 | Intervalo mínimo entre kicks (s) |
+| `haptic_calibration_duration` | 1.5 | Duración de calibración sin sensor de gravedad (s) |
+| `haptic_show_debug` | false | Overlay debug en pantalla |
 | `game_mode` | 0 | Modo de juego (0=Default, 1=Haptic, 2=Custom) |
 | `custom_lanes` | [] | Orden personalizado de lanes |
 | `mirrored` | false | Layout espejo |
@@ -636,7 +666,10 @@ MidiParser.load(path, ..., use_guitar_fallback)
 | `note_speed` | 1.0 | Velocidad de scroll de notas |
 | `show_judgment_areas` | false | Dibujar zonas de juicio en el hit line |
 | `gameplay_padding_enabled` | false | Condensar gameplay con padding para evitar toques en bordes |
-| `gameplay_padding_amount` | 40.0 | Cantidad de padding en px (20-60) |
+| `gameplay_padding_left` | 40.0 | Padding izquierdo en px (0-200) |
+| `gameplay_padding_right` | 40.0 | Padding derecho en px (0-200) |
+| `gameplay_padding_top` | 40.0 | Padding superior en px (0-200) |
+| `gameplay_padding_bottom` | 40.0 | Padding inferior en px (0-200) |
 
 ### Layout del menú de Settings
 

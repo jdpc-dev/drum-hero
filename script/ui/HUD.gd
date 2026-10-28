@@ -39,27 +39,26 @@ func _ensure_fps_label() -> void:
 
 
 func _apply_padding() -> void:
-	var pad: float = SettingsManager.gameplay_padding_amount if SettingsManager.gameplay_padding_enabled else 0.0
-	if pad <= 0.0:
+	if not SettingsManager.gameplay_padding_enabled:
 		return
+	var pl: float = SettingsManager.gameplay_padding_left
+	var pr: float = SettingsManager.gameplay_padding_right
+	var pt: float = SettingsManager.gameplay_padding_top
 	if score_label:
-		score_label.offset_left -= pad
-		score_label.offset_right -= pad
-		score_label.offset_top += pad
+		score_label.offset_right -= pr
+		score_label.offset_top += pt
 	if multiplier_label:
-		multiplier_label.offset_left += pad
-		multiplier_label.offset_top += pad
+		multiplier_label.offset_left += pl
+		multiplier_label.offset_top += pt
 	if combo_label:
-		combo_label.offset_top += pad
-		combo_label.offset_bottom += pad
+		combo_label.offset_top += pt
 	if has_node("SongTimeline"):
 		var timeline: Control = get_node("SongTimeline") as Control
-		timeline.offset_left += pad
-		timeline.offset_right -= pad
-		timeline.offset_top += pad
-		timeline.offset_bottom += pad
+		timeline.offset_left += pl
+		timeline.offset_right -= pr
+		timeline.offset_top += pt
 	if _fps_label:
-		_fps_label.position = Vector2(10 + pad, 20 + pad)
+		_fps_label.position = Vector2(10 + pl, 20 + pt)
 
 func _on_score_changed(new_score: int) -> void:
 	if score_label:

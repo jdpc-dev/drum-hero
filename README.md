@@ -55,7 +55,7 @@
 |                                                                             |
 | CONTROL MODE                                                                |
 | Default    8 lanes — all drum parts visible                                 |
-| Haptic     7 lanes — KICK via device motion sensor                          |
+| Haptic     7 lanes — KICK via device motion sensor (two-phase detection: lift → zero-cross → fire) |
 | Custom     Reorder lanes manually                                           |
 |                                                                             |
 | LANE ORDER (CUSTOM MODE)                                                    |
@@ -66,6 +66,13 @@
 | HAPTIC                                                                      |
 | Enable Haptic Kick                                                          |
 | Sensitivity        [====o====================] 1.0                          |
+| ADVANCED HAPTIC TUNING                                                      |
+| Activation          [====o====================] 1.5                          |
+| Release             [====o====================] 0.3                          |
+| Cooldown (s)        [====o====================] 0.15                         |
+| Min Interval (s)    [====o====================] 0.08                         |
+| Smoothing           [====o====================] 0.4                          |
+| Show Haptic Debug   [ ]                                                      |
 |                                                                             |
 | LAYOUT                                                                      |
 | Mirrored Layout                                                             |

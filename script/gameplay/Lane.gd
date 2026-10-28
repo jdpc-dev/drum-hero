@@ -29,10 +29,11 @@ func _ready() -> void:
 	var total: int = highway_ref.active_lane_count
 	var lw: float = highway_ref.screen_w / float(total)
 	var bg_h: float = highway_ref.highway_bottom_y - highway_ref.highway_top_y
+	var vi: int = highway_ref.get_lane_visual_index(lane_index)
 	_lane_color = Highway._get_lane_colors()[lane_index]
 
 	_bg_rect = ColorRect.new()
-	_bg_rect.position = Vector2(lw * lane_index, highway_ref.highway_top_y)
+	_bg_rect.position = Vector2(lw * vi, highway_ref.highway_top_y)
 	_bg_rect.size = Vector2(lw, bg_h)
 	_bg_rect.color = _lane_color
 	_bg_rect.color.a = 0.08
@@ -175,7 +176,8 @@ func _update_highlight(delta: float) -> void:
 	var total: int = highway_ref.active_lane_count
 	var lw: float = highway_ref.screen_w / float(total)
 	var bg_h: float = highway_ref.highway_bottom_y - highway_ref.highway_top_y
-	var center_x: float = lw * lane_index + lw * 0.5
+	var vi: int = highway_ref.get_lane_visual_index(lane_index)
+	var center_x: float = lw * vi + lw * 0.5
 	var top_y: float = highway_ref.highway_top_y
 
 	var t: float = _slash_timer / _slash_duration

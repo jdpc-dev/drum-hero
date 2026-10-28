@@ -11,7 +11,10 @@ func _ready() -> void:
 	_screen_size = get_viewport().get_visible_rect().size
 	layer = 5
 
-	var pad: float = SettingsManager.gameplay_padding_amount if SettingsManager.gameplay_padding_enabled else 0.0
+	var pl: float = SettingsManager.gameplay_padding_left if SettingsManager.gameplay_padding_enabled else 0.0
+	var pr: float = SettingsManager.gameplay_padding_right if SettingsManager.gameplay_padding_enabled else 0.0
+	var pt: float = SettingsManager.gameplay_padding_top if SettingsManager.gameplay_padding_enabled else 0.0
+	var content_w: float = _screen_size.x - pl - pr
 
 	_title_label = Label.new()
 	_title_label.text = "Next notes in"
@@ -22,8 +25,8 @@ func _ready() -> void:
 	_title_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	_title_label.add_theme_constant_override("shadow_offset_x", 2)
 	_title_label.add_theme_constant_override("shadow_offset_y", 2)
-	_title_label.position = Vector2(pad, _screen_size.y * 0.35)
-	_title_label.size = Vector2(_screen_size.x - 2.0 * pad, 40)
+	_title_label.position = Vector2(pl, pt + _screen_size.y * 0.35)
+	_title_label.size = Vector2(content_w, 40)
 	add_child(_title_label)
 
 	_time_label = Label.new()
@@ -34,8 +37,8 @@ func _ready() -> void:
 	_time_label.add_theme_color_override("font_shadow_color", Color.BLACK)
 	_time_label.add_theme_constant_override("shadow_offset_x", 3)
 	_time_label.add_theme_constant_override("shadow_offset_y", 3)
-	_time_label.position = Vector2(pad, _screen_size.y * 0.42)
-	_time_label.size = Vector2(_screen_size.x - 2.0 * pad, 80)
+	_time_label.position = Vector2(pl, pt + _screen_size.y * 0.42)
+	_time_label.size = Vector2(content_w, 80)
 	add_child(_time_label)
 
 	hide()

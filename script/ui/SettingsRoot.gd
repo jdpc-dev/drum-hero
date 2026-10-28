@@ -11,6 +11,7 @@ var _content_container: VBoxContainer
 var _mode_buttons: Array[CheckBox] = []
 var _custom_lane_container: VBoxContainer
 var _haptic_sensitivity_label: Label
+var _haptic_enabled_check: CheckBox
 
 # HUD tab elements
 var _hud_fps_check: CheckBox
@@ -25,8 +26,14 @@ var _countdown_label: Label
 var _fallback_check: CheckBox
 var _judgment_areas_check: CheckBox
 var _padding_check: CheckBox
-var _padding_slider: HSlider
-var _padding_label: Label
+var _padding_left_slider: HSlider
+var _padding_left_label: Label
+var _padding_right_slider: HSlider
+var _padding_right_label: Label
+var _padding_top_slider: HSlider
+var _padding_top_label: Label
+var _padding_bottom_slider: HSlider
+var _padding_bottom_label: Label
 
 const LANE_LABELS: PackedStringArray = [
 	"HH", "CRASH", "SNARE", "KICK",
@@ -150,7 +157,7 @@ func _build_tab_bar(parent: VBoxContainer) -> void:
 	hbox.alignment = BoxContainer.ALIGNMENT_CENTER
 	tab_bg.add_child(hbox)
 
-	var tab_names := ["CONTROLS", "HUD", "Experimental"]
+	var tab_names := ["CONTROLS", "HUD", "Experimental", "CREDITS"]
 	for i in tab_names.size():
 		var btn := Button.new()
 		btn.text = tab_names[i]
@@ -185,6 +192,8 @@ func _build_tab_content() -> void:
 			_build_hud_content(_content_container)
 		2:
 			_build_experimental_content(_content_container)
+		3:
+			_build_credits_content(_content_container)
 
 
 func _build_controls_content(parent: VBoxContainer) -> void:
@@ -237,14 +246,15 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 
 	var haptic_enabled_hbox := HBoxContainer.new()
 	haptic_enabled_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var haptic_enabled_check := CheckBox.new()
-	haptic_enabled_check.text = "Enable Haptic Kick"
-	haptic_enabled_check.add_theme_font_size_override("font_size", 22)
-	haptic_enabled_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
-	haptic_enabled_check.set_pressed_no_signal(SettingsManager.haptic_enabled)
-	haptic_enabled_check.toggled.connect(_on_haptic_enabled_toggled)
-	haptic_enabled_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	haptic_enabled_hbox.add_child(haptic_enabled_check)
+	_haptic_enabled_check = CheckBox.new()
+	_haptic_enabled_check.text = "Enable Haptic Kick"
+	_haptic_enabled_check.add_theme_font_size_override("font_size", 22)
+	_haptic_enabled_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_haptic_enabled_check.set_pressed_no_signal(SettingsManager.haptic_enabled)
+	_haptic_enabled_check.toggled.connect(_on_haptic_enabled_toggled)
+	_haptic_enabled_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_haptic_enabled_check.disabled = (SettingsManager.game_mode == 1)
+	haptic_enabled_hbox.add_child(_haptic_enabled_check)
 	parent.add_child(haptic_enabled_hbox)
 
 	var haptic_sens_hbox := HBoxContainer.new()
@@ -280,6 +290,35 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	haptic_desc.add_theme_font_size_override("font_size", 14)
 	haptic_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
 	parent.add_child(haptic_desc)
+
+	parent.add_child(_spacer(15))
+	_add_section_title(parent, "ADVANCED HAPTIC TUNING")
+	parent.add_child(_spacer(5))
+
+	_haptic_add_threshold_slider(parent, "Activation", SettingsManager.haptic_activation_threshold, 0.5, 12.0, 0.5, _on_haptic_activation_changed, _on_haptic_any_drag_ended)
+	_haptic_add_threshold_slider(parent, "Release", SettingsManager.haptic_release_threshold, 0.1, 8.0, 0.5, _on_haptic_release_changed, _on_haptic_any_drag_ended)
+	_haptic_add_threshold_slider(parent, "Cooldown (s)", SettingsManager.haptic_cooldown_duration, 0.05, 0.5, 0.01, _on_haptic_cooldown_changed, _on_haptic_any_drag_ended)
+	_haptic_add_threshold_slider(parent, "Min Interval (s)", SettingsManager.haptic_min_interval, 0.02, 0.3, 0.01, _on_haptic_min_interval_changed, _on_haptic_any_drag_ended)
+	_haptic_add_threshold_slider(parent, "Smoothing", SettingsManager.haptic_smoothing_strength, 0.01, 0.5, 0.01, _on_haptic_smoothing_changed, _on_haptic_any_drag_ended)
+
+	parent.add_child(_spacer(5))
+	var haptic_debug_hbox := HBoxContainer.new()
+	haptic_debug_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var haptic_debug_check := CheckBox.new()
+	haptic_debug_check.text = "Show Haptic Debug"
+	haptic_debug_check.add_theme_font_size_override("font_size", 18)
+	haptic_debug_check.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	haptic_debug_check.set_pressed_no_signal(SettingsManager.haptic_show_debug)
+	haptic_debug_check.toggled.connect(_on_haptic_debug_toggled)
+	haptic_debug_check.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	haptic_debug_hbox.add_child(haptic_debug_check)
+	parent.add_child(haptic_debug_hbox)
+
+	var advanced_desc := Label.new()
+	advanced_desc.text = "Activation = lift threshold, Release = when kick resets ( ÷ by Sensitivity slider )."
+	advanced_desc.add_theme_font_size_override("font_size", 14)
+	advanced_desc.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	parent.add_child(advanced_desc)
 
 	parent.add_child(_spacer(20))
 	_add_section_title(parent, "LAYOUT")
@@ -484,34 +523,106 @@ func _build_experimental_content(parent: VBoxContainer) -> void:
 
 	parent.add_child(_spacer(10))
 
-	var padding_hbox := HBoxContainer.new()
-	padding_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	padding_hbox.add_theme_constant_override("separation", 10)
-	var padding_amount_label := Label.new()
-	padding_amount_label.text = "Padding"
-	padding_amount_label.add_theme_font_size_override("font_size", 18)
-	padding_amount_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
-	padding_amount_label.custom_minimum_size = Vector2(120, 0)
-	padding_hbox.add_child(padding_amount_label)
+	_padding_left_slider = _make_padding_slider(parent, "Left", SettingsManager.gameplay_padding_left, _on_padding_left_changed)
+	_padding_right_slider = _make_padding_slider(parent, "Right", SettingsManager.gameplay_padding_right, _on_padding_right_changed)
+	_padding_top_slider = _make_padding_slider(parent, "Top", SettingsManager.gameplay_padding_top, _on_padding_top_changed)
+	_padding_bottom_slider = _make_padding_slider(parent, "Bottom", SettingsManager.gameplay_padding_bottom, _on_padding_bottom_changed)
 
-	_padding_slider = HSlider.new()
-	_padding_slider.min_value = 20.0
-	_padding_slider.max_value = 60.0
-	_padding_slider.step = 5.0
-	_padding_slider.value = SettingsManager.gameplay_padding_amount
-	_padding_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_padding_slider.editable = SettingsManager.gameplay_padding_enabled
-	_padding_slider.value_changed.connect(_on_padding_amount_changed)
-	_padding_slider.drag_ended.connect(_on_padding_amount_drag_ended)
-	padding_hbox.add_child(_padding_slider)
+	_apply_padding_sliders_editable(SettingsManager.gameplay_padding_enabled)
 
-	_padding_label = Label.new()
-	_padding_label.text = str(int(SettingsManager.gameplay_padding_amount)) + "px"
-	_padding_label.add_theme_font_size_override("font_size", 16)
-	_padding_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
-	_padding_label.custom_minimum_size = Vector2(40, 0)
-	padding_hbox.add_child(_padding_label)
-	parent.add_child(padding_hbox)
+
+func _build_credits_content(parent: VBoxContainer) -> void:
+	_add_section_title(parent, "CREDITS")
+	parent.add_child(_spacer(10))
+
+	var version_label := Label.new()
+	var app_version: String = ProjectSettings.get_setting("application/config/version", "1.0.0")
+	version_label.text = "Drum Hero v" + app_version
+	version_label.add_theme_font_size_override("font_size", 28)
+	version_label.add_theme_color_override("font_color", Color(0.4, 0.7, 1.0, 1))
+	parent.add_child(version_label)
+
+	parent.add_child(_spacer(5))
+
+	var dev_label := Label.new()
+	dev_label.text = "Developed by jdpc.dev"
+	dev_label.add_theme_font_size_override("font_size", 22)
+	dev_label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	parent.add_child(dev_label)
+
+	parent.add_child(_spacer(25))
+	_add_section_title(parent, "MADE POSSIBLE BY")
+	parent.add_child(_spacer(10))
+
+	var credits: Array[Dictionary] = [
+		{"name": "Godot Engine", "desc": "The game engine that powers this project"},
+		{"name": "Freesound.org", "desc": "Drum sound effects and audio samples"},
+		{"name": "Google Fonts", "desc": "Typography and font assets"},
+	]
+	for entry in credits:
+		var hbox := HBoxContainer.new()
+		hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_theme_constant_override("separation", 10)
+
+		var name_lbl := Label.new()
+		name_lbl.text = entry.name
+		name_lbl.add_theme_font_size_override("font_size", 20)
+		name_lbl.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+		name_lbl.custom_minimum_size = Vector2(180, 0)
+		hbox.add_child(name_lbl)
+
+		var desc_lbl := Label.new()
+		desc_lbl.text = entry.desc
+		desc_lbl.add_theme_font_size_override("font_size", 16)
+		desc_lbl.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+		desc_lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.add_child(desc_lbl)
+
+		parent.add_child(hbox)
+
+	parent.add_child(_spacer(30))
+
+
+func _make_padding_slider(parent: VBoxContainer, label_text: String, initial_value: float, callback: Callable) -> HSlider:
+	var hbox := HBoxContainer.new()
+	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_theme_constant_override("separation", 10)
+
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", 18)
+	label.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	label.custom_minimum_size = Vector2(120, 0)
+	hbox.add_child(label)
+
+	var slider := HSlider.new()
+	slider.min_value = 0.0
+	slider.max_value = 200.0
+	slider.step = 5.0
+	slider.value = initial_value
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.value_changed.connect(callback)
+	slider.drag_ended.connect(_on_padding_any_drag_ended)
+	hbox.add_child(slider)
+
+	var value_label := Label.new()
+	value_label.text = str(int(initial_value)) + "px"
+	value_label.add_theme_font_size_override("font_size", 16)
+	value_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	value_label.custom_minimum_size = Vector2(40, 0)
+	hbox.add_child(value_label)
+
+	# Store label ref in slider metadata for callback to update
+	slider.set_meta("value_label", value_label)
+
+	parent.add_child(hbox)
+	return slider
+
+
+func _apply_padding_sliders_editable(enabled: bool) -> void:
+	for s in [_padding_left_slider, _padding_right_slider, _padding_top_slider, _padding_bottom_slider]:
+		if is_instance_valid(s):
+			s.editable = enabled
 
 
 func _add_section_title(parent: VBoxContainer, text: String) -> void:
@@ -547,6 +658,13 @@ func _on_mode_toggled(toggled: bool, mode: int) -> void:
 	SettingsManager.save_settings()
 	if is_instance_valid(_custom_lane_container):
 		_custom_lane_container.visible = (mode == 2)
+	if is_instance_valid(_haptic_enabled_check):
+		if mode == 1:
+			_haptic_enabled_check.set_pressed_no_signal(true)
+			_haptic_enabled_check.disabled = true
+		else:
+			_haptic_enabled_check.set_pressed_no_signal(SettingsManager.haptic_enabled)
+			_haptic_enabled_check.disabled = false
 
 
 func _rebuild_custom_lane_ui(lanes: Array) -> void:
@@ -663,6 +781,71 @@ func _on_haptic_sensitivity_drag_ended(value_changed: bool) -> void:
 		SettingsManager.save_settings()
 
 
+func _haptic_add_threshold_slider(parent: VBoxContainer, label_text: String, initial_value: float, min_val: float, max_val: float, step_val: float, change_callback: Callable, drag_callback: Callable) -> void:
+	var hbox := HBoxContainer.new()
+	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	hbox.add_theme_constant_override("separation", 10)
+	var label := Label.new()
+	label.text = label_text
+	label.add_theme_font_size_override("font_size", 16)
+	label.add_theme_color_override("font_color", Color(1, 1, 1, 0.85))
+	label.custom_minimum_size = Vector2(140, 0)
+	hbox.add_child(label)
+
+	var value_label := Label.new()
+	value_label.text = str(initial_value)
+	value_label.add_theme_font_size_override("font_size", 14)
+	value_label.add_theme_color_override("font_color", Color(0.7, 0.7, 0.7, 0.8))
+	hbox.add_child(value_label)
+
+	var slider := HSlider.new()
+	slider.min_value = min_val
+	slider.max_value = max_val
+	slider.step = step_val
+	slider.value = initial_value
+	slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	slider.value_changed.connect(change_callback.bind(value_label))
+	slider.drag_ended.connect(drag_callback)
+	hbox.add_child(slider)
+
+	parent.add_child(hbox)
+
+
+func _on_haptic_activation_changed(value: float, label: Label) -> void:
+	SettingsManager.haptic_activation_threshold = value
+	label.text = str(value)
+
+
+func _on_haptic_release_changed(value: float, label: Label) -> void:
+	SettingsManager.haptic_release_threshold = value
+	label.text = str(value)
+
+
+func _on_haptic_cooldown_changed(value: float, label: Label) -> void:
+	SettingsManager.haptic_cooldown_duration = value
+	label.text = str(value)
+
+
+func _on_haptic_min_interval_changed(value: float, label: Label) -> void:
+	SettingsManager.haptic_min_interval = value
+	label.text = str(value)
+
+
+func _on_haptic_smoothing_changed(value: float, label: Label) -> void:
+	SettingsManager.haptic_smoothing_strength = value
+	label.text = str(value)
+
+
+func _on_haptic_any_drag_ended(value_changed: bool) -> void:
+	if value_changed:
+		SettingsManager.save_settings()
+
+
+func _on_haptic_debug_toggled(toggled: bool) -> void:
+	SettingsManager.haptic_show_debug = toggled
+	SettingsManager.save_settings()
+
+
 func _on_note_speed_changed(value: float) -> void:
 	SettingsManager.note_speed = value
 	_note_speed_label.text = "x" + str(value)
@@ -696,17 +879,34 @@ func _on_left_handed_toggled(toggled: bool) -> void:
 func _on_padding_enabled_toggled(toggled: bool) -> void:
 	SettingsManager.gameplay_padding_enabled = toggled
 	SettingsManager.save_settings()
-	if is_instance_valid(_padding_slider):
-		_padding_slider.editable = toggled
+	_apply_padding_sliders_editable(toggled)
 
 
-func _on_padding_amount_changed(value: float) -> void:
-	SettingsManager.gameplay_padding_amount = value
-	if is_instance_valid(_padding_label):
-		_padding_label.text = str(int(value)) + "px"
+func _on_padding_left_changed(value: float) -> void:
+	SettingsManager.gameplay_padding_left = value
+	if is_instance_valid(_padding_left_slider):
+		_padding_left_slider.get_meta("value_label").text = str(int(value)) + "px"
 
 
-func _on_padding_amount_drag_ended(value_changed: bool) -> void:
+func _on_padding_right_changed(value: float) -> void:
+	SettingsManager.gameplay_padding_right = value
+	if is_instance_valid(_padding_right_slider):
+		_padding_right_slider.get_meta("value_label").text = str(int(value)) + "px"
+
+
+func _on_padding_top_changed(value: float) -> void:
+	SettingsManager.gameplay_padding_top = value
+	if is_instance_valid(_padding_top_slider):
+		_padding_top_slider.get_meta("value_label").text = str(int(value)) + "px"
+
+
+func _on_padding_bottom_changed(value: float) -> void:
+	SettingsManager.gameplay_padding_bottom = value
+	if is_instance_valid(_padding_bottom_slider):
+		_padding_bottom_slider.get_meta("value_label").text = str(int(value)) + "px"
+
+
+func _on_padding_any_drag_ended(value_changed: bool) -> void:
 	if value_changed:
 		SettingsManager.save_settings()
 

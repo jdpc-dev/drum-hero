@@ -13,8 +13,10 @@ const NOTE_TRAVEL_TIME := 2.0
 var _is_initialized: bool = false
 var _debug_label: Label
 var _pause_overlay: CanvasLayer
+var _pause_button: Button
 var _is_paused: bool = false
 var _back_handled_time: float = 0.0
+var _calibration_label: Label
 
 # Loading overlay
 var _loading_overlay: CanvasLayer
@@ -32,6 +34,7 @@ func _ready() -> void:
 	get_tree().auto_accept_quit = false
 	_countdown_threshold = SettingsManager.countdown_threshold
 	TimingEngine.time_updated.connect(_on_countdown_update)
+	_setup_pause_button()
 	await _setup_input_when_ready()
 	_start_loading()
 
@@ -114,13 +117,24 @@ func _show_debug(msg: String) -> void:
 	if not _debug_label:
 		_debug_label = Label.new()
 		_debug_label.name = "DebugLabel"
-		_debug_label.position = Vector2(20, 20)
-		_debug_label.add_theme_color_override("font_color", Color.WHITE)
-		_debug_label.add_theme_color_override("font_shadow_color", Color.BLACK)
+		_debug_label.position = Vector2(20, 80)
+		_debug_label.z_index = 10
+		_debug_label.add_theme_font_size_override("font_size", 18)
+		_debug_label.add_theme_color_override("font_color", Color(0, 1, 0))
+		_debug_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0))
 		_debug_label.add_theme_constant_override("shadow_offset_x", 2)
 		_debug_label.add_theme_constant_override("shadow_offset_y", 2)
 		add_child(_debug_label)
 	_debug_label.text = msg
+
+
+func _process(_delta: float) -> void:
+	if SettingsManager.haptic_show_debug:
+		_show_debug(InputManager.get_haptic_debug_string())
+	elif _debug_label:
+		_debug_label.text = ""
+		_debug_label.queue_free()
+		_debug_label = null
 
 
 func _setup_input() -> void:
@@ -180,12 +194,49 @@ func _start_loading() -> void:
 	if SettingsManager.haptic_enabled or GameManager.mode == GameManager.GameMode.HAPTIC:
 		InputManager.haptic_kick_enabled = true
 		InputManager.start_calibration()
+		InputManager.calibration_completed.connect(_on_haptic_calibration_completed, CONNECT_ONE_SHOT)
+		_show_calibration_label()
 	else:
 		InputManager.haptic_kick_enabled = false
 
 	_update_loading(1.0, "Ready!")
 	await get_tree().create_timer(0.0).timeout
 	_hide_loading_screen()
+
+
+func _show_calibration_label() -> void:
+	if _calibration_label:
+		return
+	_calibration_label = Label.new()
+	_calibration_label.name = "CalibrationLabel"
+	_calibration_label.text = "CALIBRATING..."
+	_calibration_label.add_theme_font_size_override("font_size", 18)
+	_calibration_label.add_theme_color_override("font_color", Color(1, 1, 0, 0.9))
+	_calibration_label.add_theme_color_override("font_shadow_color", Color(0, 0, 0, 0.8))
+	_calibration_label.add_theme_constant_override("shadow_offset_x", 1)
+	_calibration_label.add_theme_constant_override("shadow_offset_y", 1)
+	_calibration_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_calibration_label.position = Vector2(0, highway.highway_top_y + 20)
+	_calibration_label.size = Vector2(get_viewport_rect().size.x, 30)
+	add_child(_calibration_label)
+
+
+func _on_haptic_calibration_completed() -> void:
+	if _calibration_label:
+		_calibration_label.text = "READY"
+		_calibration_label.add_theme_color_override("font_color", Color(0, 1, 0, 0.9))
+		await get_tree().create_timer(0.5).timeout
+		if _calibration_label:
+			_calibration_label.queue_free()
+			_calibration_label = null
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		var now: float = Time.get_ticks_msec() / 1000.0
+		if now - _back_handled_time < 0.5:
+			return
+		_toggle_pause()
 
 
 func _on_countdown_update(time_sec: float) -> void:
@@ -232,12 +283,23 @@ func _notification(what: int) -> void:
 		get_viewport().set_input_as_handled()
 
 
-func _unhandled_input(event: InputEvent) -> void:
-	if event.is_action_pressed("ui_cancel"):
-		var now: float = Time.get_ticks_msec() / 1000.0
-		if now - _back_handled_time < 0.5:
-			return
-		_toggle_pause()
+func _setup_pause_button() -> void:
+	_pause_button = Button.new()
+	_pause_button.name = "PauseButton"
+	_pause_button.text = "⏸"
+	_pause_button.custom_minimum_size = Vector2(48, 48)
+	_pause_button.anchor_left = 0.5
+	_pause_button.anchor_top = 0.0
+	_pause_button.anchor_right = 0.5
+	_pause_button.anchor_bottom = 0.0
+	_pause_button.offset_left = -24
+	_pause_button.offset_top = 38
+	_pause_button.offset_right = 24
+	_pause_button.offset_bottom = 86
+	_pause_button.add_theme_font_size_override("font_size", 24)
+	_pause_button.add_theme_color_override("font_color", Color(1, 1, 1, 0.9))
+	_pause_button.pressed.connect(_toggle_pause)
+	hud.add_child(_pause_button)
 
 
 func _toggle_pause() -> void:

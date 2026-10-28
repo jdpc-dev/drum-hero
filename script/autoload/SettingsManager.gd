@@ -18,6 +18,13 @@ var music_volume: float = 1.0
 
 var haptic_sensitivity: float = 1.0
 var haptic_enabled: bool = false
+var haptic_activation_threshold: float = 1.0
+var haptic_release_threshold: float = 0.5
+var haptic_cooldown_duration: float = 0.15
+var haptic_min_interval: float = 0.08
+var haptic_smoothing_strength: float = 0.4
+var haptic_calibration_duration: float = 1.5
+var haptic_show_debug: bool = false
 var game_mode: int = 0  # GameManager.GameMode.DEFAULT
 var custom_lanes: Array = []
 var mirrored: bool = false
@@ -30,7 +37,10 @@ var use_guitar_fallback: bool = false
 var show_judgment_areas: bool = false
 var preview_volume: float = 0.8
 var gameplay_padding_enabled: bool = false
-var gameplay_padding_amount: float = 40.0
+var gameplay_padding_left: float = 40.0
+var gameplay_padding_right: float = 40.0
+var gameplay_padding_top: float = 40.0
+var gameplay_padding_bottom: float = 40.0
 
 
 func _ready() -> void:
@@ -58,6 +68,13 @@ func load_settings() -> void:
     game_mode = cfg.get_value("gameplay", "mode", 0)
     haptic_sensitivity = cfg.get_value("haptic", "sensitivity", 1.0)
     haptic_enabled = cfg.get_value("haptic", "enabled", false)
+    haptic_activation_threshold = cfg.get_value("haptic", "activation_threshold", 1.0)
+    haptic_release_threshold = cfg.get_value("haptic", "release_threshold", 0.5)
+    haptic_cooldown_duration = cfg.get_value("haptic", "cooldown_duration", 0.15)
+    haptic_min_interval = cfg.get_value("haptic", "min_interval", 0.08)
+    haptic_smoothing_strength = cfg.get_value("haptic", "smoothing_strength", 0.4)
+    haptic_calibration_duration = cfg.get_value("haptic", "calibration_duration", 1.5)
+    haptic_show_debug = cfg.get_value("haptic", "show_debug", false)
     custom_lanes = cfg.get_value("layout", "custom_lanes", [])
     mirrored = cfg.get_value("layout", "mirrored", false)
     left_handed = cfg.get_value("layout", "left_handed", false)
@@ -69,7 +86,10 @@ func load_settings() -> void:
     show_judgment_areas = cfg.get_value("visual", "show_judgment_areas", false)
     preview_volume = cfg.get_value("audio", "preview_volume", 0.8)
     gameplay_padding_enabled = cfg.get_value("experimental", "gameplay_padding_enabled", false)
-    gameplay_padding_amount = cfg.get_value("experimental", "gameplay_padding_amount", 40.0)
+    gameplay_padding_left = cfg.get_value("experimental", "gameplay_padding_left", cfg.get_value("experimental", "gameplay_padding_amount", 40.0))
+    gameplay_padding_right = cfg.get_value("experimental", "gameplay_padding_right", cfg.get_value("experimental", "gameplay_padding_amount", 40.0))
+    gameplay_padding_top = cfg.get_value("experimental", "gameplay_padding_top", cfg.get_value("experimental", "gameplay_padding_amount", 40.0))
+    gameplay_padding_bottom = cfg.get_value("experimental", "gameplay_padding_bottom", cfg.get_value("experimental", "gameplay_padding_amount", 40.0))
 
 
 func save_settings() -> void:
@@ -88,6 +108,13 @@ func save_settings() -> void:
     cfg.set_value("audio", "music_volume", music_volume)
     cfg.set_value("haptic", "sensitivity", haptic_sensitivity)
     cfg.set_value("haptic", "enabled", haptic_enabled)
+    cfg.set_value("haptic", "activation_threshold", haptic_activation_threshold)
+    cfg.set_value("haptic", "release_threshold", haptic_release_threshold)
+    cfg.set_value("haptic", "cooldown_duration", haptic_cooldown_duration)
+    cfg.set_value("haptic", "min_interval", haptic_min_interval)
+    cfg.set_value("haptic", "smoothing_strength", haptic_smoothing_strength)
+    cfg.set_value("haptic", "calibration_duration", haptic_calibration_duration)
+    cfg.set_value("haptic", "show_debug", haptic_show_debug)
     cfg.set_value("layout", "custom_lanes", custom_lanes)
     cfg.set_value("layout", "mirrored", mirrored)
     cfg.set_value("layout", "left_handed", left_handed)
@@ -99,6 +126,9 @@ func save_settings() -> void:
     cfg.set_value("visual", "show_judgment_areas", show_judgment_areas)
     cfg.set_value("audio", "preview_volume", preview_volume)
     cfg.set_value("experimental", "gameplay_padding_enabled", gameplay_padding_enabled)
-    cfg.set_value("experimental", "gameplay_padding_amount", gameplay_padding_amount)
+    cfg.set_value("experimental", "gameplay_padding_left", gameplay_padding_left)
+    cfg.set_value("experimental", "gameplay_padding_right", gameplay_padding_right)
+    cfg.set_value("experimental", "gameplay_padding_top", gameplay_padding_top)
+    cfg.set_value("experimental", "gameplay_padding_bottom", gameplay_padding_bottom)
 
     cfg.save(SETTINGS_PATH)
