@@ -58,3 +58,22 @@ desktop.ini
 .vscode/
 .idea/
 *.code-workspace
+
+# Android build outputs and prebuilt AARs
+/android/build/
+/android/.gradle/
+/android/local.properties
+AllFilesAccessPlugin/.gradle/
+/AllFilesAccessPlugin/build/
+/AllFilesAccessPlugin/plugin/build/
+/AllFilesAccessPlugin/local.properties
+GestureExclusionPlugin/.gradle/
+/GestureExclusionPlugin/build/
+/GestureExclusionPlugin/plugin/build/
+/GestureExclusionPlugin/local.properties
+/addons/AllFilesAccess/bin/
+/addons/AllFilesAccess/plugin-debug.aar
+/addons/GestureExclusion/bin/
+/addons/GestureExclusion/plugin-debug.aar
+*.aar
+*.jar

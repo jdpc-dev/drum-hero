@@ -1,0 +1,56 @@
+Categories:
+  - Games
+License: GPL-3.0-or-later
+AuthorName: Drum Hero Project
+WebSite: https://github.com/jdpcdev/drum-hero
+SourceCode: https://github.com/jdpcdev/drum-hero
+IssueTracker: https://github.com/jdpcdev/drum-hero/issues
+
+AutoName: Drum Hero
+
+Summary: Mobile rhythm game focused exclusively on the drums
+Description: |
+  Drum Hero is a mobile rhythm game similar to Rock Band, Guitar Hero, Clone Hero
+  and YARG focused exclusively on the drum instrument.
+
+  Features:
+  * 8-lane drum highway (Hi-Hat Closed/Open, Crash, Snare, Kick, Tom 1, Tom 2, Tom 3, Ride)
+  * Three control modes: Default, Haptic (kick via accelerometer), and Custom lane reordering
+  * Compatible with Clone Hero/YARG song format (MIDI charts + audio stems)
+  * Load custom songs from external storage
+  * Song timeline, combo counter, hit windows, shockwave effects
+  * Free Mode for drum testing without a song
+
+  Songs are loaded from the DrumHero directory in your storage. See the README for
+  song structure details.
+
+RepoType: git
+Repo: https://github.com/jdpcdev/drum-hero
+
+Builds:
+  - versionName: '7.0.0'
+    versionCode: 700
+    commit: d1be8d197437ff641172c2c2e16fafb6981a80d0
+    subdir: android/build
+    sudo:
+      - apt-get update || apt-get update
+      - apt-get install -y --no-install-recommends openjdk-17-jdk-headless
+    gradle:
+      - yes
+    prebuild: |
+      mkdir -p libs/debug libs/release
+    build: |
+      echo "Godot Android export build - requires Godot export environment"
+    androidupdate:
+      - 'yes'
+    scanignore:
+      - android/build/libs/
+
+AntiFeatures:
+  - NonFreeAssets
+MaintainerNotes: |
+  This app uses custom Android plugins (AllFilesAccess, GestureExclusion) included in source.
+  MANAGE_EXTERNAL_STORAGE permission is used to load custom songs from external directories.
+
+AutoUpdateMode: Version
+UpdateCheckMode: Tags
