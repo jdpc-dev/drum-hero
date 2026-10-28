@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://c5g7ctupydck0"]
+
+[ext_resource type="Script" path="res://script/effects/Shockwave.gd" id="1_4cb55"]
+
+[node name="Shockwave" type="Node2D"]
+script = ExtResource("1_4cb55")

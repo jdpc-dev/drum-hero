@@ -1,0 +1,8 @@
+[gd_scene load_steps=3 format=3 uid="uid://b67wcpyy5ud3g"]
+
+[ext_resource type="Script" path="res://script/gameplay/Lane.gd" id="1_d45xn"]
+[ext_resource type="PackedScene" uid="uid://dxccwef0r6hr5" path="res://scene/UI/Note.tscn" id="2_url4w"]
+
+[node name="Lane" type="Node2D"]
+script = ExtResource("1_d45xn")
+note_scene = ExtResource("2_url4w")

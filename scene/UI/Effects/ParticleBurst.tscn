@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://bxmhvya87gh5w"]
+
+[ext_resource type="Script" path="res://script/effects/ParticleBurst.gd" id="1_jt6k8"]
+
+[node name="ParticleBurst" type="Node2D"]
+script = ExtResource("1_jt6k8")

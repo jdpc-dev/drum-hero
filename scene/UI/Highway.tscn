@@ -1,0 +1,10 @@
+[gd_scene load_steps=4 format=3 uid="uid://d2ycbv0bsfm54"]
+
+[ext_resource type="Script" path="res://script/gameplay/Highway.gd" id="1_h0tsa"]
+[ext_resource type="PackedScene" uid="uid://b67wcpyy5ud3g" path="res://scene/UI/Lane.tscn" id="2_pgac1"]
+[ext_resource type="PackedScene" uid="uid://dx0x2wj42gsvj" path="res://scene/UI/HitLine.tscn" id="3_4hpfn"]
+
+[node name="Highway" type="Node2D"]
+script = ExtResource("1_h0tsa")
+lane_scene = ExtResource("2_pgac1")
+hit_line_scene = ExtResource("3_4hpfn")

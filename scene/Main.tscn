@@ -1,0 +1,96 @@
+[gd_scene load_steps=4 format=3 uid="uid://bk1km7sx3ssmc"]
+
+[ext_resource type="Script" path="res://script/ui/MenuRoot.gd" id="1_0dk3s"]
+[ext_resource type="LabelSettings" path="res://asset/fonts/label_settings.tres" id="2_01hqh"]
+
+[sub_resource type="LabelSettings" id="LabelSettings_gxakw"]
+font_size = 56
+font_color = Color(1, 1, 1, 1)
+outline_size = 3
+outline_color = Color(0, 0, 0, 0.6)
+
+[node name="Main" type="CanvasLayer"]
+script = ExtResource("1_0dk3s")
+
+[node name="Background" type="ColorRect" parent="."]
+anchors_preset = 15
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 1.0
+color = Color(0.08, 0.08, 0.12, 1.0)
+mouse_filter = 2
+
+[node name="Title" type="Label" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 60.0
+offset_right = 300.0
+offset_bottom = 140.0
+text = "DRUM HERO"
+label_settings = SubResource("LabelSettings_gxakw")
+horizontal_alignment = 1
+
+[node name="StatusLabel" type="Label" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -300.0
+offset_top = 160.0
+offset_right = 300.0
+offset_bottom = 200.0
+text = "scanning..."
+label_settings = ExtResource("2_01hqh")
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.6, 0.6, 0.6, 1)
+horizontal_alignment = 1
+
+[node name="DifficultyContainer" type="HBoxContainer" parent="."]
+anchors_preset = 8
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -220.0
+offset_top = 230.0
+offset_right = 220.0
+offset_bottom = 290.0
+alignment = 1
+visible = false
+
+[node name="SelectFolderButton" type="Button" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -140.0
+offset_bottom = -80.0
+offset_left = 50.0
+offset_right = 350.0
+text = "Select Folder"
+
+[node name="ClearFolderButton" type="Button" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -140.0
+offset_bottom = -80.0
+offset_left = 370.0
+offset_right = 550.0
+text = "Clear"
+
+[node name="AddFilesButton" type="Button" parent="."]
+anchors_preset = 2
+anchor_top = 1.0
+anchor_bottom = 1.0
+offset_top = -70.0
+offset_bottom = -10.0
+offset_left = 50.0
+offset_right = 350.0
+text = "Pick song.ini files"
+
+[node name="SongList" type="ItemList" parent="."]
+anchors_preset = 0
+offset_left = 50.0
+offset_top = 320.0
+offset_right = 550.0
+offset_bottom = 900.0

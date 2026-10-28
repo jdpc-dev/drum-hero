@@ -23,3 +23,38 @@ mono_crash.*.json
 *.exe
 # Uncomment if your project does not version PCK files as runtime dependencies.
 # *.pck
+
+# Android
+/android/build/
+/android/.gradle/
+/android/local.properties
+
+# Android plugin builds
+/AllFilesAccessPlugin/plugin/build/
+/GestureExclusionPlugin/plugin/build/
+
+# User content
+/Songs/
+
+# Exports
+*.apk
+*.aab
+*.idsig
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor junk
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+*.code-workspace

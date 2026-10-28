@@ -1,0 +1,52 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Drum Hero"
+config/description="A mobile rhythm game focused exclusively on the drum instrument."
+run/main_scene="res://scene/Main.tscn"
+config/quit_on_go_back=false
+config/features=PackedStringArray("4.7")
+boot_splash/show_image=false
+config/icon="res://asset/textures/app_icon.png"
+
+[audio]
+
+output/latency=25
+
+[autoload]
+
+GameManager="*res://script/autoload/GameManager.gd"
+AudioManager="*res://script/autoload/AudioManager.gd"
+InputManager="*res://script/autoload/InputManager.gd"
+SettingsManager="*res://script/autoload/SettingsManager.gd"
+SongLoader="*res://script/autoload/SongLoader.gd"
+ChartParser="*res://script/autoload/ChartParser.gd"
+TimingEngine="*res://script/autoload/TimingEngine.gd"
+ScoreManager="*res://script/autoload/ScoreManager.gd"
+EffectManager="*res://script/autoload/EffectManager.gd"
+DrumGraphics="*res://script/autoload/DrumGraphics.gd"
+
+[display]
+
+window/size/viewport_width=1920
+window/size/viewport_height=1080
+window/stretch/mode="canvas_items"
+
+[physics]
+
+common/physics_max_ticks_per_second=120
+
+[rendering]
+
+renderer/rendering_method="gl_compatibility"
+textures/vram_compression/import_etc2_astc=true
+texture/vram_compression/import_etc2_astc=true

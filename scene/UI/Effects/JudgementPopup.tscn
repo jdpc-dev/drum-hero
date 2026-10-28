@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://cmvt6qlmnmp1m"]
+
+[ext_resource type="Script" path="res://script/effects/JudgementPopup.gd" id="1_78qcg"]
+
+[node name="JudgementPopup" type="Node2D"]
+script = ExtResource("1_78qcg")
