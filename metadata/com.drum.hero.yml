@@ -28,7 +28,7 @@ Repo: https://github.com/jdpcdev/drum-hero.git
 Builds:
   - versionName: '7.0.0'
     versionCode: 700
-    commit: d1be8d197437ff641172c2c2e16fafb6981a80d0
+    commit: a0b0fbfd67c76cbb3fc433399d18f871fb8d6b55
     subdir: android/build
     sudo:
       - apt-get update
@@ -44,8 +44,8 @@ Builds:
       - mkdir -p libs/debug libs/release
       - unzip -j $$Godot$$/bin/android_source.zip "libs/debug/godot-lib.template_debug.aar" -d libs/debug/
       - unzip -j $$Godot$$/bin/android_source.zip "libs/release/godot-lib.template_release.aar" -d libs/release/
-      - cd ../../AllFilesAccessPlugin && ./gradlew :plugin:assembleRelease && cp plugin/build/outputs/aar/plugin-release.aar $$PWD/../addons/AllFilesAccess/bin/release/AllFilesAccess.aar
-      - cd ../GestureExclusionPlugin && ./gradlew :plugin:assembleRelease && cp plugin/build/outputs/aar/plugin-release.aar $$PWD/../addons/GestureExclusion/bin/release/GestureExclusion.aar
+      - cd ../../AllFilesAccessPlugin && ./gradlew :plugin:assembleRelease && mkdir -p $$PWD/../addons/AllFilesAccess/bin/release && cp plugin/build/outputs/aar/plugin-release.aar $$PWD/../addons/AllFilesAccess/bin/release/AllFilesAccess.aar
+      - cd ../GestureExclusionPlugin && ./gradlew :plugin:assembleRelease && mkdir -p $$PWD/../addons/GestureExclusion/bin/release && cp plugin/build/outputs/aar/plugin-release.aar $$PWD/../addons/GestureExclusion/bin/release/GestureExclusion.aar
     scandelete:
       - .godot
       - addons/*/bin
