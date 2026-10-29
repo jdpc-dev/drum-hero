@@ -1,0 +1,1 @@
+First release of Drum Hero: an 8-lane drum rhythm game with Clone Hero/YARG song support, three control modes (Default, Haptic, Custom), Free Mode, and custom song loading from the DrumHero folder in external storage.
