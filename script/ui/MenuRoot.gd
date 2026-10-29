@@ -89,6 +89,7 @@ func _ready() -> void:
 	get_tree().auto_accept_quit = false
 	# El setlist se reconstruye al volver del gameplay: recuperar la busqueda
 	# antes de montar la UI para que el LineEdit y el filtro nazcan ya llenos.
+	# La cancion seleccionada se restaura despues, cuando ya existen las filas.
 	_search_text = GameManager.menu_search_text
 	_preview_player = AudioStreamPlayer.new()
 	_preview_player.name = "PreviewPlayer"
@@ -97,10 +98,13 @@ func _ready() -> void:
 	SongLoader.scan_progress.connect(_on_scan_progress)
 	_build_ui()
 	_rebuild_filtered_list()
+	_restore_selected_song()
 	_restore_scroll_position()
 	if SongLoader.song_list.is_empty():
 		_show_loading_screen()
 		call_deferred("_refresh_song_list")
+	elif _selected_song_index >= 0:
+		_update_status_for_song(_selected_song_index)
 	else:
 		_update_status_text()
 	_update_difficulty_visibility()
@@ -639,7 +643,8 @@ func _on_difficulty_pressed(offset: int) -> void:
 	if found.is_empty():
 		return
 	# Guardar antes de cambiar de escena: al volver, el setlist debe conservar
-	# la busqueda y la posicion de scroll con la que el jugador eligio la cancion.
+	# la busqueda, el scroll y la cancion seleccionada con la que el jugador
+	# eligio la dificultad.
 	_save_menu_state()
 	_stop_preview()
 	_show_loading_screen()
@@ -663,8 +668,31 @@ func _on_search_changed(new_text: String) -> void:
 
 func _save_menu_state() -> void:
 	GameManager.menu_search_text = _search_text
+	GameManager.menu_selected_song_path = ""
+	if _selected_song_index >= 0 and _selected_song_index < SongLoader.song_list.size():
+		GameManager.menu_selected_song_path = SongLoader.song_list[_selected_song_index].path
 	if is_instance_valid(_song_list_scroll):
 		GameManager.menu_scroll_position = _song_list_scroll.scroll_vertical
+
+
+func _restore_selected_song() -> void:
+	var selected_path: String = GameManager.menu_selected_song_path
+	if selected_path.is_empty():
+		return
+	for i in SongLoader.song_list.size():
+		if SongLoader.song_list[i].path != selected_path:
+			continue
+		# Si el filtro actual ya no la muestra, no se restaura una seleccion
+		# invisible: el estado guardado siempre deberia ser coherente, pero una
+		# biblioteca reescaneada puede haber cambiado entre medias.
+		if not _filtered_indices.has(i):
+			return
+		# Se restaura la seleccion y se relanza su preview: al volver del
+		# gameplay el jugador debe recuperar el mismo contexto sonoro.
+		_selected_song_index = i
+		_load_album_art(i)
+		_start_preview_animation(i)
+		return
 
 
 func _restore_scroll_position() -> void:
