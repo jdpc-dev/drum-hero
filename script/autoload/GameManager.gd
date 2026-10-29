@@ -17,6 +17,12 @@ var current_song_delay: float = 0.0
 # equivocada. 0 = desconocida.
 var current_song_length: float = 0.0
 
+# Estado de navegacion del setlist. MenuRoot se reconstruye al volver del
+# gameplay (cambio de escena), asi que la busqueda y el scroll viven aqui para
+# que el jugador vuelva a donde estaba. Es estado de sesion, no de disco.
+var menu_search_text: String = ""
+var menu_scroll_position: int = 0
+
 signal game_state_changed(new_state: GameState)
 signal hit_registered(accuracy: int)
 signal miss_registered()

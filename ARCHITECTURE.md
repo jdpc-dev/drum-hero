@@ -93,6 +93,18 @@ FreeMode (Node2D)                       ← FreeModeRoot.gd
 └── TouchInput (Node)                   ← sin HitDetection
 ```
 
+### Estado del setlist al volver del gameplay
+
+El menú es una escena completa (`Main.tscn`), así que al jugar y volver se
+reconstruye desde cero. Para no perder el contexto, `MenuRoot._save_menu_state()`
+guarda la búsqueda y el `scroll_vertical` en `GameManager.menu_search_text` /
+`menu_scroll_position` al salir de la escena (y justo antes de lanzar una
+canción). Al montar el menú, `_ready()` restaura la búsqueda antes de crear las
+filas y aplica el scroll en cuanto el `ScrollContainer` conoce la altura real
+del contenido. Es estado de sesión: no se escribe en `settings.cfg`.
+
+Prueba: `godot --headless --path . res://tools/test_menu_state.tscn`
+
 ### Modo libre (drum testing)
 
 Se entra desde **Ajustes → Experimental → Open Free Mode**. Es una escena

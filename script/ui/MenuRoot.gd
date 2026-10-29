@@ -20,6 +20,7 @@ var _back_handled_time: float = 0.0
 
 var _root: VBoxContainer
 var _header_bar: PanelContainer
+var _search_input: LineEdit
 var _song_list_scroll: ScrollContainer
 var _song_list_container: VBoxContainer
 var _status_label: Label
@@ -86,6 +87,9 @@ var _preview_fading_out: bool = false
 func _ready() -> void:
 	GameManager.set_state(GameManager.GameState.MENU)
 	get_tree().auto_accept_quit = false
+	# El setlist se reconstruye al volver del gameplay: recuperar la busqueda
+	# antes de montar la UI para que el LineEdit y el filtro nazcan ya llenos.
+	_search_text = GameManager.menu_search_text
 	_preview_player = AudioStreamPlayer.new()
 	_preview_player.name = "PreviewPlayer"
 	_preview_player.bus = "Music"
@@ -93,6 +97,7 @@ func _ready() -> void:
 	SongLoader.scan_progress.connect(_on_scan_progress)
 	_build_ui()
 	_rebuild_filtered_list()
+	_restore_scroll_position()
 	if SongLoader.song_list.is_empty():
 		_show_loading_screen()
 		call_deferred("_refresh_song_list")
@@ -113,6 +118,7 @@ func _notification(what: int) -> void:
 
 
 func _exit_tree() -> void:
+	_save_menu_state()
 	_stop_preview()
 	_abort_scan()
 
@@ -290,6 +296,8 @@ func _build_header_bar() -> void:
 	search_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	search_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	search_input.add_theme_font_size_override("font_size", 20)
+	search_input.text = _search_text
+	search_input.caret_column = search_input.text.length()
 	search_input.text_changed.connect(_on_search_changed)
 	var search_sb := StyleBoxFlat.new()
 	search_sb.bg_color = Palette.NIGHT_ROW
@@ -298,6 +306,7 @@ func _build_header_bar() -> void:
 	search_input.add_theme_stylebox_override("normal", search_sb)
 	search_input.add_theme_stylebox_override("focus", search_sb)
 	hbox.add_child(search_input)
+	_search_input = search_input
 
 	_settings_button = Button.new()
 	_settings_button.text = "Settings"
@@ -629,6 +638,9 @@ func _on_difficulty_pressed(offset: int) -> void:
 			break
 	if found.is_empty():
 		return
+	# Guardar antes de cambiar de escena: al volver, el setlist debe conservar
+	# la busqueda y la posicion de scroll con la que el jugador eligio la cancion.
+	_save_menu_state()
 	_stop_preview()
 	_show_loading_screen()
 	_update_loading(0.0, "Loading " + found.name + "...")
@@ -647,6 +659,29 @@ func _on_search_changed(new_text: String) -> void:
 	_stop_preview()
 	_update_difficulty_visibility()
 	_rebuild_filtered_list()
+
+
+func _save_menu_state() -> void:
+	GameManager.menu_search_text = _search_text
+	if is_instance_valid(_song_list_scroll):
+		GameManager.menu_scroll_position = _song_list_scroll.scroll_vertical
+
+
+func _restore_scroll_position() -> void:
+	var target: int = GameManager.menu_scroll_position
+	if target <= 0 or not is_instance_valid(_song_list_scroll):
+		return
+	var saved_search: String = _search_text
+	# Las filas se acaban de crear: el ScrollContainer aun no conoce la altura
+	# real de su contenido. Se reintenta unos frames hasta que el valor quede
+	# aplicado (o el layout lo limite al maximo disponible).
+	for _i in 3:
+		await get_tree().process_frame
+		if not is_instance_valid(_song_list_scroll) or _search_text != saved_search:
+			return
+		_song_list_scroll.scroll_vertical = target
+		if _song_list_scroll.scroll_vertical == target:
+			return
 
 
 func _refresh_song_list() -> void:
