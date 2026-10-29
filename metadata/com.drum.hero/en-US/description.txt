@@ -1,0 +1,11 @@
+<p>Drum Hero is a mobile rhythm game similar to Rock Band, Guitar Hero, Clone Hero and YARG focused exclusively on the drum instrument.</p>
+<p>Features:</p>
+<ul>
+<li>8-lane drum highway (Hi-Hat Closed/Open, Crash, Snare, Kick, Tom 1, Tom 2, Tom 3, Ride)</li>
+<li>Three control modes: Default, Haptic (kick via accelerometer), and Custom lane reordering</li>
+<li>Compatible with Clone Hero/YARG song format (MIDI charts + audio stems)</li>
+<li>Load custom songs from external storage</li>
+<li>Song timeline, combo counter, hit windows, shockwave effects</li>
+<li>Free Mode for drum testing without a song</li>
+</ul>
+<p>Songs are loaded from the DrumHero directory in your storage.</p>
