@@ -71,6 +71,8 @@ Scoring uses six timing judgments: **Perfect** (±22.5 ms), **Excellent** (±45 
 
 ## Song library
 
+Looking for songs? Browse community song folders, packs and charts from the [Drum Hero link tree](https://linktr.ee/com.drum.hero), also available in **Settings → Songs → Need songs?**.
+
 A song is any folder whose direct child is `notes.mid` or `notes.chart`:
 
 ```text

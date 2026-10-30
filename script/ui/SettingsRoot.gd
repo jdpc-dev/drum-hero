@@ -46,6 +46,7 @@ var _scan_status: Label
 var _scan_folder: Label
 var _scan_summary: Label
 var _scan_pump_active: bool = false
+var _songs_link_status: Label
 
 
 # Experimental tab elements
@@ -69,6 +70,7 @@ const LANE_LABELS: PackedStringArray = [
 ]
 
 const SONGS_TAB: int = 2
+const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
 
 const LANE_COLORS: Array[Color] = [
 	Color(0.9, 0.8, 0.2),
@@ -734,6 +736,33 @@ func _build_experimental_content(parent: VBoxContainer) -> void:
 
 
 func _build_songs_content(parent: VBoxContainer) -> void:
+	_add_section_title(parent, "NEED SONGS?")
+	parent.add_child(_spacer(10))
+
+	var songs_hint := Label.new()
+	songs_hint.text = "Don't know where to get songs? Browse community song folders and packs from the Drum Hero link tree."
+	songs_hint.add_theme_font_size_override("font_size", 14)
+	songs_hint.add_theme_color_override("font_color", Palette.ASH_DIM)
+	songs_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	parent.add_child(songs_hint)
+
+	parent.add_child(_spacer(10))
+	var get_songs_button := Button.new()
+	get_songs_button.name = "GetSongsButton"
+	get_songs_button.text = "Get songs"
+	get_songs_button.custom_minimum_size = Vector2(280, 40)
+	get_songs_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	get_songs_button.pressed.connect(_on_get_songs_pressed)
+	parent.add_child(get_songs_button)
+
+	_songs_link_status = Label.new()
+	_songs_link_status.add_theme_font_size_override("font_size", 14)
+	_songs_link_status.add_theme_color_override("font_color", Palette.BLOOD_BRIGHT)
+	_songs_link_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_songs_link_status.visible = false
+	parent.add_child(_songs_link_status)
+
+	parent.add_child(_spacer(20))
 	_add_section_title(parent, "STORAGE ACCESS")
 	parent.add_child(_spacer(10))
 	_build_permission_section(parent)
@@ -1098,6 +1127,17 @@ func _refresh_scan_widgets() -> void:
 	_set_scan_widgets_visible(SongLoader.is_scanning)
 	if SongLoader.is_scanning and is_instance_valid(_scan_status) and _scan_status.text.is_empty():
 		_scan_status.text = "Scanning..."
+
+
+func _on_get_songs_pressed() -> void:
+	var err: Error = OS.shell_open(SONGS_LINKTREE_URL)
+	if not is_instance_valid(_songs_link_status):
+		return
+	if err == OK:
+		_songs_link_status.visible = false
+		return
+	_songs_link_status.text = "Could not open the browser. Visit " + SONGS_LINKTREE_URL
+	_songs_link_status.visible = true
 
 
 func _on_reset_songs() -> void:

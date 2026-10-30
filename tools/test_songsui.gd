@@ -94,6 +94,8 @@ func _ready() -> void:
 
 	var dump: String = _text_dump(root)
 	print("=== 2. contenido de la pestaña ===")
+	_check("muestra seccion NEED SONGS", dump.contains("NEED SONGS?"))
+	_check("hay boton Get songs", _find_button(root, "Get songs") != null)
 	_check("muestra seccion STORAGE ACCESS", dump.contains("STORAGE ACCESS"))
 	_check("muestra seccion LIBRARY LOCATIONS", dump.contains("LIBRARY LOCATIONS"))
 	_check("muestra seccion EXTRA FOLDERS", dump.contains("EXTRA FOLDERS"))
