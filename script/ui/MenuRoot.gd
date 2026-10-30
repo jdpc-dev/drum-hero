@@ -103,9 +103,7 @@ func _ready() -> void:
 	if SongLoader.song_list.is_empty():
 		_show_loading_screen()
 		call_deferred("_refresh_song_list")
-	elif _selected_song_index >= 0:
-		_update_status_for_song(_selected_song_index)
-	else:
+	elif _selected_song_index < 0:
 		_update_status_text()
 	_update_difficulty_visibility()
 	_update_selection_ui()
@@ -687,11 +685,9 @@ func _restore_selected_song() -> void:
 		# biblioteca reescaneada puede haber cambiado entre medias.
 		if not _filtered_indices.has(i):
 			return
-		# Se restaura la seleccion y se relanza su preview: al volver del
-		# gameplay el jugador debe recuperar el mismo contexto sonoro.
-		_selected_song_index = i
-		_load_album_art(i)
-		_start_preview_animation(i)
+		# Se restaura como si el jugador acabara de elegirla, lo que relanza
+		# tambien el preview automatico de la cancion.
+		_select_song(i)
 		return
 
 

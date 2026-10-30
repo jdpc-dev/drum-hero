@@ -101,9 +101,11 @@ guarda la búsqueda, el `scroll_vertical` y la canción seleccionada en
 `GameManager.menu_search_text` / `menu_scroll_position` /
 `menu_selected_song_path` al salir de la escena (y justo antes de lanzar una
 canción). Al montar el menú, `_ready()` restaura la búsqueda antes de crear las
-filas, recupera la selección por ruta cuando las filas ya existen (relanzando su
-preview) y aplica el scroll en cuanto el `ScrollContainer` conoce la altura real
-del contenido. Es estado de sesión: no se escribe en `settings.cfg`.
+filas, recupera la selección por ruta cuando las filas ya existen y aplica el
+scroll en cuanto el `ScrollContainer` conoce la altura real del contenido.
+Restaurar la selección relanza también el preview automático, como si el jugador
+acabara de elegir la canción. Es estado de sesión: no se escribe en
+`settings.cfg`.
 
 Prueba: `godot --headless --path . res://tools/test_menu_state.tscn`
 

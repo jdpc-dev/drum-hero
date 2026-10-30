@@ -19,7 +19,7 @@ func _populate_songs() -> void:
 			"name": "Song 1 Song 2 " + str(i),
 			"artist": "Artist",
 			"notes_path": "/tmp/opencode/fake_song_" + str(i) + "/notes.mid",
-			"preview_path": "res://asset/drumSfx/kick-a.wav",
+			"preview_path": "res://asset/drumSfx/vel2pad8smp0.ogg",
 			"has_drum_chart": true,
 			"song_length": 1000,
 			"difficulties": [{"offset": 60, "name": "Easy"}],
@@ -42,7 +42,7 @@ func _ready() -> void:
 	_check("solo se listan las coincidencias", menu._filtered_indices.size() == 40)
 	_check("el scroll vuelve a la posicion guardada", menu._song_list_scroll.scroll_vertical == 200)
 	_check("la cancion seleccionada se recupera", menu._selected_song_index == 5)
-	_check("su preview se relanza", menu._preview_pending_index == 5)
+	_check("el preview de la cancion se relanza", menu._preview_pending_index == 5)
 	var selected_row: PanelContainer = menu.find_child("SongRow_5", true, false)
 	var selector: Label = (selected_row.get_child(0) as HBoxContainer).get_child(0) as Label
 	_check("la fila recuperada queda marcada", selector.text == "► ")
