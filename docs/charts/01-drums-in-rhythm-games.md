@@ -1,4 +1,3 @@
-```markdown
 # Drum Controller Types
 
 Most rhythm games categorize drum controllers by the number of playable lanes (pads/cymbals) and the supported hardware. While naming varies between games, nearly all layouts are derived from the Rock Band and Guitar Hero drum controllers or from MIDI electronic drum kits.
@@ -249,5 +248,4 @@ Drum Hero uses a custom **8-Lane Hybrid Drum Kit** designed to bridge the gap be
 | Kick | Bass Drum (Haptic or Physical Pedal) |
 
 Unlike most rhythm games, **Closed Hi-Hat** and **Open Hi-Hat** occupy independent lanes, allowing charts to represent hi-hat articulations without relying on modifiers or note states. Double-kick support is treated as an input configuration rather than an additional gameplay lane, preserving visual simplicity while supporting advanced players.
-```
 

@@ -403,7 +403,7 @@ Todas las texturas de notas y hit lines se generan en código en lugar de usar b
 
 ## Layout de pantalla
 
-Basado en el `README.md` — ASCII GAMEPLAY REFERENCE.
+Basado en [`ui-reference.md`](ui-reference.md) — ASCII GAMEPLAY REFERENCE.
 
 ```
 y=0%    +---------------------------------------+
@@ -888,7 +888,7 @@ Ese `meta-data` es lo que hace que Godot registre el singleton en `Engine.has_si
 
 ### Limitaciones conocidas
 
-- El chart debe ser hijo directo de la carpeta de la canción (la convención de Clone Hero/YARG y la documentada en `README.md`). Un layout `cancion/charts/notes.mid` no se detecta.
+- El chart debe ser hijo directo de la carpeta de la canción (la convención de Clone Hero/YARG y la documentada en el `README.md` de la raíz). Un layout `cancion/charts/notes.mid` no se detecta.
 - El nombre del chart se compara sin distinguir mayúsculas durante el escaneo, y el nombre real del archivo encontrado se pasa a `_scan_song()`, así que `Notes.MID` también funciona.
 - El audio `.opus` no se decodifica en Android; la biblioteca necesita `.ogg` (o `.wav`/`.mp3` empaquetado).
 
