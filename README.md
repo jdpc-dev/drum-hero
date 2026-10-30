@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="asset/textures/app_icon.jpg" width="140" alt="Drum Hero app icon">
+  <img src="asset/textures/app_icon.png" width="140" alt="Drum Hero app icon">
 </p>
 
 <h1 align="center">Drum Hero</h1>

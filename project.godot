@@ -16,8 +16,9 @@ config/version="7.0.0"
 run/main_scene="res://scene/Main.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7")
+boot_splash/bg_color=Color(0.141176, 0, 0, 1)
 boot_splash/show_image=false
-config/icon="uid://bhv0lyiieusrc"
+config/icon="uid://darsey555qqei"
 
 [audio]
 
