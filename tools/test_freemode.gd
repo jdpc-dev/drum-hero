@@ -116,7 +116,7 @@ func _ready() -> void:
 	_check("la puntuacion sigue a cero", ScoreManager.score == 0)
 	_check("no hay notas en la pista", _active_note_count(highway) == 0)
 
-	print("=== 7. crash, snare y kick reproducen los sets de Clone Hero ===")
+	print("=== 7. hh, crash, snare y kick reproducen los sets de Clone Hero ===")
 	var kick_layers: Dictionary = DrumSfxManager._samples.get(8, {})
 	var kick_variations: bool = true
 	for layer in range(6):
@@ -140,6 +140,14 @@ func _ready() -> void:
 			crash_variations = false
 	_check("el crash tiene 5 capas", crash_layers.size() == 5)
 	_check("cada capa del crash trae 3 variaciones", crash_variations)
+
+	var hihat_layers: Dictionary = DrumSfxManager._samples.get(4, {})
+	var hihat_variations: bool = true
+	for layer in range(5):
+		if hihat_layers.get(layer, []).size() != 3:
+			hihat_variations = false
+	_check("el hh tiene 5 capas", hihat_layers.size() == 5)
+	_check("cada capa del hh trae 3 variaciones", hihat_variations)
 	_check("el tom mantiene 3 capas", DrumSfxManager._layer_count(2) == 3)
 
 	_check("velocity 0 -> capa 0", DrumSfxManager.velocity_to_layer(0, 6) == 0)
@@ -174,6 +182,13 @@ func _ready() -> void:
 		DrumSfxManager.play_for_lane(1, 100)
 		crash_round_robin.append(DrumSfxManager._layer_cursor.get("6:4", -1))
 	_check("round-robin 0,1,2 en la capa 4 del crash", crash_round_robin == [0, 1, 2])
+
+	DrumSfxManager._layer_cursor.clear()
+	var hihat_round_robin: Array = []
+	for i in 3:
+		DrumSfxManager.play_for_lane(0, 100)
+		hihat_round_robin.append(DrumSfxManager._layer_cursor.get("4:4", -1))
+	_check("round-robin 0,1,2 en la capa 4 del hh", hihat_round_robin == [0, 1, 2])
 
 	var previous_velocity: int = SettingsManager.default_sample_velocity
 	SettingsManager.default_sample_velocity = 30
