@@ -13,10 +13,10 @@ const LANE_TO_PAD: Dictionary = {
 	7: 5,  # Ride -> pad5
 }
 
-# Capas de velocidad por pad. Todos los pads jugables usan los sets de Clone
-# Hero: toms, hi-hat, crash y ride con 5 capas x 3 variaciones; kick y snare
-# con 6 x 3. Un pad fuera del mapa conserva el comportamiento antiguo de 3
-# capas con variacion aleatoria.
+# Velocity layers per pad. All playable pads use the Clone Hero sets: toms,
+# hi-hat, crash and ride with 5 layers x 3 variations; kick and snare with
+# 6 x 3. A pad outside the map keeps the old behavior of 3 layers with
+# random variation.
 const PAD_LAYER_COUNTS: Dictionary = {0: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
 const DEFAULT_LAYER_COUNT: int = 3
 
@@ -24,7 +24,7 @@ var _samples: Dictionary = {}
 var _player_pool: Array[AudioStreamPlayer] = []
 var _player_index: int = 0
 var _last_variation: Dictionary = {}
-# Round-robin de Clone Hero: "pad:capa" -> ultima variacion usada (arranca en -1).
+# Clone Hero round-robin: "pad:layer" -> last variation used (starts at -1).
 var _layer_cursor: Dictionary = {}
 
 const POOL_SIZE: int = 16
@@ -38,9 +38,9 @@ func _ready() -> void:
 		add_child(p)
 		_player_pool.append(p)
 	_apply_sfx_volume()
-	# Los sets de Clone Hero tienen varios samples por capa y son las piezas
-	# donde mas duele un hitch: se precargan para que el primer golpe no cargue
-	# todos los archivos en el frame.
+	# Clone Hero sets have several samples per layer and are the pieces where
+	# a hitch hurts most: they are preloaded so the first hit does not load
+	# all the files in the frame.
 	for pad in PAD_LAYER_COUNTS:
 		_load_pad_samples(pad)
 
@@ -79,9 +79,9 @@ func _load_sfx_file(pad: int, vel: int, smp: int) -> AudioStream:
 	var opus_path: String = SFX_DIR + name_base + ".opus"
 	if ResourceLoader.exists(opus_path):
 		return load(opus_path)
-	# Solo se decodifica si el .opus existe: lanzar ffmpeg por un archivo que
-	# falta bloquea el hilo principal ~0.2s por intento, y antes el kick tenia
-	# capas sin .opus que congelaban el primer golpe en PC.
+	# It is only decoded if the .opus exists: launching ffmpeg for a missing file
+	# blocks the main thread ~0.2s per attempt, and before this the kick had
+	# layers without .opus that froze the first hit on PC.
 	if OS.get_name() != "Android" and FileHelper.file_exists(opus_path):
 		return _decode_opus_to_wav(opus_path)
 
@@ -131,9 +131,9 @@ func _layer_count(pad: int) -> int:
 	return int(PAD_LAYER_COUNTS.get(pad, DEFAULT_LAYER_COUNT))
 
 
-# Mismo mapeo que Clone Hero: divisor = 127 / capas (division entera) y la
-# capa se satura a la ultima. Con 6 capas -> 0-20, 21-41, 42-62, 63-83,
-# 84-104 y 105-127.
+# Same mapping as Clone Hero: divisor = 127 / layers (integer division) and the
+# layer saturates at the last one. With 6 layers -> 0-20, 21-41, 42-62, 63-83,
+# 84-104 and 105-127.
 func velocity_to_layer(velocity: int, layer_count: int) -> int:
 	if layer_count <= 1:
 		return 0
@@ -141,8 +141,8 @@ func velocity_to_layer(velocity: int, layer_count: int) -> int:
 	return mini(floori(float(velocity) / float(divisor)), layer_count - 1)
 
 
-# Si faltara una capa, usa la inferior no vacia mas cercana (y si no, la
-# superior) para no quedarse en silencio.
+# If a layer is missing, use the nearest non-empty lower one (and if none,
+# the upper one) to avoid silence.
 func _resolve_layer(pad: int, layer: int, layer_count: int) -> int:
 	var pad_samples: Dictionary = _samples.get(pad, {})
 	for i in range(layer, -1, -1):
@@ -174,14 +174,14 @@ func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 
 	var variation: int = 0
 	if PAD_LAYER_COUNTS.has(pad):
-		# Clone Hero: round-robin estricto dentro de la capa de velocidad.
+		# Clone Hero: strict round-robin within the velocity layer.
 		var key: String = str(pad) + ":" + str(layer)
 		var cursor: int = _layer_cursor.get(key, -1)
 		cursor = (cursor + 1) % vel_samples.size()
 		_layer_cursor[key] = cursor
 		variation = cursor
 	else:
-		# Resto de pads: random sin repetir, como antes.
+		# Other pads: random without repeating, as before.
 		variation = randi() % vel_samples.size()
 		if _last_variation.has(pad):
 			var last: int = _last_variation[pad]
@@ -196,8 +196,8 @@ func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 
 	var player: AudioStreamPlayer = _get_player()
 	player.stream = stream
-	# Clone Hero no desafina: la variacion sale del round-robin. En el resto de
-	# pads se mantiene el pitch random de siempre.
+	# Clone Hero does not detune: the variation comes from the round-robin. On the
+	# other pads the usual random pitch is kept.
 	player.pitch_scale = 1.0 if PAD_LAYER_COUNTS.has(pad) else 1.0 + (randf() - 0.5) * 0.08
 	player.play()
 

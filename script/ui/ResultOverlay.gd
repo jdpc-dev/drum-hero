@@ -1,10 +1,10 @@
 class_name ResultOverlay
 extends CanvasLayer
 
-# Panel de resultados de fin de cancion. Se construye entero por codigo (igual
-# que el overlay de pausa de GameplayRoot) para no depender de una escena mas.
-# Los botones no hacen nada por su cuenta: emiten señales y es GameplayRoot quien
-# decide si toca reiniciar o volver al menu.
+# End-of-song results panel. It is built entirely in code (like the pause
+# overlay in GameplayRoot) to avoid depending on another scene. The buttons do
+# nothing on their own: they emit signals and GameplayRoot decides whether to
+# restart or return to the menu.
 
 signal retry_requested()
 signal exit_requested()
@@ -51,8 +51,8 @@ func _build() -> void:
 	_song_label = _make_label("", 20, Palette.ASH)
 	_song_label.name = "SongLabel"
 	_song_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	# Los titulos largos ("Artista - Cancion (Dificultad)") se parten en dos
-	# lineas en vez de salirse del panel.
+	# Long titles ("Artist - Song (Difficulty)") are split into two lines
+	# instead of overflowing the panel.
 	_song_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(_song_label)
 
@@ -82,9 +82,9 @@ func _build() -> void:
 	refresh()
 
 
-# Vuelca el estado de ScoreManager. Se construye con las notas ya falladas
-# (Highway.flush_unjudged_notes() corre antes de instanciar el panel) y se puede
-# volver a llamar si hacen falta valores frescos.
+# Dumps ScoreManager's state. It is built with the notes already missed
+# (Highway.flush_unjudged_notes() runs before instantiating the panel) and can
+# be called again if fresh values are needed.
 func refresh() -> void:
 	if _score_label == null:
 		return
@@ -119,9 +119,9 @@ func _add_row(parent: VBoxContainer, caption: String, font_size: int, color: Col
 func _make_label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
 	label.text = text
-	# LabelSettings duplicado en vez de theme overrides: el recurso base ya trae
-	# la fuente del juego y el contorno, y cada etiqueta decide su tamano y su
-	# color sin depender de que prevalezca uno u otro.
+	# Duplicated LabelSettings instead of theme overrides: the base resource
+	# already brings the game font and outline, and each label decides its size
+	# and color without depending on which one takes precedence.
 	var settings := BASE_LABEL_SETTINGS.duplicate() as LabelSettings
 	settings.font_size = font_size
 	settings.font_color = color

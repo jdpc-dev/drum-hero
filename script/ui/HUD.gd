@@ -17,9 +17,10 @@ func _ready() -> void:
 	_apply_padding()
 
 
-# ScoreLabel y MultiplierLabel traen label_settings, y en Godot ese recurso gana
-# sobre theme_override_colors: si el color se deja en la escena, el override se
-# ignora en silencio. Por eso el color va en un LabelSettings duplicado.
+# ScoreLabel and MultiplierLabel bring label_settings, and in Godot that
+# resource wins over theme_override_colors: if the color is left in the scene,
+# the override is silently ignored. That is why the color goes in a duplicated
+# LabelSettings.
 func _apply_label_colors() -> void:
 	_tint_label(score_label, Palette.TEXT)
 	_tint_label(multiplier_label, Palette.CHROME)

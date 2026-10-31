@@ -41,9 +41,9 @@ func load_chart(path: String, root_path: String = "", difficulty_offset: int = -
 	return true
 
 
-# Descarta el chart cargado. El free mode entra a proposito con la pista vacia:
-# sin esto, Highway._process() seguiría lanzando las notas de la ultima cancion
-# jugada y las contaria como falladas al instante.
+# Discards the loaded chart. Free mode intentionally enters with an empty track:
+# without this, Highway._process() would keep spawning the notes of the last played
+# song and count them as missed instantly.
 func clear() -> void:
 	note_data.clear()
 	_tempo_map.clear()
@@ -110,17 +110,17 @@ func get_resolution() -> int:
 	return _resolution
 
 
-# Ultimo instante covered por el chart: el tick de la ultima nota. Sirve para
-# diagnostico; el final real de la cancion lo incluye el audio.
+# Last instant covered by the chart: the tick of the last note. Used for
+# diagnostics; the actual end of the song includes the audio.
 func get_chart_end_seconds() -> float:
 	if note_data.is_empty():
 		return 0.0
 	return note_data[-1].time
 
 
-# Duracion total de la cancion. La ultima nota del chart suele caer antes del
-# final del audio (intro/outro), asi que se toma el maximo de ambos: usar solo el
-# tick de la ultima nota vaciaba la barra de tiempo antes de tiempo.
+# Total duration of the song. The last note in the chart usually falls before the
+# end of the audio (intro/outro), so the maximum of both is taken: using only the
+# tick of the last note emptied the time bar too early.
 func get_duration_seconds() -> float:
 	return maxf(get_chart_end_seconds(), _expected_duration)
 

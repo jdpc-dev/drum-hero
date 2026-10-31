@@ -12,15 +12,14 @@ var current_song_artist: String = ""
 var current_difficulty_offset: int = 0
 var current_difficulty_name: String = "Expert"
 var current_song_delay: float = 0.0
-# Duracion real del audio en segundos (song.ini / cabecera [Song]). El chart se
-# valida contra este valor para detectar si su mapa de tempo esta en la unidad
-# equivocada. 0 = desconocida.
+# Actual audio duration in seconds (song.ini / [Song] header). The chart is
+# validated against this value to detect whether its tempo map is in the wrong
+# unit. 0 = unknown.
 var current_song_length: float = 0.0
 
-# Estado de navegacion del setlist. MenuRoot se reconstruye al volver del
-# gameplay (cambio de escena), asi que la busqueda, el scroll y la cancion
-# seleccionada viven aqui para que el jugador vuelva a donde estaba. Es estado
-# de sesion, no de disco.
+# Setlist navigation state. MenuRoot is rebuilt when returning from gameplay
+# (scene change), so the search, scroll and selected song live here so the
+# player returns to where they were. It is session state, not disk state.
 var menu_search_text: String = ""
 var menu_scroll_position: int = 0
 var menu_selected_song_path: String = ""

@@ -1,13 +1,13 @@
 class_name ScanFeedback
 extends RefCounted
 
-# Una sola fuente para el texto y el aspecto del indicador de escaneo. Lo usan
-# la pantalla de carga del menu y la pestaña SONGS de Ajustes, para que el
-# jugador lea lo mismo este donde este mirando.
+# Single source for the scan indicator's text and appearance. It is used by the
+# menu loading screen and the SONGS tab in Settings, so the player reads the
+# same thing wherever they are looking.
 #
-# La barra no lleva porcentaje: no se sabe cuantos directorios tiene una
-# biblioteca antes de recorrerla, asi que cuenta ubicaciones terminadas y el
-# detalle vivo va en las etiquetas. Un porcentaje aqui seria mentira.
+# The bar has no percentage: it is not known how many directories a library has
+# before walking it, so it counts finished locations and the live detail goes
+# in the labels. A percentage here would be a lie.
 
 const FOLDER_MAX_CHARS: int = 46
 
@@ -37,8 +37,9 @@ static func make_progress_bar() -> ProgressBar:
 
 
 static func progress_value(root_index: int, root_total: int) -> float:
-	# Ubicaciones TERMINADAS, no la actual: si no, la barra saltaria al final
-	# al empezar la ultima y prometeria un final que todavia no ha ocurrido.
+	# FINISHED locations, not the current one: otherwise, the bar would jump to
+	# the end when starting the last one and promise an ending that has not
+	# happened yet.
 	if root_total <= 0:
 		return 0.0
 	return clampf(float(root_index - 1) / float(root_total), 0.0, 1.0)
@@ -49,8 +50,8 @@ static func status_text(root_index: int, root_total: int, songs_found: int) -> S
 
 
 static func folder_text(dir_path: String) -> String:
-	# Las rutas largas se recortan por el centro: lo util es el final, que es
-	# justo la carpeta en la que se estaba metiendo el escaneo.
+	# Long paths are trimmed from the center: the useful part is the end, which
+	# is exactly the folder the scan was entering.
 	if dir_path.length() <= FOLDER_MAX_CHARS:
 		return dir_path
 	var tail: int = (FOLDER_MAX_CHARS - 3) / 2

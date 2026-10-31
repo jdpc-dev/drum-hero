@@ -89,9 +89,9 @@ var _preview_fading_out: bool = false
 func _ready() -> void:
 	GameManager.set_state(GameManager.GameState.MENU)
 	get_tree().auto_accept_quit = false
-	# El setlist se reconstruye al volver del gameplay: recuperar la busqueda
-	# antes de montar la UI para que el LineEdit y el filtro nazcan ya llenos.
-	# La cancion seleccionada se restaura despues, cuando ya existen las filas.
+	# The setlist is rebuilt when returning from gameplay: restore the search
+	# before building the UI so the LineEdit and the filter are already filled
+	# in. The selected song is restored later, when the rows already exist.
 	_search_text = GameManager.menu_search_text
 	_preview_player = AudioStreamPlayer.new()
 	_preview_player.name = "PreviewPlayer"
@@ -213,9 +213,9 @@ func _process(delta: float) -> void:
 		_pump_scan()
 
 
-# El escaneo de la biblioteca avanza desde aqui y no desde un await: asi el menu
-# puede desaparecer en mitad de un lote sin dejar SongLoader colgado con
-# is_scanning = true, que bloquearia el siguiente escaneo para siempre.
+# The library scan advances from here and not from an await: this way the menu
+# can disappear in the middle of a batch without leaving SongLoader stuck with
+# is_scanning = true, which would block the next scan forever.
 func _pump_scan() -> void:
 	if SongLoader.pump_scan(SongLoader.frame_deadline_usec()):
 		_finish_song_list_refresh()
@@ -227,9 +227,8 @@ func _abort_scan() -> void:
 
 
 func _on_scan_progress(root_index: int, root_total: int, current_dir: String, _dirs_visited: int, songs_found: int) -> void:
-	# Los eventos llegan a todo el mundo porque SongLoader es singleton: solo
-	# pinta el overlay cuando lo que hay en pantalla es un escaneo y no la
-	# carga de una cancion.
+	# Events reach everyone because SongLoader is a singleton: only paint the
+	# overlay when what is on screen is a scan and not the loading of a song.
 	if not _loading_is_scan or not is_instance_valid(_loading_status):
 		return
 	if is_instance_valid(_loading_bar):
@@ -495,8 +494,8 @@ func _create_song_row(original_index: int, song: Dictionary) -> PanelContainer:
 	song_label.add_theme_color_override("font_color", Palette.BONE)
 	hbox.add_child(song_label)
 
-	# Mejor score de la cancion entre las dificultades que ofrece su chart; el
-	# placeholder "--,---pts" se mantiene si todavia no hay ningun record.
+	# Best score for the song across the difficulties its chart offers; the
+	# placeholder "--,---pts" is kept if there is no record yet.
 	var best: int = HighScoreStore.get_best_for_song(song.path, song.get("difficulties", []).map(func(d: Dictionary) -> int: return d.offset))
 	var score_label := Label.new()
 	score_label.text = (ScoreData.format_score(best) + "pts") if best > 0 else "--,---pts"
@@ -643,9 +642,8 @@ func _on_difficulty_pressed(offset: int) -> void:
 			break
 	if found.is_empty():
 		return
-	# Guardar antes de cambiar de escena: al volver, el setlist debe conservar
-	# la busqueda, el scroll y la cancion seleccionada con la que el jugador
-	# eligio la dificultad.
+	# Save before changing scene: on return, the setlist must keep the search,
+	# scroll and selected song with which the player chose the difficulty.
 	_save_menu_state()
 	_stop_preview()
 	_show_loading_screen()
@@ -683,13 +681,13 @@ func _restore_selected_song() -> void:
 	for i in SongLoader.song_list.size():
 		if SongLoader.song_list[i].path != selected_path:
 			continue
-		# Si el filtro actual ya no la muestra, no se restaura una seleccion
-		# invisible: el estado guardado siempre deberia ser coherente, pero una
-		# biblioteca reescaneada puede haber cambiado entre medias.
+		# If the current filter no longer shows it, an invisible selection is
+		# not restored: the saved state should always be coherent, but a
+		# rescanned library may have changed in between.
 		if not _filtered_indices.has(i):
 			return
-		# Se restaura como si el jugador acabara de elegirla, lo que relanza
-		# tambien el preview automatico de la cancion.
+		# It is restored as if the player had just chosen it, which also
+		# relaunches the automatic song preview.
 		_select_song(i)
 		return
 
@@ -699,9 +697,9 @@ func _restore_scroll_position() -> void:
 	if target <= 0 or not is_instance_valid(_song_list_scroll):
 		return
 	var saved_search: String = _search_text
-	# Las filas se acaban de crear: el ScrollContainer aun no conoce la altura
-	# real de su contenido. Se reintenta unos frames hasta que el valor quede
-	# aplicado (o el layout lo limite al maximo disponible).
+	# The rows have just been created: the ScrollContainer does not yet know
+	# the real height of its content. It is retried for a few frames until the
+	# value is applied (or the layout limits it to the maximum available).
 	for _i in 3:
 		await get_tree().process_frame
 		if not is_instance_valid(_song_list_scroll) or _search_text != saved_search:
@@ -724,9 +722,9 @@ func _refresh_song_list() -> void:
 func _finish_song_list_refresh() -> void:
 	_scan_pump_active = false
 	var kept: int = SongLoader.song_list.size()
-	# Se lee de SongLoader y no de un flag propio: pump_scan() puede encadenar el
-	# reescaneo encolado en la misma llamada, y un flag propio se quedaria con el
-	# resultado del escaneo anterior.
+	# It is read from SongLoader and not from a local flag: pump_scan() can
+	# chain the queued rescan in the same call, and a local flag would keep the
+	# previous scan's result.
 	var final_text: String = ScanFeedback.cancelled_text(kept) if not SongLoader.cancelled_roots.is_empty() else ScanFeedback.finished_text(kept)
 	_update_loading(1.0, final_text)
 	_update_status_text()
@@ -779,9 +777,9 @@ func _show_loading_screen(allow_cancel: bool = false) -> void:
 	vbox.add_child(_loading_status)
 
 	if allow_cancel:
-		# La carpeta en la que se esta metiendo el escaneo: en una biblioteca
-		# grande es lo unico que dice si sigue avanzando o si se ha quedado
-		# atascado en un arbol lento.
+		# The folder the scan is entering: in a large library it is the only
+		# thing that tells whether it is still advancing or has got stuck in a
+		# slow tree.
 		_loading_folder = ScanFeedback.make_folder_label()
 		_loading_folder.custom_minimum_size = Vector2(300, 20)
 		vbox.add_child(_loading_folder)
@@ -792,8 +790,8 @@ func _show_loading_screen(allow_cancel: bool = false) -> void:
 
 	_loading_bar = ProgressBar.new()
 	_loading_bar.custom_minimum_size = Vector2(300, 25)
-	# El escaneo no puede prometer porcentaje, pero la carga de una cancion si
-	# tiene etapas reales.
+	# The scan cannot promise a percentage, but loading a song does have real
+	# stages.
 	_loading_bar.show_percentage = not allow_cancel
 	_loading_bar.value = 0
 	vbox.add_child(_loading_bar)
@@ -990,8 +988,8 @@ func _cache_stream(path: String, stream: AudioStream) -> void:
 
 
 func _handle_back() -> void:
-	# Con la linea de estado oculta no hay donde mostrar "Press again to exit",
-	# asi que se pide confirmacion en un modal. Atras sobre el modal lo cancela.
+	# With the status line hidden there is nowhere to show "Press again to
+	# exit", so confirmation is requested in a modal. Back on the modal cancels it.
 	if _quit_confirm_is_open():
 		_hide_quit_confirm()
 		return
@@ -1011,9 +1009,9 @@ func _quit_confirm_is_open() -> bool:
 	return is_instance_valid(_quit_confirm_overlay)
 
 
-# Mismo lenguaje visual que el overlay de pausa y el panel de resultados: scrim
-# a pantalla completa y un VBox centrado con los botones. Se construye por
-# codigo porque el menu no tiene una escena de modal propia.
+# Same visual language as the pause overlay and the results panel: full-screen
+# scrim and a centered VBox with the buttons. It is built in code because the
+# menu does not have its own modal scene.
 func _show_quit_confirm() -> void:
 	if _quit_confirm_is_open():
 		return
@@ -1116,17 +1114,17 @@ func _on_settings_pressed() -> void:
 	add_child(settings)
 
 
-# El panel de Ajustes pide abrir el modo libre y es este menu quien hace el
-# cambio de escena: el panel vive como hijo de MenuRoot, no es una escena.
+# The Settings panel requests opening free mode and it is this menu that
+# changes scene: the panel lives as a child of MenuRoot, it is not a scene.
 func _on_free_mode_requested() -> void:
 	_stop_preview()
 	_is_switching_scene = true
 	get_tree().change_scene_to_file("res://scene/FreeMode.tscn")
 
 
-# Al cambiar de escena el menu se desmonta con el panel de Ajustes dentro, asi
-# que su tree_exited se dispara durante la destruccion: seguir reacting ahi
-# lanzaria un escaneo de la biblioteca mientras el arbol ya se esta tirando.
+# When changing scene the menu is dismantled with the Settings panel inside, so
+# its tree_exited fires during destruction: continuing to react there would
+# launch a library scan while the tree is already being torn down.
 func _on_settings_closed() -> void:
 	if _is_switching_scene or not is_inside_tree():
 		return

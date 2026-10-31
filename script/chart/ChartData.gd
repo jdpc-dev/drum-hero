@@ -42,8 +42,8 @@ class TempoEvent:
     var tick: int
     var bpm: float
     var micros_per_tick: float
-    # Valor crudo del evento de tempo tal cual aparece en el archivo. En .chart
-    # la unidad no es estandar y se resuelve despues (ver DotChartParser).
+    # Raw tempo event value exactly as it appears in the file. In .chart the
+    # unit is not standard and is resolved later (see DotChartParser).
     var raw_value: float
 
     func _init(t: int, b: float, mpt: float, raw: float = 0.0):
@@ -91,9 +91,9 @@ const CHART_LANE_MAP: Dictionary = {
 	5: 4,   # Yellow Tom -> TOM 1 lane
 	6: 5,   # Blue Tom -> TOM 2 lane
 	7: 6,   # Green Tom -> TOM 3 lane
-	66: 4,  # Tom alto -> TOM 1 lane
-	67: 5,  # Tom medio -> TOM 2 lane
-	68: 6,  # Tom bajo -> TOM 3 lane
+	66: 4,  # High tom -> TOM 1 lane
+	67: 5,  # Mid tom -> TOM 2 lane
+	68: 6,  # Low tom -> TOM 3 lane
 }
 
 const CHART_DIFFICULTY_SECTIONS: Dictionary = {

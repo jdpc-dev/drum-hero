@@ -15,10 +15,10 @@ var using_guitar_fallback: bool = false
 var _tom_marker_ticks: Dictionary = {}
 
 
-# expected_duration se acepta solo para mantener la misma interfaz que
-# DotChartParser. Los .mid declaran su tempo en microsegundos por beat, que es
-# la convencion que ya se leia bien, asi que no hace falta la correccion de
-# unidad ni usar la duracion del audio como referencia.
+# expected_duration is accepted only to keep the same interface as
+# DotChartParser. .mid files declare their tempo in microseconds per beat,
+# which is the convention that already read correctly, so neither the unit
+# correction nor the audio duration as a reference is needed.
 func load(path: String, root_path: String = "", difficulty_offset: int = -1, use_guitar_fallback: bool = false, expected_duration: float = 0.0) -> bool:
 	var data: PackedByteArray = FileHelper.read_file(path)
 	if data.is_empty():

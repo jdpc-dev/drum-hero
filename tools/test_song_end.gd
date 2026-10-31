@@ -1,24 +1,24 @@
 extends Node
 
-# Verifica el fin de cancion:
-#   1. song_ended se emite una sola vez al cruzar chart_duration.
-#   2. El ultimo time_updated lleva el valor exacto de fin de cancion.
-#   3. Tras stop() el reloj NO sigue sumando delta: la barra de tiempo se queda
-#      al 100 % en vez de volver a llenarse desde cero.
-#   4. start() rearma el reloj (no queda pegado en finished).
-#   5. ResultOverlay vuelca los stats de ScoreManager.
-#   6. Con audio real: el fin de stream se detecta aunque
-#      get_playback_position() vuelva a 0 al acabar (el bug que dejaba la
-#      cancion sin terminar nunca) y la pausa no lo dispara.
-# Uso: godot --headless --path . res://tools/test_song_end.tscn
+# Verifies the end of song:
+#   1. song_ended is emitted only once when crossing chart_duration.
+#   2. The last time_updated carries the exact end-of-song value.
+#   3. After stop() the clock does NOT keep adding delta: the time bar stays
+#      at 100 % instead of filling up again from zero.
+#   4. start() re-arms the clock (it does not stay stuck in finished).
+#   5. ResultOverlay dumps ScoreManager stats.
+#   6. With real audio: the end of stream is detected even if
+#      get_playback_position() returns to 0 at the end (the bug that left the
+#      song never finishing) and pause does not trigger it.
+# Usage: godot --headless --path . res://tools/test_song_end.tscn
 
 
 class ProbeTimeline extends SongTimeline:
 	pass
 
 
-# Las lambdas de GDScript capturan las variables locales por valor, asi que los
-# contadores de senal viven aqui, no en locales de _ready().
+# GDScript lambdas capture local variables by value, so the signal counters
+# live here, not in _ready() locals.
 var _failures: int = 0
 var _song_ended_count: int = 0
 var _retry_count: int = 0
@@ -37,12 +37,12 @@ func _check(label: String, ok: bool) -> void:
 
 
 func _ready() -> void:
-	# La calibracion global desplazaria audio_position al arrancar start().
+	# Global calibration would shift audio_position when start() runs.
 	SettingsManager.audio_offset_ms = 0.0
 	TimingEngine.song_ended.connect(_on_song_ended_probe)
 	await _build_timeline_probe()
-	# El caso de reloj se repite: asi un fallo que solo se manifieste en un
-	# frame suelto (un delta enorme en headless) no puede colarse.
+	# The clock case is repeated: this way a failure that only shows up in a
+	# single frame (a huge delta in headless) cannot slip through.
 	for attempt in 2:
 		print("\n== reloj, intento ", attempt + 1, " ==")
 		await _run_clock_case()
@@ -82,8 +82,8 @@ func _build_timeline_probe() -> void:
 	_fill = _timeline.get_node("Fill") as ColorRect
 
 
-# No hay audio cargado en el test, asi que el reloj avanza con delta: sirve para
-# comprobar el mismo final de cancion que en el juego.
+# No audio is loaded in the test, so the clock advances with delta: it serves
+# to check the same end of song as in the game.
 func _run_clock_case() -> void:
 	_song_ended_count = 0
 	TimingEngine.start(0.05)
@@ -91,15 +91,15 @@ func _run_clock_case() -> void:
 	_check("song_ended se emite al terminar la cancion", _song_ended_count == 1)
 	_check("el reloj se detiene en chart_duration", is_equal_approx(TimingEngine.get_time(), 0.05))
 
-	# song_ended no debe reemitirse: se dejan pasar muchos frames mas.
+	# song_ended must not be re-emitted: many more frames are allowed to pass.
 	for i in 30:
 		await get_tree().process_frame
 	_check("song_ended solo se emite una vez", _song_ended_count == 1)
 	_check("el reloj sigue congelado", is_equal_approx(TimingEngine.get_time(), 0.05))
 	_check("barra al 100 %", absf(_fill.size.x - _timeline.size.x) < 1.0)
 
-	# El bug reportado: stop() dejaba el reloj sumando delta y la barra se
-	# rellenaba otra vez por debajo de la pantalla de resultados.
+	# The reported bug: stop() left the clock adding delta and the bar filled
+	# up again below the results screen.
 	TimingEngine.stop()
 	var frozen: float = TimingEngine.get_time()
 	for i in 60:
@@ -108,9 +108,9 @@ func _run_clock_case() -> void:
 	_check("tras stop() la barra no se vacia", absf(_fill.size.x - _timeline.size.x) < 1.0)
 	_check("song_ended no se reemite por stop()", _song_ended_count == 1)
 
-	# Replay: start() tiene que rearmar el reloj. Se usa una cancion mas larga
-	# para que el rearmado sea observable sin depender de como de grande es el
-	# delta de un frame suelto en headless.
+	# Replay: start() must re-arm the clock. A longer song is used so re-arming
+	# is observable without depending on how large a single headless frame's
+	# delta is.
 	var ticks: Array[float] = []
 	var probe := func(t: float) -> void: ticks.append(t)
 	TimingEngine.start(0.5)
@@ -125,7 +125,7 @@ func _run_clock_case() -> void:
 	_check("el reloj vuelve a terminar en chart_duration", is_equal_approx(TimingEngine.get_time(), 0.5))
 
 
-# Espera frames hasta que song_ended haya saltado expected_count + 1 veces.
+# Waits frames until song_ended has fired expected_count + 1 times.
 func _wait_for_song_end(expected_count: int) -> void:
 	var waited: int = 0
 	while _song_ended_count < expected_count + 1 and waited < 3000:
@@ -177,8 +177,8 @@ func _run_overlay_case() -> void:
 	_check("el boton de replay emite retry_requested", _retry_count == 1)
 	_check("el boton de salir emite exit_requested", _exit_count == 1)
 
-	# El panel se construye con el estado ya volcado; refrescar despues de un
-	# reset lo vuelve a leer, que es lo que permite reusarlo.
+	# The panel is built with the state already dumped; refreshing after a
+	# reset reads it again, which is what allows reusing it.
 	ScoreManager.reset()
 	overlay.refresh()
 	_check("refresh() vuelve a leer ScoreManager", _find_value_label(overlay, "ScoreValue").text == ScoreData.format_score(0))
@@ -191,9 +191,9 @@ func _find_value_label(overlay: ResultOverlay, name: String) -> Label:
 	return overlay.find_child(name, true, false) as Label
 
 
-# Caso con audio de verdad. Reproduce el fallo original: al acabar el stream,
-# Godot reinicia get_playback_position() a 0, asi que un detector que mire la
-# posicion nunca ve el final y la cancion se queda colgada.
+# Case with real audio. Reproduces the original failure: when the stream ends,
+# Godot resets get_playback_position() to 0, so a detector that looks at the
+# position never sees the end and the song hangs.
 func _run_real_audio_case() -> void:
 	var song_path: String = "res://Songs/Republica - Ready to Go"
 	if not DirAccess.dir_exists_absolute(song_path):
@@ -216,7 +216,7 @@ func _run_real_audio_case() -> void:
 	await get_tree().create_timer(0.3).timeout
 	var pos_before_pause: float = AudioManager.get_position()
 
-	# La pausa no puede acabar la cancion: player.stop() no emite finished.
+	# Pause cannot finish the song: player.stop() does not emit finished.
 	TimingEngine.pause()
 	await get_tree().create_timer(0.2).timeout
 	var clock_paused: float = TimingEngine.get_time()
@@ -229,14 +229,14 @@ func _run_real_audio_case() -> void:
 	_check("el reloj sigue vivo tras reanudar", _song_ended_count == baseline and TimingEngine.get_time() > clock_paused)
 	_check("el audio continua desde donde estaba", AudioManager.get_position() >= pos_before_pause)
 
-	# Aceleramos el final real: nos colocamos a un segundo del fin.
+	# Speed up the actual end: we place ourselves one second from the end.
 	player.seek(length - 1.0)
 	await _wait_for_song_end(baseline)
 	_check("con audio real song_ended se emite al acabar el stream", _song_ended_count == baseline + 1)
 	_check("el reloj termina en chart_duration", is_equal_approx(TimingEngine.get_time(), length))
 	_check("el stream queda marcado como acabado", AudioManager.is_stream_finished())
 
-	# Reproducir tras el fin debe rearmar el latch y volver a terminar.
+	# Playing after the end must re-arm the latch and finish again.
 	TimingEngine.start(length)
 	_check("start() rearma el latch del stream", not AudioManager.is_stream_finished())
 	player.seek(length - 1.0)

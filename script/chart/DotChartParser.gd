@@ -21,13 +21,13 @@ const _DIFF_SECTIONS: Dictionary = {
 	"ExpertPlusDrums": 120,
 }
 
-# El formato .chart oficial (Phase Shift / Clone Hero) escribe `B` en
-# microsegundos por beat. Otros exportadores (jdpc.dev) escriben `B` como
-# BPM * 1000. Las dos lecturas son reciprocas (bpm_estandar * bpm_alterno == 60000),
-# asi que ningun factor de escala constante sirve: hay que elegir la lectura.
+# The official .chart format (Phase Shift / Clone Hero) writes `B` in
+# microseconds per beat. Other exporters (jdpc.dev) write `B` as BPM * 1000.
+# The two readings are reciprocal (standard_bpm * alternate_bpm == 60000), so
+# no constant scale factor works: the reading must be chosen.
 const _MIN_PLAUSIBLE_BPM: float = 40.0
 const _MAX_PLAUSIBLE_BPM: float = 260.0
-# micros_por_beat = 60_000_000 / (B / 1000)
+# microseconds_per_beat = 60_000_000 / (B / 1000)
 const _ALT_MICROS_FACTOR: float = 60000000000.0
 
 
@@ -102,9 +102,9 @@ func _parse_as_guitar(content: String, difficulty_offset: int = -1) -> bool:
 	if sections.is_empty():
 		return false
 
-	# El fallback de guitarra se disparaba con el mapa de tempo vacio y la
-	# Resolution por defecto, es decir con tiempos inventados. Se vuelve a leer
-	# la cabecera para que la conversion tick -> segundos sea la real.
+	# The guitar fallback used to trigger with an empty tempo map and the
+	# default Resolution, i.e. with made-up times. The header is re-read so the
+	# tick -> seconds conversion is the real one.
 	_tempo_events.clear()
 	_time_sig_events.clear()
 	if sections.has("Song"):
@@ -230,13 +230,13 @@ func _parse_sync_track(content: String) -> void:
 		var event_type: String = parts[0]
 		if event_type == "B":
 			var raw_beat: int = int(parts[1])
-			# La unidad se decide despues en _resolve_tempo_unit(); aqui solo se
-			# conserva el valor crudo, sin interpretarlo.
+			# The unit is decided later in _resolve_tempo_unit(); here only the
+			# raw value is kept, without interpreting it.
 			var ev = _ChartData.TempoEvent.new(tick, 0.0, 0.0, float(raw_beat))
 			_tempo_events.append(ev)
 		elif event_type == "TS":
-			# "TS 4" (2 campos, denominador implicito 4) es la forma que usan la
-			# mayoria de los charts exportados; "TS 3 4" tambien aparece.
+			# "TS 4" (2 fields, implicit denominator 4) is the form used by most
+			# exported charts; "TS 3 4" also appears.
 			var num: int = int(parts[1])
 			var den: int = int(parts[2]) if parts.size() >= 3 else 4
 			if den <= 0:
@@ -273,8 +273,8 @@ func _parse_drum_section(content: String, difficulty_offset: int, is_guitar: boo
 
 		var lane_map: Dictionary = _ChartData.CHART_LANE_MAP if not is_guitar else _guitar_lane_map()
 		if not lane_map.has(chart_lane):
-			# Se acumula: un chart con miles de notas en carriles desconocidos
-			# generaria miles de lineas de log identicas.
+			# It is accumulated: a chart with thousands of notes on unknown
+			# lanes would generate thousands of identical log lines.
 			if not _skipped_lanes.has(chart_lane):
 				_skipped_lanes[chart_lane] = 0
 			_skipped_lanes[chart_lane] += 1
@@ -327,7 +327,7 @@ func _is_plausible_bpm(bpm: float) -> bool:
 
 func _end_tick() -> int:
 	var last: int = 0
-	# _notes todavia no esta ordenado cuando se resuelve la unidad de tempo.
+	# _notes is not sorted yet when the tempo unit is resolved.
 	for note in _notes:
 		if note.tick > last:
 			last = note.tick
@@ -393,10 +393,10 @@ func _apply_tempo_unit(alt_unit: bool) -> void:
 		ev.bpm = 60000000.0 / (mpt * float(_ticks_per_beat))
 
 
-# Elige si `B` se lee como microsegundos por beat (estandar Phase Shift /
-# Clone Hero) o como BPM * 1000 (jdpc.dev). Tratar siempre la lectura
-# estandar comprime el chart entero cuando la unidad es la otra: las notas
-# llegan antes, se apilan y el chart se agota a mitad de la cancion.
+# Chooses whether `B` is read as microseconds per beat (Phase Shift / Clone
+# Hero standard) or as BPM * 1000 (jdpc.dev). Always treating it as the standard
+# reading compresses the whole chart when the unit is the other one: notes
+# arrive earlier, pile up and the chart runs out halfway through the song.
 func _resolve_tempo_unit(expected_duration: float) -> void:
 	if _tempo_events.is_empty() or _ticks_per_beat <= 0:
 		return
@@ -405,7 +405,7 @@ func _resolve_tempo_unit(expected_duration: float) -> void:
 
 	var use_alt: bool = false
 	if expected_duration > 0.0:
-		# Senal mas fuerte: el chart debe acabar cerca del audio.
+		# Stronger signal: the chart should end near the audio.
 		var std_err: float = absf(_time_at_tick(_end_tick(), false) - expected_duration)
 		var alt_err: float = absf(_time_at_tick(_end_tick(), true) - expected_duration)
 		if alt_err * 1.25 < std_err:
@@ -437,7 +437,7 @@ func _calculate_timing() -> void:
 
 	_notes.sort_custom(func(a, b): return a.tick < b.tick)
 	_tempo_events.sort_custom(func(a, b): return a.tick < b.tick)
-	# get_time_signature_at() y la generacion de lineas de compas asumen orden.
+	# get_time_signature_at() and bar line generation assume order.
 	_time_sig_events.sort_custom(func(a, b): return a.tick < b.tick)
 
 	var current_mpt: float

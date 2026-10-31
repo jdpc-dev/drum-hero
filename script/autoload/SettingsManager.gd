@@ -11,16 +11,16 @@ var judgement_good_ms: float = 75.0
 var judgement_late_ms: float = 100.0
 var judgement_early_ms: float = 100.0
 var judgement_miss_ms: float = 135.0
-# Calibracion global de audio. Positivo = las notas se juzgan mas tarde de lo
-# que suenan (usar si las notas se sienten tempranas). Se suma al delay por
-# cancion (song.ini / Offset del chart).
+# Global audio calibration. Positive = notes are judged later than they sound
+# (use if notes feel early). It is added to the per-song delay
+# (song.ini / chart Offset).
 var audio_offset_ms: float = 0.0
 
 var master_volume: float = 1.0
 var sfx_volume: float = 1.0
 var music_volume: float = 1.0
-# Velocidad MIDI (0-127) para pads que no reportan una real. Es el
-# "Default Sample Velocity" de Clone Hero, que usa 100 por defecto.
+# MIDI velocity (0-127) for pads that do not report a real one. This is
+# Clone Hero's "Default Sample Velocity", which uses 100 by default.
 var default_sample_velocity: int = 100
 
 var haptic_sensitivity: float = 1.0

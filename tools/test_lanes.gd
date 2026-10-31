@@ -79,7 +79,7 @@ func _ready() -> void:
 				offs.append(d.offset)
 			offs.sort()
 			_check("dificultades 60/72/84/96", offs == [60, 72, 84, 96])
-			# El chart tiene 2027 notas en Expert: 1309 en carriles 0-4 y 718 en toms 66/67/68.
+			# The chart has 2027 notes in Expert: 1309 in lanes 0-4 and 718 in toms 66/67/68.
 			var ex := _load(song_path, 96)
 			_check("Expert carga las 2027 notas (antes 1309)", ex._notes.size() == 2027)
 			_check("Expert no descarta notas", ex._skipped_lanes.is_empty())

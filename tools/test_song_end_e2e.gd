@@ -1,10 +1,10 @@
 extends Node
 
-# Test de integracion del fin de cancion sobre la escena real de gameplay.
-# Comprueba la cadena completa:
-#   carga de cancion -> countdown -> audio hasta el final -> song_ended ->
-#   cola de 1.5 s -> estado RESULT -> ResultOverlay visible en pantalla.
-# Uso: godot --headless --path . res://tools/test_song_end_e2e.tscn
+# End-of-song integration test on the real gameplay scene.
+# Checks the full chain:
+#   song load -> countdown -> audio to the end -> song_ended ->
+#   1.5 s tail -> RESULT state -> ResultOverlay visible on screen.
+# Usage: godot --headless --path . res://tools/test_song_end_e2e.tscn
 
 const SONG_DIR: String = "res://Songs/Republica - Ready to Go"
 const NOTES_OFFSET: int = 3
@@ -63,7 +63,7 @@ func _ready() -> void:
 	add_child(_gameplay)
 	print("== gameplay real ==")
 
-	# La escena carga chart y audio en segundo plano: esperamos a que arranque.
+	# The scene loads chart and audio in the background: we wait for it to start.
 	var waited: int = 0
 	while GameManager.state != GameManager.GameState.PLAYING and waited < 3000:
 		await get_tree().process_frame
@@ -77,7 +77,7 @@ func _ready() -> void:
 	_check("hay duracion de chart", TimingEngine.chart_duration > 1.0)
 	print("  chart_duration=", TimingEngine.chart_duration, " audio_len=", AudioManager.get_length())
 
-	# El countdown no debe bloquear el reloj: esperamos a que el reloj corra.
+	# The countdown must not block the clock: we wait for the clock to run.
 	waited = 0
 	while TimingEngine.get_time() <= 0.05 and waited < 600:
 		await get_tree().process_frame
@@ -85,8 +85,8 @@ func _ready() -> void:
 	_check("el reloj avanza durante el gameplay", TimingEngine.get_time() > 0.0)
 	_check("no hay overlay de resultados antes de tiempo", _gameplay.find_child("ResultOverlay", true, false) == null)
 
-	# Aceleramos el final: nos dejamos un segundo de musica. Simulamos unas notas
-	# para que el score final no sea 0 y el record guardado sea significativo.
+	# Speed up the end: we leave one second of music. We simulate some notes so
+	# the final score is not 0 and the saved record is meaningful.
 	ScoreManager.register_hit(0.0)
 	ScoreManager.register_hit(0.0)
 	var info = AudioManager._stems.get(AudioManager._base_stem_name())
@@ -97,7 +97,7 @@ func _ready() -> void:
 	var player: AudioStreamPlayer = info.player
 	player.seek(player.stream.get_length() - SEEK_MARGIN)
 
-	# song_ended + cola de RESULT_TAIL_DELAY + un par de frames.
+	# song_ended + RESULT_TAIL_DELAY tail + a couple of frames.
 	var elapsed: float = 0.0
 	while elapsed < 12.0 and GameManager.state != GameManager.GameState.RESULT:
 		await get_tree().create_timer(0.1).timeout
@@ -114,8 +114,8 @@ func _ready() -> void:
 		_finish()
 		return
 
-	# El panel tiene que mostrar los datos de la partida y sus botones deben
-	# funcionar de verdad (REPLAY vuelve a jugar, EXIT limpia el overlay).
+	# The panel must show the run's data and its buttons must actually work
+	# (REPLAY plays again, EXIT clears the overlay).
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var bg: ColorRect = overlay.get_node_or_null("ResultBg") as ColorRect
 	var panel: Control = overlay.get_node_or_null("ResultPanel") as Control
@@ -151,10 +151,10 @@ func _finish() -> void:
 	if _gameplay != null:
 		_gameplay.queue_free()
 		_gameplay = null
-	# Los players de AudioManager son un autoload: sin soltarlos, el proceso se
-	# va con los streams ogg cargados todavia y Godot avisa de fugas al salir.
+	# AudioManager players are an autoload: without releasing them, the process
+	# exits with the ogg streams still loaded and Godot warns about leaks.
 	AudioManager._clear_stems()
-	# El test pisa user://scores.cfg al guardar el record de prueba.
+	# The test overwrites user://scores.cfg when saving the test record.
 	_restore_scores()
 	await get_tree().process_frame
 	if _failures == 0:

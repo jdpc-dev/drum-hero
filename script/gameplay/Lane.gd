@@ -213,11 +213,10 @@ func clear() -> void:
 	_pending_queue.clear()
 
 
-# Registra como fallidas las notas que siguen en pantalla y limpia la pista. Se
-# llama al terminar la cancion: sin audio, chart_duration coincide con la ultima
-# nota, asi que esas notas nunca llegan a pasar por la ventana de miss y el
-# recuento final quedaria corto. No muestra popup de juicio: no hubo golpe que
-# juzgar.
+# Records the notes still on screen as missed and clears the lane. Called at
+# the end of the song: without audio, chart_duration matches the last note, so
+# those notes never reach the miss window and the final count would fall short.
+# It does not show a judgement popup: there was no hit to judge.
 func flush_as_miss() -> int:
 	var flushed: int = _active_notes.size()
 	for note in _active_notes:

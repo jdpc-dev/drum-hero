@@ -9,9 +9,9 @@ const MAIN_SCENE := preload("res://scene/Main.tscn")
 @onready var haptic_kick = $HapticKick
 @onready var hud = $HUD
 
-# Margen entre el final del audio y la pantalla de resultados. El reloj ya esta
-# congelado, asi que este tiempo es solo para que el jugador procese como ha
-# terminado la cancion en vez de verse un corte seco.
+# Margin between the end of the audio and the results screen. The clock is
+# already frozen, so this time is only for the player to process how the song
+# ended instead of seeing a hard cut.
 const RESULT_TAIL_DELAY: float = 0.5
 
 var _is_initialized: bool = false
@@ -179,8 +179,8 @@ func _start_loading() -> void:
 		_hide_loading_screen()
 		return
 
-	# El chart se valida contra la duracion real del audio: sirve para detectar
-	# mapas de tempo escritos en una unidad distinta a la que se espera.
+	# The chart is validated against the actual audio duration: it serves to
+	# detect tempo maps written in a unit other than the expected one.
 	var expected_duration: float = GameManager.current_song_length
 	if expected_duration <= 0.0:
 		expected_duration = AudioManager.get_length()
@@ -290,19 +290,19 @@ func _hide_countdown() -> void:
 	_countdown_label = null
 
 
-# Fin de cancion. TimingEngine ya congelo el reloj y el audio: aqui solo se
-# espera el margen de gracia y se pasa a RESULT. Durante ese margen el estado
-# sigue siendo PLAYING, asi que el jugador todavia puede acertar las notas que
-# quedaron dentro de la ventana de golpe.
+# End of song. TimingEngine has already frozen the clock and the audio: here it
+# only waits for the grace margin and moves to RESULT. During that margin the
+# state is still PLAYING, so the player can still hit notes that fell within
+# the hit window.
 func _on_song_ended() -> void:
 	if _result_pending or _is_result_shown:
 		return
 	_result_pending = true
 	await get_tree().create_timer(RESULT_TAIL_DELAY).timeout
-	# El estado sigue siendo PLAYING mientras se juega: si ya no lo esta, la
-	# escena cambio mientras esperaba (reinicio o salida) y este resultado ya no
-	# pertenece a ninguna partida. Se rearma la bandera para que el siguiente
-	# fin de cancion pueda mostrarse.
+	# The state is still PLAYING while the game is being played: if it no
+	# longer is, the scene changed while waiting (restart or exit) and this
+	# result no longer belongs to any run. The flag is re-armed so the next end
+	# of song can be shown.
 	if GameManager.state != GameManager.GameState.PLAYING:
 		_result_pending = false
 		return
@@ -317,12 +317,12 @@ func _show_result() -> void:
 	_is_paused = false
 	_hide_pause_overlay()
 	_hide_countdown()
-	# Las notas que siguen en pantalla nunca pasan por la ventana de miss (sin
-	# audio, chart_duration coincide con la ultima nota): se fallan aqui para
-	# que el recuento final cuadre con el chart.
+	# Notes still on screen never go through the miss window (without audio,
+	# chart_duration matches the last note): they are missed here so the final
+	# count matches the chart.
 	highway.flush_unjudged_notes()
-	# En este punto ScoreManager ya tiene el resultado final de la partida:
-	# se comitea el record de la cancion+dificultad antes de pasar a RESULT.
+	# At this point ScoreManager already has the final result of the run: the
+	# song+difficulty record is committed before moving to RESULT.
 	if not GameManager.current_song_path.is_empty():
 		HighScoreStore.record_score(
 			GameManager.current_song_path,
@@ -330,8 +330,8 @@ func _show_result() -> void:
 			ScoreManager.score,
 		)
 	InputManager.haptic_kick_enabled = false
-	# AndroidBridge.clear_exclusion() NO se llama aqui: seguimos dentro del
-	# gameplay, las zonas tactiles siguen siendo las mismas.
+	# AndroidBridge.clear_exclusion() is NOT called here: we are still inside
+	# gameplay, the touch zones remain the same.
 	GameManager.set_state(GameManager.GameState.RESULT)
 	_show_result_overlay()
 
@@ -361,9 +361,9 @@ func _notification(what: int) -> void:
 		get_viewport().set_input_as_handled()
 
 
-# El boton de atras depende de donde este el juego: con la pantalla de resultados
-# visible sale de la cancion, y si la cancion ya termino pero el panel aun no
-# aparecio no hace nada (pausearia una partida que ya no existe).
+# The back button depends on where the game is: with the results screen visible
+# it exits the song, and if the song already ended but the panel has not
+# appeared yet it does nothing (it would pause a run that no longer exists).
 func _handle_back() -> void:
 	if _is_result_shown:
 		_exit_to_menu()

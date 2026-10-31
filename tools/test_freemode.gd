@@ -1,10 +1,10 @@
 extends Node
 
-# Test del modo libre (Settings > Experimental > Open Free Mode).
-# Comprueba que la escena monta la Highway real, que ChartParser queda limpio,
-# que cada golpe suena/ilumina sin chart, y que el boton de Ajustes esta
-# conectado al menu.
-# Uso: godot --headless --path . res://tools/test_freemode.tscn
+# Free mode test (Settings > Experimental > Open Free Mode).
+# Checks that the scene sets up the real Highway, that ChartParser is cleared,
+# that each hit plays/lights up without a chart, and that the Settings button
+# is wired to the menu.
+# Usage: godot --headless --path . res://tools/test_freemode.tscn
 
 const FREE_MODE_SCENE := "res://scene/FreeMode.tscn"
 const HIGHWAY_SCENE := "res://scene/UI/Highway.tscn"
@@ -21,9 +21,9 @@ func _check(label: String, ok: bool) -> void:
 		print("  FAIL ", label)
 
 
-# ChartParser es un autoload y sobrevive a los cambios de escena. El free mode
-# tiene que vaciarlo el mismo: si no, las notas de la ultima cancion seguida
-# bajarian por la pista y se contarian como falladas al instante.
+# ChartParser is an autoload and survives scene changes. Free mode must clear it
+# itself: otherwise, the last song's notes would keep falling down the track and
+# be counted as missed instantly.
 func _seed_stale_chart() -> void:
 	for i in 40:
 		var ev := ChartData.NoteEvent.new(i * 480, i % 8, ChartData.NoteType.NORMAL)
@@ -49,8 +49,8 @@ func _ready() -> void:
 	_check("no hay chart que recorrer", ChartParser.has_data() == false)
 
 	print("=== 2. la escena del free mode monta la Highway real ===")
-	# Se siembra un chart viejo ANTES de instanciar: si FreeModeRoot no lo
-	# limpiase, estas notas aparecerian y se fallarian solas.
+	# A stale chart is seeded BEFORE instantiating: if FreeModeRoot did not
+	# clear it, these notes would appear and fail on their own.
 	_seed_stale_chart()
 	var scene: PackedScene = load(FREE_MODE_SCENE)
 	_check("la escena existe", scene != null)
@@ -263,11 +263,11 @@ func _ready() -> void:
 	print("=== 9. el menu conecta Ajustes con el cambio de escena ===")
 	await _check_menu_wiring()
 
-	# El test de salida va el ultimo y sin awaits: _exit_to_menu() pide el cambio
-	# a Main.tscn y el nodo raiz del test se queda fuera del arbol en el acto, de
-	# modo que get_tree() pasaria a devolver null. Se guarda la referencia al arbol
-	# antes, y el cambio pendiente se aplica al final del frame, ya con el test
-	# terminado.
+	# The exit test goes last and without awaits: _exit_to_menu() requests the
+	# change to Main.tscn and the test root node leaves the tree immediately, so
+	# get_tree() would start returning null. The tree reference is saved before,
+	# and the pending change is applied at the end of the frame, with the test
+	# already finished.
 	var tree: SceneTree = get_tree()
 	print("=== 10. la pantalla se puede abandonar ===")
 	_free_mode._exit_to_menu()
@@ -287,9 +287,9 @@ func _ready() -> void:
 	tree.quit(1 if _failures > 0 else 0)
 
 
-# Se monta el panel de Ajustes de verdad para comprobar el boton. La senal se
-# captura con una conexion de un solo uso en vez de emitirla: MenuRoot reacciona
-# cambiando de escena y el test se quedaria sin raiz.
+# The Settings panel is actually set up to check the button. The signal is
+# captured with a one-shot connection instead of emitting it: MenuRoot reacts by
+# changing scene and the test would be left without a root.
 func _check_settings_entry() -> void:
 	var settings: SettingsRoot = (preload("res://scene/Settings.tscn") as PackedScene).instantiate() as SettingsRoot
 	add_child(settings)
@@ -336,8 +336,8 @@ func _check_menu_wiring() -> void:
 	if panel != null:
 		_check("el menu esta suscrito a free_mode_requested",
 			panel.is_connected("free_mode_requested", Callable(menu, "_on_free_mode_requested")))
-		# Con el cambio de escena en marcha, el cierre del panel ya no debe
-		# reescanear la biblioteca: el arbol se esta tirando.
+		# With the scene change in progress, closing the panel must no longer
+		# rescan the library: the tree is being torn down.
 		menu._is_switching_scene = true
 		var before: int = SongLoader.song_list.size()
 		menu._on_settings_closed()

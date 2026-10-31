@@ -1,12 +1,12 @@
 extends Node
 
-# Verifica HighScoreStore (best scores) y su reflejo en la fila del menu:
-#   1. record_score / get_best solo guardan el maximo por cancion+dificultad.
-#   2. get_best_for_song devuelve el mejor entre varias dificultades.
-#   3. La persistencia sobrevive a una recarga (nuevo store leyendo el fichero).
-#   4. MenuRoot muestra ScoreData.format_score(best) en la fila de la cancion,
-#      y el placeholder "--,---pts" cuando no hay record.
-# Uso: godot --headless --path . res://tools/test_highscores.tscn
+# Verifies HighScoreStore (best scores) and its reflection in the menu row:
+#   1. record_score / get_best only store the maximum per song+difficulty.
+#   2. get_best_for_song returns the best across several difficulties.
+#   3. Persistence survives a reload (new store reading the file).
+#   4. MenuRoot shows ScoreData.format_score(best) in the song row,
+#      and the placeholder "--,---pts" when there is no record.
+# Usage: godot --headless --path . res://tools/test_highscores.tscn
 
 const TEST_PATH: String = "res://Songs/Test Song"
 
@@ -42,7 +42,7 @@ func _restore_scores() -> void:
 
 func _ready() -> void:
 	_backup_scores()
-	# Punto de partida limpio: fichero vacio recargado.
+	# Clean starting point: empty file reloaded.
 	var empty := FileAccess.open(HighScoreStore.SCORES_PATH, FileAccess.WRITE)
 	empty.store_string("")
 	empty.close()
@@ -75,7 +75,7 @@ func _ready() -> void:
 	_check("recarga desde disco: max en 96", store2.get_best(TEST_PATH, 96) == 100000)
 
 	print("== fila del menu ==")
-	# SongLoader escanea res://Songs en _ready; usamos su primera cancion real.
+	# SongLoader scans res://Songs in _ready; we use its first real song.
 	if SongLoader.song_list.is_empty():
 		SongLoader.scan_songs()
 	if SongLoader.song_list.is_empty():
@@ -105,7 +105,7 @@ func _ready() -> void:
 			print("  fila[0] texto=", label.text)
 			_check("la fila muestra el mejor score formateado", label.text == expected)
 
-	# Una cancion sin records debe conservar el placeholder.
+	# A song with no records must keep the placeholder.
 	var placeholder_row: Node = menu.find_child("SongRow_1", true, false)
 	if placeholder_row == null:
 		print("  SKIP no hay una segunda cancion para probar el placeholder")

@@ -1,9 +1,9 @@
 extends Node
 
-# Verifica la geometria de SongTimeline: la barra debe ocupar la banda 0-2.5 %
-# de la pantalla alineada con el tablero de juego, y el relleno blanco debe
-# crecer de izquierda a derecha en proporcion al tiempo de la cancion.
-# Uso: godot --headless --path . --script res://tools/test_timeline.gd
+# Verifies SongTimeline's geometry: the bar must occupy the 0-2.5 % band of the
+# screen aligned with the game board, and the white fill must grow from left to
+# right in proportion to the song time.
+# Usage: godot --headless --path . --script res://tools/test_timeline.gd
 
 
 class ProbeTimeline extends SongTimeline:
@@ -42,8 +42,8 @@ func _check_scene_node() -> void:
 	print("== escena ==")
 	var packed: PackedScene = load("res://scene/Gameplay.tscn")
 	_check("Gameplay.tscn carga", packed != null)
-	# No se agrega al arbol: GameplayRoot._ready() arrancaria la carga de una
-	# cancion. Los offsets del nodo se leen sin necesidad de instanciarlo.
+	# It is not added to the tree: GameplayRoot._ready() would start loading a
+	# song. The node's offsets are read without needing to instantiate it.
 	var root: Node = packed.instantiate()
 	var tl: Control = root.get_node("HUD/SongTimeline") as Control
 	_check("SongTimeline es un Control (no TextureProgressBar)", tl is Control and not (tl is TextureProgressBar))
@@ -67,8 +67,8 @@ func _run_case(pad: Vector4, label: String) -> void:
 	tl.anchor_right = 1.0
 	root.add_child(tl)
 	TimingEngine.chart_duration = 200.0
-	# TimingEngine emite time_updated en cada _process: se desconecta para poder
-	# fijar el tiempo a mano y medir la geometria de forma determinista.
+	# TimingEngine emits time_updated on every _process: it is disconnected so
+	# time can be set by hand and the geometry measured deterministically.
 	TimingEngine.time_updated.disconnect(tl._on_time_updated)
 
 	var vs: Vector2 = get_viewport().get_visible_rect().size
@@ -99,14 +99,14 @@ func _run_case(pad: Vector4, label: String) -> void:
 	_check("final: alto completo del timeline", is_equal_approx(fill.size.y, tl.size.y))
 	_check("final: no se sale por la derecha", is_equal_approx(fill.position.x + fill.size.x, tl.size.x))
 
-	# Con el reloj maestro real: el relleno sigue al tiempo de reproducción.
+	# With the real master clock: the fill follows the playback time.
 	TimingEngine.time_updated.connect(tl._on_time_updated)
 	TimingEngine.audio_position = 150.0
 	await get_tree().process_frame
 	_check("señal real: 150 de 200 s -> 3/4 del ancho", absf(fill.size.x - tl.size.x * 0.75) < 1.0)
 
-	# Cambiar de cancion reescala la barra: la duracion se resuelve en cada tick,
-	# no se cachea en _ready() (que corre antes de TimingEngine.start()).
+	# Changing song rescales the bar: duration is resolved on every tick, not
+	# cached in _ready() (which runs before TimingEngine.start()).
 	TimingEngine.chart_duration = 100.0
 	TimingEngine.audio_position = 50.0
 	await get_tree().process_frame

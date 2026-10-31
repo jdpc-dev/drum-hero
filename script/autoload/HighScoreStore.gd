@@ -1,11 +1,11 @@
 extends Node
 
-# Mejores puntuaciones por cancion y dificultad. Cada cancion guarda, por
-# dificultad, su score mas alto; la fila del menu muestra el mayor de todos.
+# Best scores per song and difficulty. Each song stores, per difficulty, its
+# highest score; the menu row shows the highest of all.
 #
-# Se persiste en un ConfigFile propio (user://scores.cfg) a proposito: no se
-# aprovecha SettingsManager porque save_settings() regenera el fichero con sus
-# claves conocidas y borraria cualquier seccion que no conozca.
+# It is persisted in its own ConfigFile (user://scores.cfg) on purpose: it does
+# not use SettingsManager because save_settings() regenerates the file with its
+# known keys and would delete any section it does not know about.
 
 const SCORES_PATH: String = "user://scores.cfg"
 const SCORES_SECTION: String = "scores"
@@ -17,8 +17,8 @@ func _ready() -> void:
 	_load_scores()
 
 
-# Comitea un resultado. Solo toca el disco si supera el record anterior, y
-# devuelve el mejor valor de la partida (el score almacenado tras el guardado).
+# Commits a result. It only touches disk if it beats the previous record, and
+# returns the best value for the run (the score stored after saving).
 func record_score(song_path: String, difficulty_offset: int, score: int) -> int:
 	if song_path.is_empty():
 		return 0
@@ -38,8 +38,8 @@ func get_best(song_path: String, difficulty_offset: int) -> int:
 	return int(_best.get(_key(song_path, difficulty_offset), 0))
 
 
-# Mayor score de una cancion entre varias dificultades (las que ofrece su
-# chart). 0 si no hay ningun record.
+# Highest score for a song across several difficulties (the ones its chart
+# offers). 0 if there is no record.
 func get_best_for_song(song_path: String, difficulty_offsets: Array) -> int:
 	var best: int = 0
 	for offset in difficulty_offsets:
@@ -47,8 +47,8 @@ func get_best_for_song(song_path: String, difficulty_offsets: Array) -> int:
 	return best
 
 
-# Clave plana: hash del path (los nombres de carpeta pueden llevar cualquier
-# caracter, y ConfigFile corta en los '=') mas el offset de dificultad.
+# Flat key: hash of the path (folder names can contain any character, and
+# ConfigFile splits on '=') plus the difficulty offset.
 func _key(song_path: String, difficulty_offset: int) -> String:
 	return song_path.md5_text() + "|" + str(difficulty_offset)
 

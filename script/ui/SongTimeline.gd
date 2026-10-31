@@ -1,9 +1,9 @@
 class_name SongTimeline
 extends Control
 
-# La banda 0-2.5 % de la pantalla es la linea de tiempo: el Highway arranca su
-# pista en screen_h * 0.025, asi que la barra se dibuja justo encima de ella,
-# con el mismo ancho y el mismo gameplay padding.
+# The 0-2.5 % band of the screen is the timeline: Highway starts its track at
+# screen_h * 0.025, so the bar is drawn right above it, with the same width and
+# the same gameplay padding.
 const BAND_RATIO: float = 0.025
 
 var _fill: ColorRect
@@ -18,11 +18,11 @@ func _ready() -> void:
 	TimingEngine.time_updated.connect(_on_time_updated)
 
 
-# TextureProgressBar dibujaba texture_under / texture_progress a su tamano nativo
-# (2x2 px) en vez de estirarlas al rect del control, asi que el relleno se
-# quedaba en un cuadro de 2 px en la esquina superior izquierda. La barra se
-# construye con un ColorRect anclado: su geometria no depende de la resolucion
-# ni del tamano de ningun recurso.
+# TextureProgressBar drew texture_under / texture_progress at their native size
+# (2x2 px) instead of stretching them to the control's rect, so the fill ended
+# up as a 2 px square in the top-left corner. The bar is built with an anchored
+# ColorRect: its geometry does not depend on the resolution or the size of any
+# resource.
 func _build_fill() -> void:
 	_fill = ColorRect.new()
 	_fill.name = "Fill"
@@ -33,8 +33,8 @@ func _build_fill() -> void:
 	add_child(_fill)
 
 
-# La barra se alinea con el tablero de juego: mismo padding lateral y superior,
-# y alto de banda igual a screen_h * 0.025 para que su base toque la pista.
+# The bar aligns with the game board: same side and top padding, and band
+# height equal to screen_h * 0.025 so its base touches the track.
 func _apply_layout() -> void:
 	var vs: Vector2 = get_viewport_rect().size
 	var pad: Vector4 = _get_padding()
@@ -45,7 +45,7 @@ func _apply_layout() -> void:
 	offset_bottom = pad.y + band_height
 
 
-# (izquierda, arriba, derecha, abajo) en pixeles logicos de Godot.
+# (left, top, right, bottom) in Godot logical pixels.
 func _get_padding() -> Vector4:
 	if not SettingsManager.gameplay_padding_enabled:
 		return Vector4.ZERO
@@ -57,13 +57,13 @@ func _get_padding() -> Vector4:
 	)
 
 
-# Prioridad: la duracion que ya usa el reloj maestro, luego la del chart, luego
-# la del audio. Se resuelve en cada tick en vez de cachearse en _ready(), que se
-# ejecuta antes de TimingEngine.start() y se quedaria con la duracion de la
-# cancion anterior: la barra tiene que representar el tiempo de la cancion que
-# se esta reproduciendo. Con audio cargado solo es una lectura de chart_duration.
-# Si las tres son 0 (sin song.ini y sin audio) la barra se queda vacia en lugar
-# de congelarse en un 0 que parece tiempo real.
+# Priority: the duration already used by the master clock, then the chart's,
+# then the audio's. It is resolved on every tick instead of cached in _ready(),
+# which runs before TimingEngine.start() and would keep the previous song's
+# duration: the bar must represent the time of the song being played. With
+# audio loaded it is only a read of chart_duration.
+# If all three are 0 (no song.ini and no audio) the bar stays empty instead of
+# freezing at a 0 that looks like real time.
 func _resolve_duration() -> float:
 	var duration: float = TimingEngine.chart_duration
 	if duration <= 0.0:

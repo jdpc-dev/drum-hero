@@ -1,15 +1,15 @@
 class_name FreeModeRoot
 extends Node2D
 
-# Modo libre de pruebas de bateria. Se entra desde Ajustes > Experimental y no
-# hay cancion, chart ni puntuacion: la pista aparece vacia y cada golpe suena su
-# sample, destella la linea de golpeo y lanza particulas.
+# Free drum practice mode. Entered from Settings > Experimental and there is no
+# song, chart or score: the track appears empty and each hit plays its sample,
+# flashes the hit line and launches particles.
 #
-# Reutiliza la Highway de verdad a proposito, para que el orden de pistas, el
-# layout, el padding del gameplay y la exclusion de gestos de Android sean
-# exactamente los del juego. Lo unico que no se monta aqui es HitDetection: sin
-# chart no hay nada que juzgar, asi que TouchInput recibe null y su rama de
-# "no se acerto ninguna nota" es la que se encarga de sonar el sample.
+# It intentionally reuses the real Highway so the lane order, layout, gameplay
+# padding and Android gesture exclusion are exactly those of the game. The only
+# thing not set up here is HitDetection: without a chart there is nothing to
+# judge, so TouchInput receives null and its "no note was hit" branch is what
+# triggers the sample.
 
 const MAIN_SCENE := preload("res://scene/Main.tscn")
 const BASE_LABEL_SETTINGS := preload("res://asset/fonts/label_settings.tres")
@@ -31,9 +31,9 @@ var _calibration_label: Label
 
 func _ready() -> void:
 	get_tree().auto_accept_quit = false
-	# El autoload ChartParser sobrevive a los cambios de escena: sin limpiarlo, la
-	# ultima cancion jugada dejaria notas bajando por la pista y contadas como
-	# falladas al instante.
+	# The ChartParser autoload survives scene changes: without clearing it, the
+	# last played song would leave notes falling down the track and counted as
+	# missed instantly.
 	ChartParser.clear()
 	ScoreManager.reset()
 	GameManager.set_state(GameManager.GameState.PLAYING)
@@ -54,8 +54,9 @@ func _setup_input() -> void:
 	touch_input.lane_pressed.connect(_on_lane_pressed)
 
 
-# El kick por sensor se escucha aqui en vez de montar el nodo HapticKick del
-# gameplay: ese nodo solo sabe reenviar a HitDetection, que aqui no existe.
+# The sensor kick is handled here instead of setting up the HapticKick node
+# from gameplay: that node only knows how to forward to HitDetection, which
+# does not exist here.
 func _setup_haptic() -> void:
 	_haptic_active = SettingsManager.haptic_enabled or GameManager.mode == GameManager.GameMode.HAPTIC
 	InputManager.haptic_kick_enabled = _haptic_active
@@ -72,7 +73,7 @@ func _on_kick_pressed() -> void:
 		return
 	if not _haptic_active:
 		return
-	# El sample lo suena TouchInput en el resto de casos; el kick no pasa por ahi.
+	# TouchInput plays the sample in the other cases; the kick does not go through it.
 	DrumSfxManager.play_for_lane(3)
 	_on_lane_pressed(3, Vector2.ZERO)
 
@@ -93,8 +94,8 @@ func _update_pad_readout(lane_index: int) -> void:
 	var colors: Array[Color] = Highway._get_lane_colors()
 	var name_idx: int = clampi(lane_index, 0, DrumGraphics.LANE_FULL_LABELS.size() - 1)
 	_pad_name_label.text = DrumGraphics.LANE_FULL_LABELS[name_idx]
-	# El color va en LabelSettings y no como theme override: cuando un Label tiene
-	# label_settings, ese recurso manda sobre los overrides del tema.
+	# The color goes in LabelSettings and not as a theme override: when a Label
+	# has label_settings, that resource takes precedence over theme overrides.
 	_pad_name_label.label_settings.font_color = colors[name_idx]
 
 
@@ -130,8 +131,8 @@ func _setup_hud() -> void:
 	hud.add_child(back_btn)
 
 
-# El pad que sonó se muestra en el centro de la pista, que es justo donde
-# bajarian las notas. El titulo vive en la banda de la linea de tiempo.
+# The pad that was hit is shown in the center of the track, which is exactly
+# where notes would fall. The title lives in the timeline band.
 func _layout_hud() -> void:
 	var vs: Vector2 = get_viewport_rect().size
 	var pl: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left) if SettingsManager.gameplay_padding_enabled else 0.0
@@ -189,8 +190,8 @@ func _ensure_fps_label() -> void:
 
 func _make_label(text: String, font_size: int, color: Color) -> Label:
 	var label := Label.new()
-	# LabelSettings duplicado en vez de theme overrides: el recurso base ya trae la
-	# fuente del juego y el contorno (ver ResultOverlay._make_label).
+	# Duplicated LabelSettings instead of theme overrides: the base resource
+	# already brings the game font and outline (see ResultOverlay._make_label).
 	var settings := BASE_LABEL_SETTINGS.duplicate() as LabelSettings
 	settings.font_size = font_size
 	settings.font_color = color
@@ -199,7 +200,7 @@ func _make_label(text: String, font_size: int, color: Color) -> Label:
 	return label
 
 
-# ---------------------------------------------------------------- Calibracion haptic
+# ---------------------------------------------------------------- Haptic calibration
 
 
 func _show_calibration_label() -> void:
@@ -211,8 +212,8 @@ func _show_calibration_label() -> void:
 	_calibration_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	_calibration_label.position = Vector2(0, highway.highway_top_y + 20)
 	_calibration_label.size = Vector2(get_viewport_rect().size.x, 30)
-	# En el HUD, no en la raiz: asi el cartel va por encima de la pista en vez de
-	# competir con las notas en la misma capa de dibujo.
+	# In the HUD, not at the root: this way the banner goes above the track
+	# instead of competing with the notes on the same drawing layer.
 	hud.add_child(_calibration_label)
 
 
@@ -227,7 +228,7 @@ func _on_calibration_completed() -> void:
 		_calibration_label = null
 
 
-# ---------------------------------------------------------------- Salida
+# ---------------------------------------------------------------- Exit
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -252,8 +253,8 @@ func _exit_to_menu() -> void:
 		return
 	_is_leaving = true
 	InputManager.haptic_kick_enabled = false
-	# Con el kick apagado nunca se conecto la senal, y desconectar un Callable no
-	# conectado es un error en Godot: se comprueba antes.
+	# With the kick off the signal was never connected, and disconnecting an
+	# unconnected Callable is an error in Godot: it is checked beforehand.
 	if InputManager.kick_detected.is_connected(_on_kick_pressed):
 		InputManager.kick_detected.disconnect(_on_kick_pressed)
 	AndroidBridge.clear_exclusion()

@@ -9,10 +9,10 @@ class StemInfo:
 var _stems: Dictionary = {}
 var _master_player: AudioStreamPlayer
 var _is_playing: bool = false
-# Latch de "el stream base llego a su final". Lo enciende la senal finished del
-# player, que solo salta al acabar el stream de forma natural: ni stop() ni la
-# pausa interna emiten finished, asi que no hay falsos positivos al pausar,
-# reiniciar o cambiar de cancion.
+# Latch for "the base stream reached its end". It is set by the player's finished
+# signal, which only fires when the stream ends naturally: neither stop() nor the
+# internal pause emit finished, so there are no false positives when pausing,
+# restarting or changing songs.
 var _stream_finished: bool = false
 
 const STEM_FILES: Dictionary = {
@@ -70,7 +70,7 @@ func _load_stem(song_path: String, stem_name: String, stem_base: String, volume_
 
 
 func _on_stem_finished(stem_name: String) -> void:
-	# El reloj sigue al stream base, asi que su final es el final de la cancion.
+	# The clock follows the base stream, so its end is the end of the song.
 	if stem_name == _base_stem_name():
 		_stream_finished = true
 
@@ -232,8 +232,8 @@ func stop() -> void:
 		_stems[stem_name].player.stop()
 
 
-# La mezcla base manda; si no existe, el primer stem cargado. Todo el reloj del
-# gameplay depende de este valor, asi que is_stream_finished() usa el mismo stem.
+# The base mix takes precedence; if it does not exist, the first loaded stem. The
+# entire gameplay clock depends on this value, so is_stream_finished() uses the same stem.
 func _base_stem_name() -> String:
 	if _stems.has("song"):
 		return "song"
@@ -250,8 +250,8 @@ func get_position() -> float:
 	return info.player.get_playback_position()
 
 
-# Duracion del stream mas largo (la mezcla base si existe). Se usa para validar
-# el chart contra el audio real.
+# Duration of the longest stream (the base mix if it exists). It is used to validate
+# the chart against the actual audio.
 func get_length() -> float:
 	var longest: float = 0.0
 	for stem_name in _stems:
@@ -272,10 +272,10 @@ func set_volume(stem_name: String, vol: float) -> void:
 
 
 func set_latency(ms: float) -> void:
-	# La latencia de salida real no se puede medir desde el script, asi que no
-	# se corrige aqui. La calibracion vive en un solo sitio
-	# (SettingsManager.audio_offset_ms) y la aplica TimingEngine; este metodo se
-	# conserva como punto de entrada compatible.
+	# The actual output latency cannot be measured from the script, so it is not
+	# corrected here. Calibration lives in a single place
+	# (SettingsManager.audio_offset_ms) and is applied by TimingEngine; this method is
+	# kept as a compatible entry point.
 	SettingsManager.audio_offset_ms = ms
 
 
@@ -294,14 +294,14 @@ func is_playing() -> bool:
 	return _is_playing
 
 
-# El stream base dejo de sonar aunque el flag manual siga en true. is_playing()
-# responde a play()/pause()/stop() del juego, no al estado real del player: si el
-# audio se acaba antes que el chart, el reloj se quedaria clavado.
+# The base stream stopped playing even though the manual flag is still true. is_playing()
+# responds to the game's play()/pause()/stop(), not to the player's actual state: if the
+# audio ends before the chart, the clock would get stuck.
 #
-# Se usa la senal finished y no "not player.playing" porque playing tambien es
-# false con el player en pausa (stream_paused) y get_playback_position() vuelve
-# a 0 justo cuando el stream termina: las dos consultables mienten en el
-# instante preciso del fin de cancion.
+# The finished signal is used instead of "not player.playing" because playing is also
+# false while the player is paused (stream_paused) and get_playback_position() returns
+# to 0 right when the stream ends: both getters lie at the exact
+# moment the song ends.
 func is_stream_finished() -> bool:
 	return _stream_finished
 

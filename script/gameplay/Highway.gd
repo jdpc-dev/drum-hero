@@ -7,13 +7,13 @@ var _kick_lane: Lane
 @export var lane_scene: PackedScene
 @export var hit_line_scene: PackedScene
 
-# Segundos que tarda una nota en recorrer la pista con note_speed = 1.0. Es la
-# unica constante de tiempo de viaje del juego: spawn, posicion, lineas de
-# compas y pixeles por segundo se derivan de get_travel_time().
+# Seconds a note takes to cross the track with note_speed = 1.0. It is the only
+# travel-time constant in the game: spawn, position, bar lines and pixels per
+# second are derived from get_travel_time().
 const BASE_TRAVEL_TIME: float = 2.0
 
-# note_speed multiplica la velocidad del scroll: 2.0 -> las notas llegan al
-# doble de rapidez y solo necesitan la mitad de tiempo de viaje.
+# note_speed multiplies the scroll speed: 2.0 -> notes arrive twice as fast and
+# only need half the travel time.
 var note_speed: float = 1.0
 var active_lane_count: int = 8
 
@@ -45,13 +45,12 @@ var _bg_sprite: Sprite2D
 signal lanes_built()
 
 
-# Tiempo de viaje de una nota de la parte superior de la pista a la linea de
-# golpeo, en segundos.
+# Travel time of a note from the top of the track to the hit line, in seconds.
 func get_travel_time() -> float:
 	return BASE_TRAVEL_TIME / clampf(note_speed, 0.1, 10.0)
 
 
-# Velocidad real del scroll en pixeles por segundo.
+# Actual scroll speed in pixels per second.
 func get_pixels_per_second() -> float:
 	var height: float = highway_bottom_y - highway_top_y
 	if height <= 0.0:
@@ -60,8 +59,8 @@ func get_pixels_per_second() -> float:
 
 
 func _ready() -> void:
-	# Antes de construir las pistas: HitLine y las ventanas de juicio cachean
-	# los pixeles por segundo derivados de note_speed.
+	# Before building the lanes: HitLine and the judgement windows cache the
+	# pixels per second derived from note_speed.
 	note_speed = SettingsManager.note_speed
 	_refresh_screen_size()
 	_label_settings = preload("res://asset/fonts/label_settings.tres")
@@ -185,8 +184,8 @@ func _generate_beat_timestamps() -> void:
 		current_mpt = tempos[0].micros_per_tick
 
 	while current_time < duration:
-		# El compase se actualiza antes de calcular la duracion del pulso: si no,
-		# el cambio 3/4 -> 4/4 se aplicaria un pulso tarde.
+		# The time signature is updated before calculating the beat duration:
+		# otherwise, the 3/4 -> 4/4 change would apply one beat late.
 		while ts_idx + 1 < time_sigs.size() and time_sigs[ts_idx + 1].tick <= current_tick:
 			ts_idx += 1
 			beats_per_bar = time_sigs[ts_idx].numerator
@@ -350,10 +349,9 @@ func restart() -> void:
 		bl.hide()
 
 
-# Al terminar la cancion, las notas todavia en pantalla se cuentan como falladas
-# para que hits + misses cuadre con el total del chart. Devuelve cuantas se
-# registraron. No es lo mismo que restart(): ahi las notas se descartan sin
-# puntuar.
+# At the end of the song, notes still on screen are counted as missed so
+# hits + misses matches the chart total. Returns how many were recorded. It is
+# not the same as restart(): there notes are discarded without scoring.
 func flush_unjudged_notes() -> int:
 	var flushed: int = 0
 	for lane in lane_nodes:

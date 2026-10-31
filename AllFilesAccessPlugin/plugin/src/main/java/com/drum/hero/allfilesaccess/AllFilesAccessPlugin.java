@@ -48,9 +48,9 @@ public class AllFilesAccessPlugin extends GodotPlugin {
             return false;
         }
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            // No hace falta permiso especial: se concedieron los permisos de
-            // almacenamiento al instalar. Aun asi se abren Ajustes para que el
-            // usuario pueda revisarlos.
+            // No special permission is needed: storage permissions were granted
+            // at install time. Settings are still opened so the user can review
+            // them.
             return openAllFilesSettings();
         }
         if (Environment.isExternalStorageManager()) {

@@ -3,8 +3,8 @@ extends Node
 var _settings_backup: PackedByteArray = PackedByteArray()
 var _settings_existed: bool = false
 var _failures: int = 0
-# Los contadores de las lambdas viven aqui: GDScript captura por valor y un
-# `finished += 1` dentro de la lambda no se veria desde fuera.
+# Lambda counters live here: GDScript captures by value and a
+# `finished += 1` inside the lambda would not be seen from outside.
 var _finishes: int = 0
 
 
@@ -24,9 +24,9 @@ func _reset(max_depth: int, recursive: bool, roots: PackedStringArray) -> void:
 	SettingsManager.library_max_depth = max_depth
 
 
-# El arbol que recorre este test vivia en /tmp y no viaja en el repo: sin el
-# todas las comprobaciones compararian listas vacias contra listas vacias y
-# pasarian sin comprobar nada. Se construye siempre, no solo si falta.
+# The tree this test walks used to live in /tmp and does not travel in the
+# repo: without it all checks would compare empty lists against empty lists and
+# pass without checking anything. It is always built, not only when missing.
 func _ensure_fixture() -> void:
 	var base: String = "/tmp/opencode/libtest"
 	_make_song(base + "/rootA/Alpha")
@@ -34,18 +34,18 @@ func _ensure_fixture() -> void:
 	_make_song(base + "/rootA/Beta/charts")
 	_make_song(base + "/rootA/a/b/c/d/TooDeep")
 	_make_song(base + "/rootB/Solo Song")
-	# Raiz ancha con canciones: obliga a repartir el recorrido en varios lotes y
-	# deja songs sin ver al cancelar, para que se note en la lista.
+	# Wide root with songs: forces the walk to be split into several batches and
+	# leaves songs unseen when cancelling, so it shows in the list.
 	for i in 100:
 		_make_song(base + "/wide/d" + str(i))
-	# Beta tiene el chart en un subdirectorio, asi que Beta no es cancion.
+	# Beta has the chart in a subdirectory, so Beta is not a song.
 	_write_text(base + "/rootA/Beta/song.ini", "[Song]\nname = Beta\n")
 
 
 func _make_song(dir_path: String) -> void:
 	DirAccess.make_dir_recursive_absolute(dir_path)
-	# Cabecera MIDI valida y vacia: a MidiParser.detect_difficulties_fast() le
-	# bastan los primeros bytes para no equivocarse al leer el chart.
+	# Valid, empty MIDI header: MidiParser.detect_difficulties_fast() only needs
+	# the first bytes to avoid misreading the chart.
 	var midi := PackedByteArray()
 	midi.append_array("MThd".to_ascii_buffer())
 	midi.append_array(PackedByteArray([0, 0, 0, 6, 0, 1, 0, 1, 0, 96]))
@@ -202,7 +202,7 @@ func _ready() -> void:
 	_check("begin_scan() arranca", SongLoader.begin_scan())
 	_check("is_scanning durante el recorrido", SongLoader.is_scanning)
 	_check("un segundo begin_scan() se rechaza", not SongLoader.begin_scan())
-	# Un directorio por lote: el peor caso para la fragmentacion en lotes.
+	# One directory per batch: the worst case for batch fragmentation.
 	var steps: int = 0
 	while not SongLoader.scan_step(1) and steps < 5000:
 		steps += 1
@@ -229,8 +229,8 @@ func _ready() -> void:
 	print("  eventos=", events.size(), " steps=", steps)
 
 	print("=== 10. cancelar conserva lo ya encontrado ===")
-	# MIX incluye una raiz de 100 canciones: un lote son 64 directorios, asi que
-	# cancelar a mitad cae de lleno y quedan canciones sin ver.
+	# MIX includes a root with 100 songs: a batch is 64 directories, so
+	# cancelling halfway lands squarely and leaves songs unseen.
 	_reset(3, true, MIX)
 	SongLoader.begin_scan()
 	SongLoader.scan_step(1)
@@ -267,7 +267,7 @@ func _ready() -> void:
 	print("  frames=", frames)
 
 	print("=== 13. un reescaneo encolado no pisa el que esta en marcha ===")
-	# Referencia de un reescaneo con una sola raiz, para comparar al final.
+	# Reference rescan with a single root, to compare at the end.
 	_reset(3, true, PackedStringArray([A]))
 	SongLoader.scan_songs()
 	var expected: Array[Dictionary] = SongLoader.song_list.duplicate(true)

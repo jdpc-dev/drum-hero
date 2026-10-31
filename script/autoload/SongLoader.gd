@@ -1,10 +1,10 @@
 extends Node
 
-# El escaneo se puede observar en dos tiempos. `scan_songs()` lo recorre entero
-# de una sentada (lo usan los tests y quien no necesita UI). Quien tenga algo
-# pintado delante llama a `begin_scan()` y luego a `scan_step()` una vez por
-# frame desde su `_process`: el recorrido se parte en lotes, la UI responde
-# entre lote y lote, y `cancel_scan()` lo corta sin perder lo ya encontrado.
+# Scanning can be observed in two ways. `scan_songs()` walks the whole library
+# in one go (used by tests and callers that do not need UI). Callers with
+# something on screen call `begin_scan()` and then `scan_step()` once per frame
+# from their `_process`: the walk is split into batches, the UI responds between
+# batches, and `cancel_scan()` stops it without losing what was already found.
 signal scan_progress(root_index: int, root_total: int, current_dir: String, dirs_visited: int, songs_found: int)
 signal scan_finished(songs_found: int, cancelled: bool)
 
@@ -17,14 +17,14 @@ var is_scanning: bool = false
 const SUPPORTED_FORMATS = ["ogg", "opus", "wav", "mp3"]
 const CHART_FILENAMES = ["notes.mid", "notes.chart"]
 const MAX_DIRS_PER_ROOT = 4000
-# Techo de trabajo por lote. El limite son los directorios, no el tiempo: una
-# biblioteca grande son miles de carpetas y a 60 Hz interesa repartir el trabajo,
-# no medirlo. Cada UI decide cuanto se gasta de su frame con el deadline.
+# Work ceiling per batch. The limit is directories, not time: a large library is
+# thousands of folders and at 60 Hz it is better to spread the work than to
+# measure it. Each UI decides how much of its frame to spend with the deadline.
 const MAX_DIRS_PER_FRAME = 64
-# Lote sin tope para el recorrido de una sentada (scan_songs()).
+# Unlimited batch for the one-shot walk (scan_songs()).
 const UNLIMITED_DIR_BUDGET: int = 0x7FFFFFFF
-# Margen de frame para el deadline que pasa la UI a scan_step(). 8 ms deja sitio
-# al dibujado de ese frame aunque la biblioteca sea enorme.
+# Frame margin for the deadline the UI passes to scan_step(). 8 ms leaves room
+# for that frame's drawing even if the library is huge.
 const SCAN_FRAME_BUDGET_MS = 8
 
 var _scanned_paths: Dictionary = {}
@@ -32,7 +32,7 @@ var _dirs_visited: int = 0
 var _depth_truncated: bool = false
 var _current_root: String = ""
 
-# Estado del escaneo en curso (solo se usa entre begin_scan() y scan_finished).
+# State of the scan in progress (only used between begin_scan() and scan_finished).
 var _scan_roots: PackedStringArray = PackedStringArray()
 var _scan_root_index: int = 0
 var _scan_current_dir: String = ""
@@ -47,9 +47,9 @@ func _ready() -> void:
 
 
 func begin_scan() -> bool:
-	# Devuelve false si ya hay un escaneo en marcha: SongLoader es singleton y
-	# solo admite uno, asi que el segundo llamante tiene que esperar a que
-	# termine en vez de machacar el song_list del primero a medio construir.
+	# Returns false if a scan is already running: SongLoader is a singleton and
+	# only allows one, so the second caller must wait for it to finish instead
+	# of overwriting the first one's half-built song_list.
 	if is_scanning:
 		return false
 	song_list.clear()
@@ -64,8 +64,8 @@ func begin_scan() -> bool:
 	_scan_cancelled = false
 	_scan_requested = false
 	_scan_dirs_total = 0
-	# La raiz en curso se vacia para que el cierre del escaneo anterior no se
-	# cuelgue del siguiente.
+	# The current root is cleared so closing the previous scan does not get
+	# attached to the next one.
 	_current_root = ""
 	_depth_truncated = false
 	is_scanning = true
@@ -73,32 +73,31 @@ func begin_scan() -> bool:
 
 
 func cancel_scan() -> void:
-	# No corta en seco: se respeta en el siguiente lote, como muy tarde un
-	# frame despues. Lo ya encontrado se queda en song_list.
+	# It does not stop abruptly: it is honored in the next batch, at most one
+	# frame later. What was already found stays in song_list.
 	_scan_cancelled = true
 
 
 func request_scan() -> void:
-	# Pide un escaneo para en cuanto SongLoader este libre. Como es singleton y
-	# solo admite uno en marcha, un segundo reescaneo (Ajustes sobre el menu, o
-	# al volver de la pantalla de permisos) se encola en vez de machacar el
-	# song_list del primero a medio construir.
+	# Requests a scan as soon as SongLoader is free. Since it is a singleton and
+	# only allows one at a time, a second rescan (Settings over the menu, or
+	# returning from the permissions screen) is queued instead of overwriting
+	# the first one's half-built song_list.
 	_scan_requested = true
 
 
 func frame_deadline_usec() -> int:
-	# El deadline que se pasa a pump_scan() para no gastar mas de
-	# SCAN_FRAME_BUDGET_MS en un lote.
+	# The deadline passed to pump_scan() so as not to spend more than
+	# SCAN_FRAME_BUDGET_MS in one batch.
 	return Time.get_ticks_usec() + SCAN_FRAME_BUDGET_MS * 1000
 
 
 func pump_scan(deadline_usec: int) -> bool:
-	# Un frame de escaneo para quien tenga UI delante: avanza el recorrido (o
-	# lo empieza si estaba encolado) y devuelve true solo cuando no queda nada
-	# pendiente, ni escaneo en marcha ni otro encolado detras. El reescaneo
-	# encolado durante el escaneo en curso se sirve en el frame siguiente, que es
-	# donde la UI ya puede refrescar la lista del anterior; mientras tanto, el
-	# overlay se queda puesto y no parpadea.
+	# A scan frame for callers with UI on screen: advances the walk (or starts
+	# it if it was queued) and returns true only when nothing remains, neither a
+	# running scan nor another one queued behind it. A rescan queued during the
+	# current scan is served on the next frame, where the UI can already refresh
+	# the previous list; meanwhile, the overlay stays up and does not flicker.
 	if not is_scanning:
 		if not _scan_requested:
 			return true
@@ -109,20 +108,20 @@ func pump_scan(deadline_usec: int) -> bool:
 
 
 func abort_scan() -> void:
-	# Deja SongLoader como estaba antes de empezar: sin peticion pendiente y sin
-	# escaneo a medias. Si queda is_scanning = true, el siguiente begin_scan()
-	# fallaria siempre y la biblioteca se quedaria congelada.
+	# Leaves SongLoader as it was before starting: no pending request and no
+	# half-finished scan. If is_scanning = true were left behind, the next
+	# begin_scan() would always fail and the library would freeze.
 	_scan_requested = false
 	if is_scanning:
 		cancel_scan()
-		# Un lote de 0 solo cumple el papel de cerrar el escaneo recien
-		# cancelado, sin recorrer nada.
+		# A batch of 0 only serves to close the just-cancelled scan, without
+		# walking anything.
 		scan_step(0)
 
 
 func scan_step(dir_budget: int, deadline_usec: int = 0) -> bool:
-	# Camina hasta `dir_budget` directorios (o hasta pasar `deadline_usec`, si
-	# es > 0) y devuelve true cuando el escaneo ha terminado.
+	# Walks up to `dir_budget` directories (or until `deadline_usec` passes, if
+	# > 0) and returns true when the scan has finished.
 	if not is_scanning:
 		return true
 	var processed: int = 0
@@ -132,15 +131,15 @@ func scan_step(dir_budget: int, deadline_usec: int = 0) -> bool:
 			return true
 		_scan_one_dir()
 		processed += 1
-		# El reloj se mira de ocho en ocho: leerlo en cada directorio cuesta mas
-		# que el propio recorrido sobre DirectoryAccess.
+		# The clock is checked every eight directories: reading it on every
+		# directory costs more than the walk itself over DirectoryAccess.
 		if deadline_usec > 0 and processed % 8 == 0 and Time.get_ticks_usec() >= deadline_usec:
 			break
 	if _scan_cancelled:
 		_finish_scan()
 		return true
-	# El evento se emite antes de cerrar el escaneo para que el ultimo que ve la
-	# UI ya cuente el recorrido entero y no un lote menos.
+	# The event is emitted before closing the scan so the last UI to see it
+	# already counts the entire walk and not one batch less.
 	_emit_progress()
 	if _scan_stack.is_empty() and not _has_roots_left():
 		_finish_scan()
@@ -149,8 +148,8 @@ func scan_step(dir_budget: int, deadline_usec: int = 0) -> bool:
 
 
 func scan_songs() -> void:
-	# Recorrido completo de una sentada: un unico lote sin tope. Lo usan los
-	# tests y cualquier llamante que no tenga UI que responder.
+	# Full one-shot walk: a single unlimited batch. Used by tests and any caller
+	# that has no UI to respond.
 	if not begin_scan():
 		return
 	scan_step(UNLIMITED_DIR_BUDGET)
@@ -172,8 +171,8 @@ func _advance_to_next_root() -> bool:
 
 
 func _close_current_root() -> void:
-	# Cierra la raiz anterior: si se salio de ella por el limite de profundidad o
-	# de directorios, se avisa. Se llama una vez por raiz, al vaciarse la pila.
+	# Closes the previous root: if it was left due to the depth or directory
+	# limit, a warning is reported. Called once per root, when the stack empties.
 	if _current_root.is_empty():
 		return
 	if _depth_truncated and not truncated_roots.has(_current_root):
@@ -208,8 +207,9 @@ func _scan_one_dir() -> void:
 
 	var dir := DirAccess.open(dir_path)
 	if not dir:
-		# Solo la raiz que no abre se reporta: un subdirectorio ilegible se
-		# ignoraba tambien antes, y listarlos haria ruido en cada biblioteca.
+		# Only the root that fails to open is reported: an unreadable
+		# subdirectory was ignored before too, and listing them would create
+		# noise in every library.
 		if depth == 0:
 			unreadable_roots.append(dir_path)
 		return
@@ -243,9 +243,9 @@ func _scan_one_dir() -> void:
 	if not SettingsManager.library_recursive:
 		return
 
-	# La pila es LIFO: los subdirectorios se apilan del reves para que se
-	# visiten en el mismo orden que la recursion por profundidad, y la lista de
-	# canciones salga ordenada igual.
+	# The stack is LIFO: subdirectories are pushed in reverse so they are
+	# visited in the same order as depth-first recursion, and the song list
+	# comes out sorted the same way.
 	for i in range(subdirs.size() - 1, -1, -1):
 		_scan_stack.append([dir_path.path_join(subdirs[i]), depth + 1])
 
@@ -258,8 +258,9 @@ func _finish_scan() -> void:
 	if not is_scanning:
 		return
 	if _scan_cancelled and not _scan_stack.is_empty() and not _current_root.is_empty():
-		# Raiz a medio recorrer: se anota aparte de truncated_roots porque ahi
-		# el aviso es "sube la profundidad" y aqui el escaneo se paro a proposito.
+		# Half-walked root: it is recorded separately from truncated_roots
+		# because there the warning is "increase the depth" and here the scan
+		# was stopped on purpose.
 		cancelled_roots.append(_current_root)
 	_scan_stack = []
 	is_scanning = false
@@ -475,8 +476,8 @@ func _parse_ini(path: String) -> Dictionary:
 
 
 func _detect_blocked_audio(song_path: String) -> bool:
-	# Android no decodifica .opus (AudioManager solo cae a un .ogg hermano).
-	# Sin ese .ogg la canción entra en la lista pero suena a silencio.
+	# Android does not decode .opus (AudioManager only falls back to a sibling .ogg).
+	# Without that .ogg the song is listed but plays as silence.
 	var opus_path: String = song_path.path_join("song.opus")
 	if not _file_exists(opus_path):
 		return false

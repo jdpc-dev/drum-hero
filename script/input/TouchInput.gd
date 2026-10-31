@@ -11,9 +11,9 @@ var _highlight_duration: float = 0.12
 
 var _touch_zones: Array[ColorRect] = []
 
-# Golpe en una pista, con la lane ya resuelta a indice logico (respeta el orden
-# de HAPTIC/CUSTOM). Lo emite el gameplay real y tambien el free mode, que
-# pasa null como hit detection porque no hay chart contra el que juzgar.
+# Hit on a lane, with the lane already resolved to a logical index (respects
+# the HAPTIC/CUSTOM order). Emitted by real gameplay and also by free mode,
+# which passes null as hit detection because there is no chart to judge against.
 signal lane_pressed(lane_index: int, position: Vector2)
 
 

@@ -12,9 +12,9 @@ var _hit_zone_center_y: float = 0.0
 var _pixels_per_second: float = 0.0
 var _judgment_area_rects: Array[ColorRect] = []
 
-# Separacion horizontal entre hitlines, como fraccion de lane_w.
-# El gap interior reparte INNER_GAP_RATIO a medias entre dos bloques vecinos,
-# mientras que en los extremos del screen queda completo contra el borde.
+# Horizontal separation between hitlines, as a fraction of lane_w.
+# The inner gap splits INNER_GAP_RATIO evenly between two neighboring blocks,
+# while at the screen edges it spans the full distance to the border.
 const EDGE_GAP_RATIO: float = 0.05
 const INNER_GAP_RATIO: float = 0.05
 

@@ -114,8 +114,8 @@ func _ready() -> void:
 		_check("en desktop no hay boton de permiso", _find_button(root, "Grant access") == null)
 	else:
 		_check("hay boton Grant access", _find_button(root, "Grant access") != null)
-		# En desktop no hay singleton de Android, asi que se ejercita la rama
-		# de "plugin ausente", que es la que evita un boton muerto.
+		# On desktop there is no Android singleton, so the "missing plugin"
+		# branch is exercised, which is what avoids a dead button.
 		var st := Label.new()
 		root.add_child(st)
 		var bt := Button.new()
@@ -299,9 +299,9 @@ func _ready() -> void:
 	SettingsManager.library_roots = PackedStringArray(["/tmp/x"])
 	_check("cambio de raices -> true", menu._library_changed())
 	print("=== 13. indicador de escaneo en Ajustes ▸ Canciones ===")
-	# Cualquier escaneo que venga de antes (el propio _ready del menu lo pide si
-	# la lista esta vacia) se deja terminar: si no, el panel no seria quien
-	# controla el pump y las comprobaciones serian ruido.
+	# Any scan coming from earlier (the menu's own _ready requests it if the
+	# list is empty) is allowed to finish: otherwise, the panel would not be the
+	# one controlling the pump and the checks would be noise.
 	for i in 300:
 		if not SongLoader.is_scanning and not menu._scan_pump_active and not root._scan_pump_active:
 			break
@@ -313,7 +313,7 @@ func _ready() -> void:
 	SettingsManager.library_preset_documents = false
 	SettingsManager.library_recursive = true
 	SettingsManager.library_max_depth = 3
-	# Cuantas canciones dan esas raices, para no tener que hardcodearlo.
+	# How many songs those roots yield, so it does not have to be hardcoded.
 	SongLoader.scan_songs()
 	var expected_songs: int = SongLoader.song_list.size()
 	root._on_tab_selected(root.SONGS_TAB)
@@ -341,9 +341,9 @@ func _ready() -> void:
 	_check("y avisa de la raiz truncada por profundidad", root._scan_summary.text.contains("Too deep (raise max subfolder depth): " + SettingsManager.library_roots[0]))
 
 	print("=== 14. cancelar desde Ajustes conserva lo encontrado ===")
-	# Con las raicas de prueba el recorrido entero cabe en un solo lote
-	# (MAX_DIRS_PER_FRAME = 64), y cancelar llegaria tarde: se anade una raiz
-	# ancha y vacia para que el escaneo tenga que repartir en varios frames.
+	# With the test roots the whole walk fits in a single batch
+	# (MAX_DIRS_PER_FRAME = 64), and cancelling would arrive late: a wide,
+	# empty root is added so the scan has to split across several frames.
 	var wide: String = "/tmp/opencode/libtest/wide"
 	DirAccess.make_dir_recursive_absolute(wide)
 	for i in 200:

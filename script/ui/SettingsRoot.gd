@@ -1,8 +1,8 @@
 class_name SettingsRoot
 extends CanvasLayer
 
-# Ajustes no cambia de escena por su cuenta: emite la peticion y es MenuRoot
-# (la pantalla que lo aloja) quien decide abrir el modo libre.
+# Settings does not change scene on its own: it emits the request and MenuRoot
+# (the screen hosting it) decides to open free mode.
 signal free_mode_requested()
 
 var _label_settings: LabelSettings = preload("res://asset/fonts/label_settings.tres")
@@ -94,15 +94,15 @@ func _ready() -> void:
 
 
 func _exit_tree() -> void:
-	# El escaneo vive en SongLoader, asi que hay que pararlo aqui o el menu se
-	# encontraria is_scanning = true al volver. Este _exit_tree corre antes del
-	# tree_exited que escucha MenuRoot, asi que su reescaneo ya sale limpio.
+	# The scan lives in SongLoader, so it must be stopped here or the menu would
+	# find is_scanning = true on return. This _exit_tree runs before the
+	# tree_exited that MenuRoot listens to, so its rescan comes out clean.
 	_abort_scan()
 
 
 func _process(_delta: float) -> void:
-	# El recorrido avanza desde _process y no desde un await: asi el panel
-	# puede cerrarse en mitad de un lote sin dejar nada colgando.
+	# The walk advances from _process and not from an await: this way the panel
+	# can be closed in the middle of a batch without leaving anything hanging.
 	if not _scan_pump_active:
 		return
 	if SongLoader.pump_scan(SongLoader.frame_deadline_usec()):
@@ -113,9 +113,9 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_on_back()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
-		# Se vuelve de la pantalla de Ajustes del sistema: el permiso pudo
-		# cambiar. Sin esto el panel seguiria diciendo "Not granted" y el usuario
-		# creeria que el boton no hace nada.
+		# Returning from the system Settings screen: the permission may have
+		# changed. Without this the panel would keep saying "Not granted" and
+		# the user would think the button does nothing.
 		_refresh_permission_state()
 
 
@@ -246,8 +246,9 @@ func _on_tab_selected(tab_index: int) -> void:
 	for i in _tab_buttons.size():
 		_tab_buttons[i].button_pressed = (i == tab_index)
 	if _current_tab != SONGS_TAB:
-		# El escaneo es de esta pestaña: si el jugador se va, se para. Los
-		# widgets se destruyen con el contenido y no tiene sentido seguirlos.
+		# The scan belongs to this tab: if the player leaves, it stops. The
+		# widgets are destroyed with the content and there is no point in
+		# continuing to track them.
 		_abort_scan()
 	_build_tab_content()
 
@@ -893,9 +894,9 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	scan_buttons.add_child(_cancel_scan_button)
 	parent.add_child(scan_buttons)
 
-	# Indicador de escaneo. El resumen de abajo solo se actualiza cuando el
-	# recorrido acaba, asi que sin esto el panel se queda mudo durante todo el
-	# walk, que en una biblioteca grande son varios segundos sin pistas.
+	# Scan indicator. The summary below only updates when the walk finishes, so
+	# without this the panel stays mute for the whole walk, which in a large
+	# library is several seconds with no feedback.
 	_scan_bar = ScanFeedback.make_progress_bar()
 	_scan_bar.name = "ScanBar"
 	parent.add_child(_scan_bar)
@@ -1107,9 +1108,9 @@ func _on_cancel_scan_pressed() -> void:
 
 
 func _scan_summary_and_rescan() -> void:
-	# El permiso puede concederse con el panel en cualquier pestana, y ahi no
-	# hay indicador que mostrar: el escaneo sigue, y al acabar actualiza el
-	# resumen, que es lo unico que se lee de esta pestana.
+	# The permission may be granted with the panel on any tab, and there is no
+	# indicator to show there: the scan continues, and when it finishes it
+	# updates the summary, which is the only thing read from this tab.
 	if _scan_pump_active:
 		return
 	_scan_pump_active = true
@@ -1163,8 +1164,8 @@ func _set_scan_widgets_visible(visible_state: bool) -> void:
 
 
 func _refresh_scan_widgets() -> void:
-	# Al reconstruir la pestana a mitad de escaneo los widgets son nuevos: se
-	# reapuntan al estado real en vez de quedarse a la espera del primer evento.
+	# When rebuilding the tab mid-scan the widgets are new: they are re-pointed
+	# to the real state instead of waiting for the first event.
 	_set_scan_widgets_visible(SongLoader.is_scanning)
 	if SongLoader.is_scanning and is_instance_valid(_scan_status) and _scan_status.text.is_empty():
 		_scan_status.text = "Scanning..."
