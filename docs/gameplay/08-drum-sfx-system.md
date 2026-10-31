@@ -2,7 +2,7 @@
 
 ## Overview
 
-Drum Hero uses a local drum sample set (the YARG samples for most pads, plus the full Clone Hero freestyle hi-hat, crash, kick and snare for pad4, pad6, pad8 and pad7) as **local drum input feedback**, not as a replacement for the song's drum audio.
+Drum Hero uses a local drum sample set (the YARG samples for most pads, plus the full Clone Hero freestyle hi-hat, crash, ride, kick and snare for pad4, pad6, pad5, pad8 and pad7) as **local drum input feedback**, not as a replacement for the song's drum audio.
 
 Every song contains its own synchronized drum stems (e.g., `drums_1`, `drums_2`, `drums_3`, etc.), which represent the actual drum performance heard during gameplay.
 
@@ -75,9 +75,9 @@ vel2pad3smp2.ogg
 The playback system cycles through these variations so repeated hits never use
 the exact same recording twice in a row:
 
-- **Hi-hat (pad4), crash (pad6), kick (pad8) and snare (pad7)**: strict
-  round-robin (`0, 1, 2, 0, …`) per velocity layer, matching Clone Hero. No
-  random pitch shift.
+- **Hi-hat (pad4), ride (pad5), crash (pad6), kick (pad8) and snare (pad7)**:
+  strict round-robin (`0, 1, 2, 0, …`) per velocity layer, matching Clone
+  Hero. No random pitch shift.
 - **Rest of the pads**: pseudo-random selection that avoids repeating the last
   variation, with a small random pitch shift.
 
@@ -92,10 +92,11 @@ Repeated hits on the same drum component should sound slightly different, closel
 The kick and the snare use the full Clone Hero freestyle sets: **6 velocity
 layers × 3 variations** each. The kick comes from `FreestyleDrums/Kick/`
 (`Kick 1` … `Kick 6`) and the snare from `FreestyleDrums/Snare/`
-(`Snare 1` … `Snare 6`). The hi-hat and the crash use **5 velocity layers ×
-3 variations** from `FreestyleDrums/Hihat/` and `FreestyleDrums/Crash/`
-(`Hihat 1` … `Hihat 5`, `Crash 1` … `Crash 5`). Layer 0 is the softest
-recording and the last layer the hardest.
+(`Snare 1` … `Snare 6`). The hi-hat, the ride and the crash use **5 velocity layers × 3 variations**
+from `FreestyleDrums/Hihat/`, `FreestyleDrums/Ride/` and
+`FreestyleDrums/Crash/` (`Hihat 1` … `Hihat 5`, `Ride 1` … `Ride 5`,
+`Crash 1` … `Crash 5`). Layer 0 is the softest recording and the last layer
+the hardest.
 
 The layer is selected with the same formula as Clone Hero:
 
@@ -115,15 +116,15 @@ For the kick and snare (`layer_count = 6`):
 | 84–104   | 4 (`Kick 5` / `Snare 5`) |
 | 105–127  | 5 (`Kick 6` / `Snare 6`) |
 
-For the hi-hat and crash (`layer_count = 5`):
+For the hi-hat, ride and crash (`layer_count = 5`):
 
 | Velocity | Layer |
 |----------|-------|
-| 0–24     | 0 (`Hihat 1` / `Crash 1`) |
-| 25–49    | 1 (`Hihat 2` / `Crash 2`) |
-| 50–74    | 2 (`Hihat 3` / `Crash 3`) |
-| 75–99    | 3 (`Hihat 4` / `Crash 4`) |
-| 100–127  | 4 (`Hihat 5` / `Crash 5`) |
+| 0–24     | 0 (`Hihat 1` / `Ride 1` / `Crash 1`) |
+| 25–49    | 1 (`Hihat 2` / `Ride 2` / `Crash 2`) |
+| 50–74    | 2 (`Hihat 3` / `Ride 3` / `Crash 3`) |
+| 75–99    | 3 (`Hihat 4` / `Ride 4` / `Crash 4`) |
+| 100–127  | 4 (`Hihat 5` / `Ride 5` / `Crash 5`) |
 
 The remaining pads keep their 3 layers and use the same formula with
 `layer_count = 3`.
