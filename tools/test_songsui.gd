@@ -248,7 +248,30 @@ func _ready() -> void:
 	await get_tree().process_frame
 	_check("reset experimental vuelve show_menu_status=false", SettingsManager.show_menu_status == false)
 
-	print("=== 11c. hint contextual en la linea de preview ===")
+	print("=== 11c. salida del juego segun 'Show Menu Status' ===")
+	SettingsManager.show_menu_status = true
+	menu._apply_status_visibility()
+	menu._back_press_time = -1000.0
+	menu._handle_back()
+	_check("con menu status visible se pide confirmar con texto",
+		menu._status_label.visible and menu._status_label.text == "Press again to exit")
+	_check("con menu status visible no hay modal", not menu._quit_confirm_is_open())
+
+	SettingsManager.show_menu_status = false
+	menu._apply_status_visibility()
+	menu._status_label.text = "Select a song"
+	menu._handle_back()
+	_check("con menu status oculto no aparece el texto", not menu._status_label.visible)
+	_check("con menu status oculto se abre el modal", menu._quit_confirm_is_open())
+	var quit_panel: Node = menu.find_child("QuitConfirmPanel", true, false)
+	_check("el modal pregunta si se quiere cerrar",
+		_text_dump(quit_panel).contains("Are you sure you want to close the game?"))
+	_check("el modal tiene CANCEL y EXIT",
+		_find_button(quit_panel, "CANCEL") != null and _find_button(quit_panel, "EXIT") != null)
+	menu._handle_back()
+	_check("atras cancela el modal", not menu._quit_confirm_is_open())
+
+	print("=== 11d. hint contextual en la linea de preview ===")
 	SongLoader.song_list.clear()
 	menu._update_preview_idle_text()
 	_check("sin canciones -> linea vacia", menu._preview_status_label.text == "")

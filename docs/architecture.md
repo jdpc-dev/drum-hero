@@ -107,6 +107,13 @@ Restaurar la selección relanza también el preview automático, como si el juga
 acabara de elegir la canción. Es estado de sesión: no se escribe en
 `settings.cfg`.
 
+La salida del menú (botón atrás de Android o `ui_cancel`) depende de **Show Menu
+Status**. Con la línea de estado visible se conserva el doble toque
+("Press again to exit" → "Closing..." si se pulsa dentro de `_back_cooldown`).
+Con la línea oculta no hay donde mostrar ese aviso, así que el primer atrás abre
+un modal de confirmación (mismo scrim y VBox centrado que los overlays de pausa y
+resultados) con CANCEL/EXIT; atrás sobre el modal lo cierra.
+
 Prueba: `godot --headless --path . res://tools/test_menu_state.tscn`
 
 ### Modo libre (drum testing)

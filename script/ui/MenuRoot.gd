@@ -35,6 +35,8 @@ var _loading_folder: Label
 var _loading_cancel_button: Button
 var _loading_is_scan: bool = false
 
+var _quit_confirm_overlay: CanvasLayer
+
 var _scan_pump_active: bool = false
 
 var _old_guitar_fallback: bool = false
@@ -123,6 +125,7 @@ func _exit_tree() -> void:
 	_save_menu_state()
 	_stop_preview()
 	_abort_scan()
+	_hide_quit_confirm()
 
 
 func _input(event: InputEvent) -> void:
@@ -987,6 +990,14 @@ func _cache_stream(path: String, stream: AudioStream) -> void:
 
 
 func _handle_back() -> void:
+	# Con la linea de estado oculta no hay donde mostrar "Press again to exit",
+	# asi que se pide confirmacion en un modal. Atras sobre el modal lo cancela.
+	if _quit_confirm_is_open():
+		_hide_quit_confirm()
+		return
+	if not SettingsManager.show_menu_status:
+		_show_quit_confirm()
+		return
 	var now: float = Time.get_ticks_msec() / 1000.0
 	if now - _back_press_time < _back_cooldown:
 		_show_transient_status("Closing...")
@@ -994,6 +1005,89 @@ func _handle_back() -> void:
 	else:
 		_back_press_time = now
 		_show_transient_status("Press again to exit")
+
+
+func _quit_confirm_is_open() -> bool:
+	return is_instance_valid(_quit_confirm_overlay)
+
+
+# Mismo lenguaje visual que el overlay de pausa y el panel de resultados: scrim
+# a pantalla completa y un VBox centrado con los botones. Se construye por
+# codigo porque el menu no tiene una escena de modal propia.
+func _show_quit_confirm() -> void:
+	if _quit_confirm_is_open():
+		return
+	_quit_confirm_overlay = CanvasLayer.new()
+	_quit_confirm_overlay.name = "QuitConfirmOverlay"
+	_quit_confirm_overlay.layer = 25
+
+	var bg: ColorRect = ColorRect.new()
+	bg.name = "QuitConfirmBg"
+	bg.color = Palette.SCRIM_SOFT
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_quit_confirm_overlay.add_child(bg)
+
+	var panel: VBoxContainer = VBoxContainer.new()
+	panel.name = "QuitConfirmPanel"
+	panel.set_anchors_preset(Control.PRESET_CENTER)
+	panel.offset_left = -200
+	panel.offset_top = -140
+	panel.offset_right = 200
+	panel.offset_bottom = 140
+	panel.alignment = BoxContainer.ALIGNMENT_CENTER
+	panel.add_theme_constant_override("separation", 12)
+	_quit_confirm_overlay.add_child(panel)
+
+	var title: Label = Label.new()
+	title.text = "EXIT GAME?"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_color_override("font_color", Palette.BONE)
+	title.add_theme_color_override("font_shadow_color", Palette.INK)
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 2)
+	panel.add_child(title)
+
+	var message: Label = Label.new()
+	message.text = "Are you sure you want to close the game?"
+	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	message.add_theme_font_size_override("font_size", 20)
+	message.add_theme_color_override("font_color", Palette.TEXT)
+	panel.add_child(message)
+
+	var spacing: Control = Control.new()
+	spacing.custom_minimum_size = Vector2(0, 16)
+	panel.add_child(spacing)
+
+	var cancel_btn: Button = Button.new()
+	cancel_btn.name = "CancelButton"
+	cancel_btn.text = "CANCEL"
+	cancel_btn.custom_minimum_size = Vector2(240, 50)
+	cancel_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cancel_btn.pressed.connect(_hide_quit_confirm)
+	panel.add_child(cancel_btn)
+
+	var exit_btn: Button = Button.new()
+	exit_btn.name = "ExitButton"
+	exit_btn.text = "EXIT"
+	exit_btn.custom_minimum_size = Vector2(240, 50)
+	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	exit_btn.pressed.connect(_confirm_quit)
+	panel.add_child(exit_btn)
+
+	add_child(_quit_confirm_overlay)
+
+
+func _hide_quit_confirm() -> void:
+	if _quit_confirm_overlay:
+		_quit_confirm_overlay.queue_free()
+	_quit_confirm_overlay = null
+
+
+func _confirm_quit() -> void:
+	_hide_quit_confirm()
+	get_tree().quit()
 
 
 func _settings_is_open() -> bool:
