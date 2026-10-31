@@ -16,7 +16,7 @@ const LANE_TO_PAD: Dictionary = {
 # Capas de velocidad por pad. Clone Hero organiza los toms, el hi-hat, el crash
 # y el ride en 5 capas x 3 variaciones, y el kick y el snare en 6 x 3; el resto
 # de pads se queda con 3.
-const PAD_LAYER_COUNTS: Dictionary = {0: 5, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
+const PAD_LAYER_COUNTS: Dictionary = {0: 5, 2: 5, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
 const DEFAULT_LAYER_COUNT: int = 3
 
 var _samples: Dictionary = {}
@@ -37,10 +37,11 @@ func _ready() -> void:
 		add_child(p)
 		_player_pool.append(p)
 	_apply_sfx_volume()
-	# Tom 1, hi-hat, crash, ride, snare y kick tienen varios samples por capa y
-	# son las piezas donde mas duele un hitch: se precargan para que el primer
-	# golpe no cargue todos los archivos en el frame.
+	# Tom 1, tom 2, hi-hat, crash, ride, snare y kick tienen varios samples por
+	# capa y son las piezas donde mas duele un hitch: se precargan para que el
+	# primer golpe no cargue todos los archivos en el frame.
 	_load_pad_samples(0)
+	_load_pad_samples(2)
 	_load_pad_samples(4)
 	_load_pad_samples(5)
 	_load_pad_samples(6)
