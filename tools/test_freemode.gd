@@ -116,15 +116,23 @@ func _ready() -> void:
 	_check("la puntuacion sigue a cero", ScoreManager.score == 0)
 	_check("no hay notas en la pista", _active_note_count(highway) == 0)
 
-	print("=== 7. el kick reproduce el set 6x3 de Clone Hero ===")
+	print("=== 7. kick y snare reproducen el set 6x3 de Clone Hero ===")
 	var kick_layers: Dictionary = DrumSfxManager._samples.get(8, {})
-	var all_variations: bool = true
+	var kick_variations: bool = true
 	for layer in range(6):
 		if kick_layers.get(layer, []).size() != 3:
-			all_variations = false
+			kick_variations = false
 	_check("el kick tiene 6 capas", kick_layers.size() == 6)
-	_check("cada capa trae 3 variaciones", all_variations)
-	_check("el snare mantiene 3 capas", DrumSfxManager._layer_count(2) == 3)
+	_check("cada capa del kick trae 3 variaciones", kick_variations)
+
+	var snare_layers: Dictionary = DrumSfxManager._samples.get(7, {})
+	var snare_variations: bool = true
+	for layer in range(6):
+		if snare_layers.get(layer, []).size() != 3:
+			snare_variations = false
+	_check("el snare tiene 6 capas", snare_layers.size() == 6)
+	_check("cada capa del snare trae 3 variaciones", snare_variations)
+	_check("el tom mantiene 3 capas", DrumSfxManager._layer_count(2) == 3)
 
 	_check("velocity 0 -> capa 0", DrumSfxManager.velocity_to_layer(0, 6) == 0)
 	_check("velocity 20 -> capa 0", DrumSfxManager.velocity_to_layer(20, 6) == 0)
@@ -139,7 +147,14 @@ func _ready() -> void:
 	for i in 4:
 		DrumSfxManager.play_for_lane(3, 100)
 		round_robin.append(DrumSfxManager._layer_cursor.get("8:4", -1))
-	_check("round-robin 0,1,2,0 en la capa 4", round_robin == [0, 1, 2, 0])
+	_check("round-robin 0,1,2,0 en la capa 4 del kick", round_robin == [0, 1, 2, 0])
+
+	DrumSfxManager._layer_cursor.clear()
+	var snare_round_robin: Array = []
+	for i in 3:
+		DrumSfxManager.play_for_lane(2, 100)
+		snare_round_robin.append(DrumSfxManager._layer_cursor.get("7:4", -1))
+	_check("round-robin 0,1,2 en la capa 4 del snare", snare_round_robin == [0, 1, 2])
 
 	var previous_velocity: int = SettingsManager.default_sample_velocity
 	SettingsManager.default_sample_velocity = 30

@@ -13,9 +13,9 @@ const LANE_TO_PAD: Dictionary = {
 	7: 5,  # Ride -> pad5
 }
 
-# Capas de velocidad por pad. Clone Hero organiza cada pieza en N capas x 3
-# variaciones; el kick (pad8) es el unico con el set completo 6x3.
-const PAD_LAYER_COUNTS: Dictionary = {8: 6}
+# Capas de velocidad por pad. Clone Hero organiza estas piezas en 6 capas x 3
+# variaciones; el resto de pads se queda con 3 capas.
+const PAD_LAYER_COUNTS: Dictionary = {7: 6, 8: 6}
 const DEFAULT_LAYER_COUNT: int = 3
 
 var _samples: Dictionary = {}
@@ -36,9 +36,11 @@ func _ready() -> void:
 		add_child(p)
 		_player_pool.append(p)
 	_apply_sfx_volume()
-	# El kick tiene 6 capas x 3 y es la pieza donde mas duele un hitch: se
-	# precarga para que el primer golpe no cargue 18 archivos en el frame.
+	# El kick y el snare tienen 6 capas x 3 y son las piezas donde mas duele un
+	# hitch: se precargan para que el primer golpe no cargue 18 archivos en el
+	# frame.
 	_load_pad_samples(8)
+	_load_pad_samples(7)
 
 
 func _apply_sfx_volume() -> void:
@@ -169,7 +171,7 @@ func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 		return
 
 	var variation: int = 0
-	if pad == 8:
+	if PAD_LAYER_COUNTS.has(pad):
 		# Clone Hero: round-robin estricto dentro de la capa de velocidad.
 		var key: String = str(pad) + ":" + str(layer)
 		var cursor: int = _layer_cursor.get(key, -1)
@@ -194,7 +196,7 @@ func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 	player.stream = stream
 	# Clone Hero no desafina: la variacion sale del round-robin. En el resto de
 	# pads se mantiene el pitch random de siempre.
-	player.pitch_scale = 1.0 if pad == 8 else 1.0 + (randf() - 0.5) * 0.08
+	player.pitch_scale = 1.0 if PAD_LAYER_COUNTS.has(pad) else 1.0 + (randf() - 0.5) * 0.08
 	player.play()
 
 

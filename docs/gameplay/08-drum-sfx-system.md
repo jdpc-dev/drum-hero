@@ -2,7 +2,7 @@
 
 ## Overview
 
-Drum Hero uses a local drum sample set (the YARG samples for the pads, plus the full Clone Hero freestyle kick for pad8) as **local drum input feedback**, not as a replacement for the song's drum audio.
+Drum Hero uses a local drum sample set (the YARG samples for most pads, plus the full Clone Hero freestyle kick and snare for pad8 and pad7) as **local drum input feedback**, not as a replacement for the song's drum audio.
 
 Every song contains its own synchronized drum stems (e.g., `drums_1`, `drums_2`, `drums_3`, etc.), which represent the actual drum performance heard during gameplay.
 
@@ -50,7 +50,7 @@ vel2pad5smp1.ogg
 
 | Field | Description |
 |--------|-------------|
-| `velocity` | Velocity layer (0–2 for most pads, 0–5 for the kick) |
+| `velocity` | Velocity layer (0–2 for most pads, 0–5 for the kick and snare) |
 | `pad` | Drum component index (0–8) |
 | `variation` | Sample variation (0–2) |
 
@@ -75,8 +75,8 @@ vel2pad3smp2.ogg
 The playback system cycles through these variations so repeated hits never use
 the exact same recording twice in a row:
 
-- **Kick (pad8)**: strict round-robin (`0, 1, 2, 0, …`) per velocity layer,
-  matching Clone Hero. No random pitch shift.
+- **Kick (pad8) and snare (pad7)**: strict round-robin (`0, 1, 2, 0, …`) per
+  velocity layer, matching Clone Hero. No random pitch shift.
 - **Rest of the pads**: pseudo-random selection that avoids repeating the last
   variation, with a small random pitch shift.
 
@@ -88,9 +88,11 @@ Repeated hits on the same drum component should sound slightly different, closel
 
 # Velocity Layers
 
-The kick uses the full Clone Hero freestyle set: **6 velocity layers × 3
-variations**, taken from `FreestyleDrums/Kick/` (`Kick 1` … `Kick 6`), where
-layer 0 is the softest recording and layer 5 the hardest.
+The kick and the snare use the full Clone Hero freestyle sets: **6 velocity
+layers × 3 variations** each. The kick comes from `FreestyleDrums/Kick/`
+(`Kick 1` … `Kick 6`) and the snare from `FreestyleDrums/Snare/`
+(`Snare 1` … `Snare 6`). Layer 0 is the softest recording and layer 5 the
+hardest.
 
 The layer is selected with the same formula as Clone Hero:
 
@@ -99,7 +101,7 @@ divisor = 127 / layer_count      # integer division, 21 for the kick
 layer   = min(velocity / divisor, layer_count - 1)
 ```
 
-For the kick (`layer_count = 6`):
+For the kick and snare (`layer_count = 6`):
 
 | Velocity | Layer |
 |----------|-------|
