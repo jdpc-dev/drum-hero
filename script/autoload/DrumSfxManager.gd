@@ -13,12 +13,18 @@ const LANE_TO_PAD: Dictionary = {
 	7: 5,  # Ride -> pad5
 }
 
-# Capas de velocidad por pad. Todos los pads jugables usan los sets de Clone
-# Hero: toms, hi-hat, crash y ride con 5 capas x 3 variaciones; kick y snare
-# con 6 x 3. Un pad fuera del mapa conserva el comportamiento antiguo de 3
-# capas con variacion aleatoria.
-const PAD_LAYER_COUNTS: Dictionary = {0: 5, 2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
+# Capas de velocidad por pad. La mayoria usa los sets de Clone Hero: toms 2-3,
+# hi-hat, crash y ride con 5 capas x 3 variaciones; kick y snare con 6 x 3. El
+# tom 1 usa el motor de YARG (3 capas), y un pad fuera del mapa conserva el
+# comportamiento antiguo de 3 capas con variacion aleatoria.
+const PAD_LAYER_COUNTS: Dictionary = {2: 5, 3: 5, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
 const DEFAULT_LAYER_COUNT: int = 3
+
+# Pads que usan el motor de YARG: 3 capas con umbrales y volumen escalado por
+# golpe, en vez de la formula de capas de Clone Hero.
+const YARG_PADS: Array = [0]
+const YARG_VELOCITY_THRESHOLD: float = 0.35
+const YARG_ACCENT_THRESHOLD: float = 0.7  # YARG: VelocityThreshold * 2
 
 var _samples: Dictionary = {}
 var _player_pool: Array[AudioStreamPlayer] = []
@@ -38,10 +44,12 @@ func _ready() -> void:
 		add_child(p)
 		_player_pool.append(p)
 	_apply_sfx_volume()
-	# Los sets de Clone Hero tienen varios samples por capa y son las piezas
-	# donde mas duele un hitch: se precargan para que el primer golpe no cargue
-	# todos los archivos en el frame.
+	# Los sets de Clone Hero y YARG tienen varios samples por capa y son las
+	# piezas donde mas duele un hitch: se precargan para que el primer golpe no
+	# cargue todos los archivos en el frame.
 	for pad in PAD_LAYER_COUNTS:
+		_load_pad_samples(pad)
+	for pad in YARG_PADS:
 		_load_pad_samples(pad)
 
 
@@ -141,6 +149,18 @@ func velocity_to_layer(velocity: int, layer_count: int) -> int:
 	return mini(floori(float(velocity) / float(divisor)), layer_count - 1)
 
 
+# Motor de YARG para el tom 1: la velocidad MIDI se normaliza a 0-1 y se
+# compara con sus umbrales (0.35 y 0.7). Devuelve la capa y el volumen lineal
+# con el que YARG escala el sample (no solo elige la capa).
+func yarg_layer_and_volume(velocity: int) -> Dictionary:
+	var v: float = clampf(float(velocity) / 127.0, 0.0, 1.0)
+	if v > YARG_ACCENT_THRESHOLD:
+		return {"layer": 2, "volume": v}
+	if v > YARG_VELOCITY_THRESHOLD:
+		return {"layer": 1, "volume": v / YARG_ACCENT_THRESHOLD}
+	return {"layer": 0, "volume": v / YARG_VELOCITY_THRESHOLD}
+
+
 # Si faltara una capa, usa la inferior no vacia mas cercana (y si no, la
 # superior) para no quedarse en silencio.
 func _resolve_layer(pad: int, layer: int, layer_count: int) -> int:
@@ -165,17 +185,28 @@ func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 	velocity = clampi(velocity, 0, 127)
 
 	var layer_count: int = _layer_count(pad)
-	var layer: int = _resolve_layer(pad, velocity_to_layer(velocity, layer_count), layer_count)
+	var is_yarg: bool = YARG_PADS.has(pad)
+	var volume: float = 1.0
+	var target_layer: int
+	if is_yarg:
+		var yarg_info: Dictionary = yarg_layer_and_volume(velocity)
+		target_layer = int(yarg_info.layer)
+		volume = float(yarg_info.volume)
+	else:
+		target_layer = velocity_to_layer(velocity, layer_count)
+	var layer: int = _resolve_layer(pad, target_layer, layer_count)
 	if layer < 0:
 		return
 	var vel_samples: Array = _samples.get(pad, {}).get(layer, [])
 	if vel_samples.is_empty():
 		return
 
+	var round_robin: bool = PAD_LAYER_COUNTS.has(pad) or is_yarg
 	var variation: int = 0
-	if PAD_LAYER_COUNTS.has(pad):
-		# Clone Hero: round-robin estricto dentro de la capa de velocidad.
-		var key: String = str(pad) + ":" + str(layer)
+	if round_robin:
+		# Clone Hero rota por capa; YARG usa un unico cursor por pieza, asi que
+		# la rotacion continua aunque cambie la capa de velocidad.
+		var key: String = (str(pad) + ":yarg") if is_yarg else (str(pad) + ":" + str(layer))
 		var cursor: int = _layer_cursor.get(key, -1)
 		cursor = (cursor + 1) % vel_samples.size()
 		_layer_cursor[key] = cursor
@@ -196,9 +227,11 @@ func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 
 	var player: AudioStreamPlayer = _get_player()
 	player.stream = stream
-	# Clone Hero no desafina: la variacion sale del round-robin. En el resto de
-	# pads se mantiene el pitch random de siempre.
-	player.pitch_scale = 1.0 if PAD_LAYER_COUNTS.has(pad) else 1.0 + (randf() - 0.5) * 0.08
+	# Clone Hero y YARG no desafinan: la variacion sale del round-robin. En el
+	# resto de pads se mantiene el pitch random de siempre.
+	player.pitch_scale = 1.0 if round_robin else 1.0 + (randf() - 0.5) * 0.08
+	# YARG ajusta el volumen segun la velocidad; el resto suena a nivel nominal.
+	player.volume_db = linear_to_db(maxf(volume, 0.0001)) if is_yarg else 0.0
 	player.play()
 
 

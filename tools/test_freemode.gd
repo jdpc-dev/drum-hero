@@ -116,7 +116,7 @@ func _ready() -> void:
 	_check("la puntuacion sigue a cero", ScoreManager.score == 0)
 	_check("no hay notas en la pista", _active_note_count(highway) == 0)
 
-	print("=== 7. todos los pads jugables usan los sets de Clone Hero ===")
+	print("=== 7. las piezas usan los sets y motores de Clone Hero / YARG ===")
 	var kick_layers: Dictionary = DrumSfxManager._samples.get(8, {})
 	var kick_variations: bool = true
 	for layer in range(6):
@@ -159,11 +159,21 @@ func _ready() -> void:
 
 	var tom1_layers: Dictionary = DrumSfxManager._samples.get(0, {})
 	var tom1_variations: bool = true
-	for layer in range(5):
+	for layer in range(3):
 		if tom1_layers.get(layer, []).size() != 3:
 			tom1_variations = false
-	_check("el tom 1 tiene 5 capas", tom1_layers.size() == 5)
+	_check("el tom 1 (YARG) tiene 3 capas", tom1_layers.size() == 3)
 	_check("cada capa del tom 1 trae 3 variaciones", tom1_variations)
+	var yarg_high: Dictionary = DrumSfxManager.yarg_layer_and_volume(127)
+	var yarg_mid: Dictionary = DrumSfxManager.yarg_layer_and_volume(45)
+	var yarg_low: Dictionary = DrumSfxManager.yarg_layer_and_volume(22)
+	var yarg_edge: Dictionary = DrumSfxManager.yarg_layer_and_volume(44)
+	_check("YARG 127 -> capa 2", int(yarg_high.layer) == 2)
+	_check("YARG 45 -> capa 1", int(yarg_mid.layer) == 1)
+	_check("YARG 44 -> capa 0", int(yarg_edge.layer) == 0)
+	_check("YARG 22 -> capa 0", int(yarg_low.layer) == 0)
+	_check("YARG escala volumen bajo", float(yarg_low.volume) < 0.6)
+	_check("YARG no escala volumen alto", is_equal_approx(float(yarg_high.volume), 1.0))
 
 	var tom2_layers: Dictionary = DrumSfxManager._samples.get(2, {})
 	var tom2_variations: bool = true
@@ -231,10 +241,10 @@ func _ready() -> void:
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom1_round_robin: Array = []
-	for i in 3:
-		DrumSfxManager.play_for_lane(4, 100)
-		tom1_round_robin.append(DrumSfxManager._layer_cursor.get("0:4", -1))
-	_check("round-robin 0,1,2 en la capa 4 del tom 1", tom1_round_robin == [0, 1, 2])
+	for velocity in [20, 60, 100]:
+		DrumSfxManager.play_for_lane(4, velocity)
+		tom1_round_robin.append(DrumSfxManager._layer_cursor.get("0:yarg", -1))
+	_check("round-robin 0,1,2 del tom 1 entre capas", tom1_round_robin == [0, 1, 2])
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom2_round_robin: Array = []
