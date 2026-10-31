@@ -2,7 +2,7 @@
 
 ## Overview
 
-Drum Hero uses a local drum sample set (the YARG samples for most pads, plus the full Clone Hero freestyle kick and snare for pad8 and pad7) as **local drum input feedback**, not as a replacement for the song's drum audio.
+Drum Hero uses a local drum sample set (the YARG samples for most pads, plus the full Clone Hero freestyle crash, kick and snare for pad6, pad8 and pad7) as **local drum input feedback**, not as a replacement for the song's drum audio.
 
 Every song contains its own synchronized drum stems (e.g., `drums_1`, `drums_2`, `drums_3`, etc.), which represent the actual drum performance heard during gameplay.
 
@@ -50,7 +50,7 @@ vel2pad5smp1.ogg
 
 | Field | Description |
 |--------|-------------|
-| `velocity` | Velocity layer (0–2 for most pads, 0–5 for the kick and snare) |
+| `velocity` | Velocity layer (0–2 most pads, 0–4 crash, 0–5 kick/snare) |
 | `pad` | Drum component index (0–8) |
 | `variation` | Sample variation (0–2) |
 
@@ -75,8 +75,9 @@ vel2pad3smp2.ogg
 The playback system cycles through these variations so repeated hits never use
 the exact same recording twice in a row:
 
-- **Kick (pad8) and snare (pad7)**: strict round-robin (`0, 1, 2, 0, …`) per
-  velocity layer, matching Clone Hero. No random pitch shift.
+- **Crash (pad6), kick (pad8) and snare (pad7)**: strict round-robin
+  (`0, 1, 2, 0, …`) per velocity layer, matching Clone Hero. No random pitch
+  shift.
 - **Rest of the pads**: pseudo-random selection that avoids repeating the last
   variation, with a small random pitch shift.
 
@@ -91,8 +92,9 @@ Repeated hits on the same drum component should sound slightly different, closel
 The kick and the snare use the full Clone Hero freestyle sets: **6 velocity
 layers × 3 variations** each. The kick comes from `FreestyleDrums/Kick/`
 (`Kick 1` … `Kick 6`) and the snare from `FreestyleDrums/Snare/`
-(`Snare 1` … `Snare 6`). Layer 0 is the softest recording and layer 5 the
-hardest.
+(`Snare 1` … `Snare 6`). The crash uses **5 velocity layers × 3 variations**
+from `FreestyleDrums/Crash/` (`Crash 1` … `Crash 5`). Layer 0 is the softest
+recording and the last layer the hardest.
 
 The layer is selected with the same formula as Clone Hero:
 
@@ -112,7 +114,17 @@ For the kick and snare (`layer_count = 6`):
 | 84–104   | 4 (`Kick 5`) |
 | 105–127  | 5 (`Kick 6`) |
 
-The other pads keep their 3 layers and use the same formula with
+For the crash (`layer_count = 5`):
+
+| Velocity | Layer |
+|----------|-------|
+| 0–24     | 0 (`Crash 1`) |
+| 25–49    | 1 (`Crash 2`) |
+| 50–74    | 2 (`Crash 3`) |
+| 75–99    | 3 (`Crash 4`) |
+| 100–127  | 4 (`Crash 5`) |
+
+The remaining pads keep their 3 layers and use the same formula with
 `layer_count = 3`.
 
 Drum Hero's inputs (keyboard, touch, haptic kick) do not report a real

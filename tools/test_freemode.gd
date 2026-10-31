@@ -116,7 +116,7 @@ func _ready() -> void:
 	_check("la puntuacion sigue a cero", ScoreManager.score == 0)
 	_check("no hay notas en la pista", _active_note_count(highway) == 0)
 
-	print("=== 7. kick y snare reproducen el set 6x3 de Clone Hero ===")
+	print("=== 7. crash, snare y kick reproducen los sets de Clone Hero ===")
 	var kick_layers: Dictionary = DrumSfxManager._samples.get(8, {})
 	var kick_variations: bool = true
 	for layer in range(6):
@@ -132,6 +132,14 @@ func _ready() -> void:
 			snare_variations = false
 	_check("el snare tiene 6 capas", snare_layers.size() == 6)
 	_check("cada capa del snare trae 3 variaciones", snare_variations)
+
+	var crash_layers: Dictionary = DrumSfxManager._samples.get(6, {})
+	var crash_variations: bool = true
+	for layer in range(5):
+		if crash_layers.get(layer, []).size() != 3:
+			crash_variations = false
+	_check("el crash tiene 5 capas", crash_layers.size() == 5)
+	_check("cada capa del crash trae 3 variaciones", crash_variations)
 	_check("el tom mantiene 3 capas", DrumSfxManager._layer_count(2) == 3)
 
 	_check("velocity 0 -> capa 0", DrumSfxManager.velocity_to_layer(0, 6) == 0)
@@ -141,6 +149,10 @@ func _ready() -> void:
 	_check("velocity 100 -> capa 4", DrumSfxManager.velocity_to_layer(100, 6) == 4)
 	_check("velocity 127 -> capa 5", DrumSfxManager.velocity_to_layer(127, 6) == 5)
 	_check("con 3 capas, velocity 100 -> capa 2", DrumSfxManager.velocity_to_layer(100, 3) == 2)
+	_check("con 5 capas, velocity 24 -> capa 0", DrumSfxManager.velocity_to_layer(24, 5) == 0)
+	_check("con 5 capas, velocity 25 -> capa 1", DrumSfxManager.velocity_to_layer(25, 5) == 1)
+	_check("con 5 capas, velocity 74 -> capa 2", DrumSfxManager.velocity_to_layer(74, 5) == 2)
+	_check("con 5 capas, velocity 100 -> capa 4", DrumSfxManager.velocity_to_layer(100, 5) == 4)
 
 	DrumSfxManager._layer_cursor.clear()
 	var round_robin: Array = []
@@ -155,6 +167,13 @@ func _ready() -> void:
 		DrumSfxManager.play_for_lane(2, 100)
 		snare_round_robin.append(DrumSfxManager._layer_cursor.get("7:4", -1))
 	_check("round-robin 0,1,2 en la capa 4 del snare", snare_round_robin == [0, 1, 2])
+
+	DrumSfxManager._layer_cursor.clear()
+	var crash_round_robin: Array = []
+	for i in 3:
+		DrumSfxManager.play_for_lane(1, 100)
+		crash_round_robin.append(DrumSfxManager._layer_cursor.get("6:4", -1))
+	_check("round-robin 0,1,2 en la capa 4 del crash", crash_round_robin == [0, 1, 2])
 
 	var previous_velocity: int = SettingsManager.default_sample_velocity
 	SettingsManager.default_sample_velocity = 30
