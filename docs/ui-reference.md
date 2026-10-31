@@ -33,7 +33,7 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 | Search: ________________________________________________________________ 🔍 |
 +-----------------------------------------------------------------------------+
 |                                                                             | s
-| ► Through the Fire and Flames - DragonForce                     12,000pts   | c
+| ► Through the Fire and Flames - DragonForce                     12,000pts  | c
 |   Everlong - Foo Fighters                                        8,000pts   | r
 |   Battery - Metallica                                           --,---pts   | o
 |   Chop Suey! - System of a Down                                 60,000pts   | l
@@ -60,7 +60,7 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 +-----------------------------------------------------------------------------+
 | CONTROLS | HUD | Experimental                                               |
 +-----------------------------------------------------------------------------+
-| CONTROLS TAB                                                                 |
+| CONTROLS TAB                                                                |
 |                                                                             |
 | CONTROL MODE                                                                |
 | Default    8 lanes — all drum parts visible                                 |
@@ -68,20 +68,20 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 | Custom     Reorder lanes manually                                           |
 |                                                                             |
 | LANE ORDER (CUSTOM MODE)                                                    |
-| ▲ ▼ [color] HH                                                              |
-| ▲ ▼ [color] CRASH                                                           |
+| ▲ ▼ [color] HH                                                             |
+| ▲ ▼ [color] CRASH                                                          |
 | ...                                                                         |
 |                                                                             |
 | HAPTIC                                                                      |
 | Enable Haptic Kick                                                          |
 | Sensitivity        [====o====================] 1.0                          |
 | ADVANCED HAPTIC TUNING                                                      |
-| Activation          [====o====================] 1.5                          |
-| Release             [====o====================] 0.3                          |
-| Cooldown (s)        [====o====================] 0.15                         |
-| Min Interval (s)    [====o====================] 0.08                         |
-| Smoothing           [====o====================] 0.4                          |
-| Show Haptic Debug   [ ]                                                      |
+| Activation          [====o====================] 1.5                         |
+| Release             [====o====================] 0.3                         |
+| Cooldown (s)        [====o====================] 0.15                        |
+| Min Interval (s)    [====o====================] 0.08                        |
+| Smoothing           [====o====================] 0.4                         |
+| Show Haptic Debug   [ ]                                                     |
 |                                                                             |
 | LAYOUT                                                                      |
 | Mirrored Layout                                                             |
@@ -109,7 +109,7 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 +-----------------------------------------------------------------------------+
 | FREE MODE                                                                   |
 | [ Open Free Mode ]                                                          |
-| Drum testing without a song: empty highway, tap any pad to hear it.        |
+| Drum testing without a song: empty highway, tap any pad to hear it.         |
 |                                                                             |
 | Use PART GUITAR as fallback                                                 |
 | For songs without PART DRUMS, use PART GUITAR notes as a drum chart         |
@@ -126,12 +126,12 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 |                                    SNARE                                    |
 |                                  3 hits                                     |
 |                                                                             |
-|  |  HH  | CRASH | SNARE |  KICK  | TOM 1 | TOM 2 | TOM 3 |  RIDE  |           |
-|  +------+-------+-------+--------+-------+-------+-------+--------+           |
+|  |  HH  | CRASH | SNARE |  KICK  | TOM 1 | TOM 2 | TOM 3 |  RIDE  |         |
+|  +------+-------+-------+--------+-------+-------+-------+--------+         |
 |  ========================================================================   |
 +-----------------------------------------------------------------------------+
 | Tap any pad (or press 1-8) to play its sample. The pad name and a hit       |
-| counter appear in the middle; the kick also fires from the motion sensor     |
+| counter appear in the middle; the kick also fires from the motion sensor    |
 | when haptic kick is enabled. No notes, no score, no results.                |
 +-----------------------------------------------------------------------------+
 ```
