@@ -2,7 +2,7 @@
 
 ## Overview
 
-Drum Hero uses the Clone Hero freestyle drum sets for most pieces (tom 2-3, hi-hat, crash, ride, kick and snare) and YARG's sample set for tom 1, as **local drum input feedback** rather than a replacement for the song's drum audio.
+Drum Hero uses the Clone Hero freestyle drum sets for most pieces (tom 3, hi-hat, crash, ride, kick and snare) and YARG's sample set for toms 1-2, as **local drum input feedback** rather than a replacement for the song's drum audio.
 
 Every song contains its own synchronized drum stems (e.g., `drums_1`, `drums_2`, `drums_3`, etc.), which represent the actual drum performance heard during gameplay.
 
@@ -50,7 +50,7 @@ vel2pad5smp1.ogg
 
 | Field | Description |
 |--------|-------------|
-| `velocity` | Velocity layer (0–2 tom 1 and most pads, 0–4 hi-hat/crash/ride, 0–5 kick/snare) |
+| `velocity` | Velocity layer (0–2 toms 1-2 and most pads, 0–4 hi-hat/crash/ride, 0–5 kick/snare) |
 | `pad` | Drum component index (0–8) |
 | `variation` | Sample variation (0–2) |
 
@@ -75,9 +75,9 @@ vel2pad3smp2.ogg
 The playback system cycles through these variations so repeated hits never use
 the exact same recording twice in a row:
 
-- **Clone Hero pads** (tom 2-3, hi-hat, ride, crash, kick and snare): strict
+- **Clone Hero pads** (tom 3, hi-hat, ride, crash, kick and snare): strict
   round-robin (`0, 1, 2, 0, …`) per velocity layer. No random pitch shift.
-- **Tom 1 (YARG)**: strict round-robin per piece, shared across velocity
+- **Toms 1-2 (YARG)**: strict round-robin per piece, shared across velocity
   layers (YARG keeps one rotation counter per drum action). No pitch shift.
 - **Rest of the pads**: pseudo-random selection that avoids repeating the last
   variation, with a small random pitch shift.
@@ -93,12 +93,11 @@ Repeated hits on the same drum component should sound slightly different, closel
 The kick and the snare use the full Clone Hero freestyle sets: **6 velocity
 layers × 3 variations** each. The kick comes from `FreestyleDrums/Kick/`
 (`Kick 1` … `Kick 6`) and the snare from `FreestyleDrums/Snare/`
-(`Snare 1` … `Snare 6`). Tom 2, tom 3, the hi-hat, the ride and the crash use **5 velocity layers × 3
-variations** from `FreestyleDrums/Tom2/`, `FreestyleDrums/Tom3/`,
-`FreestyleDrums/Hihat/`, `FreestyleDrums/Ride/` and `FreestyleDrums/Crash/`
-(`Tom2 1` … `Tom3 5`, `Hihat 1` … `Hihat 5`, `Ride 1` … `Ride 5`,
-`Crash 1` … `Crash 5`). Layer 0 is the softest recording and the last layer
-the hardest.
+(`Snare 1` … `Snare 6`). Tom 3, the hi-hat, the ride and the crash use **5 velocity layers × 3
+variations** from `FreestyleDrums/Tom3/`, `FreestyleDrums/Hihat/`,
+`FreestyleDrums/Ride/` and `FreestyleDrums/Crash/` (`Tom3 1` … `Tom3 5`,
+`Hihat 1` … `Hihat 5`, `Ride 1` … `Ride 5`, `Crash 1` … `Crash 5`). Layer 0
+is the softest recording and the last layer the hardest.
 
 The layer is selected with the same formula as Clone Hero:
 
@@ -118,19 +117,19 @@ For the kick and snare (`layer_count = 6`):
 | 84–104   | 4 (`Kick 5` / `Snare 5`) |
 | 105–127  | 5 (`Kick 6` / `Snare 6`) |
 
-For the toms 2-3, hi-hat, ride and crash (`layer_count = 5`):
+For tom 3, the hi-hat, ride and crash (`layer_count = 5`):
 
 | Velocity | Layer |
 |----------|-------|
-| 0–24     | 0 (`Tom2 1` / `Tom3 1` / `Hihat 1` / `Ride 1` / `Crash 1`) |
-| 25–49    | 1 (`Tom2 2` / `Tom3 2` / `Hihat 2` / `Ride 2` / `Crash 2`) |
-| 50–74    | 2 (`Tom2 3` / `Tom3 3` / `Hihat 3` / `Ride 3` / `Crash 3`) |
-| 75–99    | 3 (`Tom2 4` / `Tom3 4` / `Hihat 4` / `Ride 4` / `Crash 4`) |
-| 100–127  | 4 (`Tom2 5` / `Tom3 5` / `Hihat 5` / `Ride 5` / `Crash 5`) |
+| 0–24     | 0 (`Tom3 1` / `Hihat 1` / `Ride 1` / `Crash 1`) |
+| 25–49    | 1 (`Tom3 2` / `Hihat 2` / `Ride 2` / `Crash 2`) |
+| 50–74    | 2 (`Tom3 3` / `Hihat 3` / `Ride 3` / `Crash 3`) |
+| 75–99    | 3 (`Tom3 4` / `Hihat 4` / `Ride 4` / `Crash 4`) |
+| 100–127  | 4 (`Tom3 5` / `Hihat 5` / `Ride 5` / `Crash 5`) |
 
-### Tom 1 (YARG)
+### Toms 1-2 (YARG)
 
-Tom 1 uses YARG's 3-layer sample set and YARG's own selection rules. Velocity
+Toms 1-2 use YARG's 3-layer sample set and YARG's own selection rules. Velocity
 is normalized to 0-1 and compared with YARG's thresholds (0.35 and 0.7):
 
 | Velocity (0-1) | Velocity (0-127) | Layer | Volume |

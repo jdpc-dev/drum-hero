@@ -177,10 +177,10 @@ func _ready() -> void:
 
 	var tom2_layers: Dictionary = DrumSfxManager._samples.get(2, {})
 	var tom2_variations: bool = true
-	for layer in range(5):
+	for layer in range(3):
 		if tom2_layers.get(layer, []).size() != 3:
 			tom2_variations = false
-	_check("el tom 2 tiene 5 capas", tom2_layers.size() == 5)
+	_check("el tom 2 (YARG) tiene 3 capas", tom2_layers.size() == 3)
 	_check("cada capa del tom 2 trae 3 variaciones", tom2_variations)
 
 	var tom3_layers: Dictionary = DrumSfxManager._samples.get(3, {})
@@ -248,10 +248,10 @@ func _ready() -> void:
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom2_round_robin: Array = []
-	for i in 3:
-		DrumSfxManager.play_for_lane(5, 100)
-		tom2_round_robin.append(DrumSfxManager._layer_cursor.get("2:4", -1))
-	_check("round-robin 0,1,2 en la capa 4 del tom 2", tom2_round_robin == [0, 1, 2])
+	for velocity in [20, 60, 100]:
+		DrumSfxManager.play_for_lane(5, velocity)
+		tom2_round_robin.append(DrumSfxManager._layer_cursor.get("2:yarg", -1))
+	_check("round-robin 0,1,2 del tom 2 entre capas", tom2_round_robin == [0, 1, 2])
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom3_round_robin: Array = []
