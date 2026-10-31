@@ -46,8 +46,8 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 +-----------------------------------------------------------------------------+
 |                      STATUS: chart OK - missing audio                       |
 +-----------------------------------------------------------------------------+
-| (fila de status oculta por defecto; se activa con "Show Menu Status" en     |
-|  Ajustes > Experimental)                                                    |
+| (status row hidden by default; enabled with "Show Menu Status" in           |
+|  Settings > Experimental)                                                   |
 +-----------------------------------------------------------------------------+
 | Easy            Medium            Hard            Expert            Expert+ |
 +-----------------------------------------------------------------------------+

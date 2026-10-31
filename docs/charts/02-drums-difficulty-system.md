@@ -15,7 +15,7 @@ Community songs are generally distributed in one of two formats:
 - `.chart` (Clone Hero native format)
 - `.mid` (Rock Band / C3 / YARG standard)
 
-**Drum Hero soporta ambos formatos.** `SongLoader` detecta automáticamente el archivo disponible: busca `notes.mid` primero; si no existe, busca `notes.chart`. Ambos producen la misma representación interna de notas (`NoteEvent`). Ver `DotChartParser.gd` para el parser de `.chart` y `MidiParser.gd` para MIDI.
+**Drum Hero supports both formats.** `SongLoader` automatically detects the available file: it looks for `notes.mid` first; if it does not exist, it looks for `notes.chart`. Both produce the same internal note representation (`NoteEvent`). See `DotChartParser.gd` for the `.chart` parser and `MidiParser.gd` for MIDI.
 
 Both formats store a separate note chart for each difficulty.
 
@@ -306,7 +306,7 @@ Each song stores up to five independent drum charts:
 - Medium
 - Hard
 - Expert
-- Expert+ (double kick, opcional)
+- Expert+ (double kick, optional)
 
 Each chart contains only the notes intended for that difficulty.
 
@@ -319,7 +319,7 @@ Song
 ├── Medium Chart
 ├── Hard Chart
 ├── Expert Chart
-└── Expert+ Chart (opcional)
+└── Expert+ Chart (optional)
 ```
 
 The player selects one difficulty before gameplay begins.
