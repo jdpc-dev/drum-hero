@@ -52,6 +52,8 @@ var _songs_link_status: Label
 # Experimental tab elements
 var _fallback_check: CheckBox
 var _free_mode_button: Button
+var _sample_velocity_slider: HSlider
+var _sample_velocity_label: Label
 var _judgment_areas_check: CheckBox
 var _menu_status_check: CheckBox
 var _padding_check: CheckBox
@@ -628,6 +630,45 @@ func _build_experimental_content(parent: VBoxContainer) -> void:
 	free_mode_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	free_mode_desc.custom_minimum_size = Vector2(280, 0)
 	parent.add_child(free_mode_desc)
+
+	parent.add_child(_spacer(20))
+	_add_section_title(parent, "DRUM SAMPLES")
+	parent.add_child(_spacer(10))
+
+	var velocity_hbox := HBoxContainer.new()
+	velocity_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	velocity_hbox.add_theme_constant_override("separation", 10)
+	var velocity_name := Label.new()
+	velocity_name.text = "Default Velocity"
+	velocity_name.add_theme_font_size_override("font_size", 18)
+	velocity_name.add_theme_color_override("font_color", Palette.TEXT_DIM)
+	velocity_name.custom_minimum_size = Vector2(140, 0)
+	velocity_hbox.add_child(velocity_name)
+
+	_sample_velocity_slider = HSlider.new()
+	_sample_velocity_slider.min_value = 0.0
+	_sample_velocity_slider.max_value = 127.0
+	_sample_velocity_slider.step = 1.0
+	_sample_velocity_slider.value = SettingsManager.default_sample_velocity
+	_sample_velocity_slider.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_sample_velocity_slider.value_changed.connect(_on_sample_velocity_changed)
+	velocity_hbox.add_child(_sample_velocity_slider)
+
+	_sample_velocity_label = Label.new()
+	_sample_velocity_label.text = str(SettingsManager.default_sample_velocity)
+	_sample_velocity_label.add_theme_font_size_override("font_size", 16)
+	_sample_velocity_label.add_theme_color_override("font_color", Palette.ASH_DIM)
+	_sample_velocity_label.custom_minimum_size = Vector2(40, 0)
+	velocity_hbox.add_child(_sample_velocity_label)
+	parent.add_child(velocity_hbox)
+
+	var velocity_desc := Label.new()
+	velocity_desc.text = "Velocity (0-127) for pads without a real one. Kick layers: 0-20 softest, 105-127 hardest. Clone Hero uses 100 by default."
+	velocity_desc.add_theme_font_size_override("font_size", 14)
+	velocity_desc.add_theme_color_override("font_color", Palette.ASH_DIM)
+	velocity_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	velocity_desc.custom_minimum_size = Vector2(280, 0)
+	parent.add_child(velocity_desc)
 
 	parent.add_child(_spacer(20))
 	_add_section_title(parent, "CHART FALLBACK")
@@ -1382,6 +1423,13 @@ func _on_reset_experimental() -> void:
 
 func _on_free_mode_pressed() -> void:
 	free_mode_requested.emit()
+
+
+func _on_sample_velocity_changed(value: float) -> void:
+	SettingsManager.default_sample_velocity = int(value)
+	if _sample_velocity_label:
+		_sample_velocity_label.text = str(int(value))
+	SettingsManager.save_settings()
 
 
 func _on_fps_toggled(toggled: bool) -> void:

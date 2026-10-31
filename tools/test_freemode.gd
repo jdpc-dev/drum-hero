@@ -116,10 +116,42 @@ func _ready() -> void:
 	_check("la puntuacion sigue a cero", ScoreManager.score == 0)
 	_check("no hay notas en la pista", _active_note_count(highway) == 0)
 
-	print("=== 7. Ajustes > Experimental ofrece la entrada ===")
+	print("=== 7. el kick reproduce el set 6x3 de Clone Hero ===")
+	var kick_layers: Dictionary = DrumSfxManager._samples.get(8, {})
+	var all_variations: bool = true
+	for layer in range(6):
+		if kick_layers.get(layer, []).size() != 3:
+			all_variations = false
+	_check("el kick tiene 6 capas", kick_layers.size() == 6)
+	_check("cada capa trae 3 variaciones", all_variations)
+	_check("el snare mantiene 3 capas", DrumSfxManager._layer_count(2) == 3)
+
+	_check("velocity 0 -> capa 0", DrumSfxManager.velocity_to_layer(0, 6) == 0)
+	_check("velocity 20 -> capa 0", DrumSfxManager.velocity_to_layer(20, 6) == 0)
+	_check("velocity 21 -> capa 1", DrumSfxManager.velocity_to_layer(21, 6) == 1)
+	_check("velocity 62 -> capa 2", DrumSfxManager.velocity_to_layer(62, 6) == 2)
+	_check("velocity 100 -> capa 4", DrumSfxManager.velocity_to_layer(100, 6) == 4)
+	_check("velocity 127 -> capa 5", DrumSfxManager.velocity_to_layer(127, 6) == 5)
+	_check("con 3 capas, velocity 100 -> capa 2", DrumSfxManager.velocity_to_layer(100, 3) == 2)
+
+	DrumSfxManager._layer_cursor.clear()
+	var round_robin: Array = []
+	for i in 4:
+		DrumSfxManager.play_for_lane(3, 100)
+		round_robin.append(DrumSfxManager._layer_cursor.get("8:4", -1))
+	_check("round-robin 0,1,2,0 en la capa 4", round_robin == [0, 1, 2, 0])
+
+	var previous_velocity: int = SettingsManager.default_sample_velocity
+	SettingsManager.default_sample_velocity = 30
+	DrumSfxManager._layer_cursor.clear()
+	DrumSfxManager.play_for_lane(3)
+	_check("sin velocidad explicita usa el ajuste (capa 1)", DrumSfxManager._layer_cursor.has("8:1"))
+	SettingsManager.default_sample_velocity = previous_velocity
+
+	print("=== 8. Ajustes > Experimental ofrece la entrada ===")
 	await _check_settings_entry()
 
-	print("=== 8. el menu conecta Ajustes con el cambio de escena ===")
+	print("=== 9. el menu conecta Ajustes con el cambio de escena ===")
 	await _check_menu_wiring()
 
 	# El test de salida va el ultimo y sin awaits: _exit_to_menu() pide el cambio
@@ -128,7 +160,7 @@ func _ready() -> void:
 	# antes, y el cambio pendiente se aplica al final del frame, ya con el test
 	# terminado.
 	var tree: SceneTree = get_tree()
-	print("=== 9. la pantalla se puede abandonar ===")
+	print("=== 10. la pantalla se puede abandonar ===")
 	_free_mode._exit_to_menu()
 	_check("el estado vuelve a MENU", GameManager.state == GameManager.GameState.MENU)
 	_check("el kick por sensor se apaga", InputManager.haptic_kick_enabled == false)
@@ -169,6 +201,7 @@ func _check_settings_entry() -> void:
 	_check("hay boton Open Free Mode", open_btn != null)
 	_check("hay seccion FREE MODE", _find_label(settings, "FREE MODE") != null)
 	_check("el boton explica para que sirve", _find_label(settings, "Drum testing without a song") != null)
+	_check("hay ajuste de Default Velocity", _find_label(settings, "Default Velocity") != null)
 	if open_btn != null:
 		var seen: Array = []
 		settings.free_mode_requested.connect(func() -> void: seen.append(true), CONNECT_ONE_SHOT)

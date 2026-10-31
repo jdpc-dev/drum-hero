@@ -2,7 +2,7 @@
 
 ## Overview
 
-Drum Hero uses the YARG drum samples as **local drum input feedback**, not as a replacement for the song's drum audio.
+Drum Hero uses a local drum sample set (the YARG samples for the pads, plus the full Clone Hero freestyle kick for pad8) as **local drum input feedback**, not as a replacement for the song's drum audio.
 
 Every song contains its own synchronized drum stems (e.g., `drums_1`, `drums_2`, `drums_3`, etc.), which represent the actual drum performance heard during gameplay.
 
@@ -39,20 +39,24 @@ The system should feel similar to playing an electronic drum kit while listening
 Each filename follows the pattern:
 
 ```text
-vel{velocity}pad{pad}smp{variation}.opus
+vel{velocity}pad{pad}smp{variation}.ogg
 ```
 
 Example:
 
 ```text
-vel2pad5smp1.opus
+vel2pad5smp1.ogg
 ```
 
 | Field | Description |
 |--------|-------------|
-| `velocity` | Velocity layer (0–2) |
-| `pad` | Drum component index (0–7) |
+| `velocity` | Velocity layer (0–2 for most pads, 0–5 for the kick) |
+| `pad` | Drum component index (0–8) |
 | `variation` | Sample variation (0–2) |
+
+Samples are stored as Ogg Vorbis at 44.1 kHz stereo. The original `.opus`
+sources are only decoded at runtime on desktop as a fallback when no `.ogg`
+exists; Android always needs the `.ogg`.
 
 ---
 
@@ -63,57 +67,76 @@ Each drum component includes three different recordings for every velocity layer
 Example:
 
 ```text
-vel2pad3smp0.opus
-vel2pad3smp1.opus
-vel2pad3smp2.opus
+vel2pad3smp0.ogg
+vel2pad3smp1.ogg
+vel2pad3smp2.ogg
 ```
 
-The playback system should cycle through these variations in a pseudo-random manner.
+The playback system cycles through these variations so repeated hits never use
+the exact same recording twice in a row:
+
+- **Kick (pad8)**: strict round-robin (`0, 1, 2, 0, …`) per velocity layer,
+  matching Clone Hero. No random pitch shift.
+- **Rest of the pads**: pseudo-random selection that avoids repeating the last
+  variation, with a small random pitch shift.
 
 The objective is to avoid the "machine gun effect" caused by repeatedly playing the exact same recording.
 
 Repeated hits on the same drum component should sound slightly different, closely resembling the natural variation produced by a real drummer.
 
-Whenever possible, the playback system should avoid selecting the same variation twice consecutively.
+---
 
-Example:
+# Velocity Layers
 
+The kick uses the full Clone Hero freestyle set: **6 velocity layers × 3
+variations**, taken from `FreestyleDrums/Kick/` (`Kick 1` … `Kick 6`), where
+layer 0 is the softest recording and layer 5 the hardest.
+
+The layer is selected with the same formula as Clone Hero:
+
+```text
+divisor = 127 / layer_count      # integer division, 21 for the kick
+layer   = min(velocity / divisor, layer_count - 1)
 ```
-Snare
 
-↓
+For the kick (`layer_count = 6`):
 
-Variation 1
+| Velocity | Layer |
+|----------|-------|
+| 0–20     | 0 (`Kick 1`) |
+| 21–41    | 1 (`Kick 2`) |
+| 42–62    | 2 (`Kick 3`) |
+| 63–83    | 3 (`Kick 4`) |
+| 84–104   | 4 (`Kick 5`) |
+| 105–127  | 5 (`Kick 6`) |
 
-↓
+The other pads keep their 3 layers and use the same formula with
+`layer_count = 3`.
 
-Variation 0
-
-↓
-
-Variation 2
-
-↓
-
-Variation 1
-```
+Drum Hero's inputs (keyboard, touch, haptic kick) do not report a real
+velocity, so they use the **Default Velocity** setting
+(`Settings › Experimental › Drum Samples`, 0–127). The default is `100`, the
+same value Clone Hero uses for `Default Sample Velocity`. If a layer has no
+loaded samples, playback falls back to the nearest lower non-empty layer.
 
 ---
 
 # Pad Mapping
 
-The YARG samples are mapped to Drum Hero's eight gameplay lanes.
+The sample pack indices are not the gameplay lane order. `DrumSfxManager`
+maps each lane to its sample pad:
 
-| Pad | Drum Hero Component |
-|-----|----------------------|
-| pad0 | Closed Hi-Hat |
-| pad1 | Open Hi-Hat |
-| pad2 | Crash |
-| pad3 | Snare |
-| pad4 | Tom 1 |
-| pad5 | Tom 2 |
-| pad6 | Tom 3 |
-| pad7 | Ride |
+| Pad | Drum Hero Component | Gameplay lane |
+|-----|----------------------|---------------|
+| pad0 | Tom 1 | 4 |
+| pad1 | — (unused) | — |
+| pad2 | Tom 2 | 5 |
+| pad3 | Tom 3 | 6 |
+| pad4 | Closed Hi-Hat | 0 |
+| pad5 | Ride | 7 |
+| pad6 | Crash | 1 |
+| pad7 | Snare | 2 |
+| pad8 | Kick | 3 |
 
 ---
 
@@ -220,11 +243,10 @@ The playback system must therefore use multiple simultaneous audio voices rather
 
 The architecture should support future enhancements such as:
 
-- Velocity-sensitive playback.
 - User-selectable drum kits.
 - Custom sample packs.
 - Stereo positioning.
 - Per-component volume controls.
-- Pitch variation.
-- Advanced anti-repetition algorithms.
-- MIDI electronic drum kits.
+- True MIDI velocity input (currently the Default Velocity setting stands in
+  for it).
+- Round-robin playback for the rest of the pads, not just the kick.

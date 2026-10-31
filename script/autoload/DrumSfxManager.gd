@@ -13,10 +13,17 @@ const LANE_TO_PAD: Dictionary = {
 	7: 5,  # Ride -> pad5
 }
 
+# Capas de velocidad por pad. Clone Hero organiza cada pieza en N capas x 3
+# variaciones; el kick (pad8) es el unico con el set completo 6x3.
+const PAD_LAYER_COUNTS: Dictionary = {8: 6}
+const DEFAULT_LAYER_COUNT: int = 3
+
 var _samples: Dictionary = {}
 var _player_pool: Array[AudioStreamPlayer] = []
 var _player_index: int = 0
 var _last_variation: Dictionary = {}
+# Round-robin de Clone Hero: "pad:capa" -> ultima variacion usada (arranca en -1).
+var _layer_cursor: Dictionary = {}
 
 const POOL_SIZE: int = 16
 
@@ -29,6 +36,9 @@ func _ready() -> void:
 		add_child(p)
 		_player_pool.append(p)
 	_apply_sfx_volume()
+	# El kick tiene 6 capas x 3 y es la pieza donde mas duele un hitch: se
+	# precarga para que el primer golpe no cargue 18 archivos en el frame.
+	_load_pad_samples(8)
 
 
 func _apply_sfx_volume() -> void:
@@ -41,7 +51,7 @@ func _apply_sfx_volume() -> void:
 func _load_all_samples() -> void:
 	for pad in range(9):
 		_samples[pad] = {}
-		for vel in range(3):
+		for vel in range(_layer_count(pad)):
 			_samples[pad][vel] = []
 			for smp in range(3):
 				var stream: AudioStream = _load_sfx_file(pad, vel, smp)
@@ -66,9 +76,8 @@ func _load_sfx_file(pad: int, vel: int, smp: int) -> AudioStream:
 	if ResourceLoader.exists(opus_path):
 		return load(opus_path)
 	# Solo se decodifica si el .opus existe: lanzar ffmpeg por un archivo que
-	# falta bloquea el hilo principal ~0.2s por intento. El kick (pad8) solo
-	# trae samples vel2, asi que el primer KICK en PC intentaba decodificar seis
-	# .opus inexistentes y congelaba el juego alrededor de un segundo.
+	# falta bloquea el hilo principal ~0.2s por intento, y antes el kick tenia
+	# capas sin .opus que congelaban el primer golpe en PC.
 	if OS.get_name() != "Android" and FileHelper.file_exists(opus_path):
 		return _decode_opus_to_wav(opus_path)
 
@@ -106,7 +115,7 @@ func _load_pad_samples(pad: int) -> void:
 	if _samples.has(pad):
 		return
 	_samples[pad] = {}
-	for vel in range(3):
+	for vel in range(_layer_count(pad)):
 		_samples[pad][vel] = []
 		for smp in range(3):
 			var stream: AudioStream = _load_sfx_file(pad, vel, smp)
@@ -114,22 +123,68 @@ func _load_pad_samples(pad: int) -> void:
 				_samples[pad][vel].append(stream)
 
 
-func play_for_lane(lane_index: int, velocity: int = 2) -> void:
+func _layer_count(pad: int) -> int:
+	return int(PAD_LAYER_COUNTS.get(pad, DEFAULT_LAYER_COUNT))
+
+
+# Mismo mapeo que Clone Hero: divisor = 127 / capas (division entera) y la
+# capa se satura a la ultima. Con 6 capas -> 0-20, 21-41, 42-62, 63-83,
+# 84-104 y 105-127.
+func velocity_to_layer(velocity: int, layer_count: int) -> int:
+	if layer_count <= 1:
+		return 0
+	var divisor: int = maxi(1, floori(127.0 / float(layer_count)))
+	return mini(floori(float(velocity) / float(divisor)), layer_count - 1)
+
+
+# Si faltara una capa, usa la inferior no vacia mas cercana (y si no, la
+# superior) para no quedarse en silencio.
+func _resolve_layer(pad: int, layer: int, layer_count: int) -> int:
+	var pad_samples: Dictionary = _samples.get(pad, {})
+	for i in range(layer, -1, -1):
+		if not pad_samples.get(i, []).is_empty():
+			return i
+	for i in range(layer + 1, layer_count):
+		if not pad_samples.get(i, []).is_empty():
+			return i
+	return -1
+
+
+func play_for_lane(lane_index: int, velocity: int = -1) -> void:
 	var pad: int = LANE_TO_PAD.get(lane_index, -1)
 	if pad < 0:
 		return
 	_load_pad_samples(pad)
-	var vel_samples: Array = _samples.get(pad, {}).get(velocity, [])
+
+	if velocity < 0:
+		velocity = SettingsManager.default_sample_velocity
+	velocity = clampi(velocity, 0, 127)
+
+	var layer_count: int = _layer_count(pad)
+	var layer: int = _resolve_layer(pad, velocity_to_layer(velocity, layer_count), layer_count)
+	if layer < 0:
+		return
+	var vel_samples: Array = _samples.get(pad, {}).get(layer, [])
 	if vel_samples.is_empty():
 		return
 
-	var variation: int = randi() % vel_samples.size()
-	if _last_variation.has(pad):
-		var last: int = _last_variation[pad]
-		if vel_samples.size() > 1:
-			while variation == last:
-				variation = randi() % vel_samples.size()
-	_last_variation[pad] = variation
+	var variation: int = 0
+	if pad == 8:
+		# Clone Hero: round-robin estricto dentro de la capa de velocidad.
+		var key: String = str(pad) + ":" + str(layer)
+		var cursor: int = _layer_cursor.get(key, -1)
+		cursor = (cursor + 1) % vel_samples.size()
+		_layer_cursor[key] = cursor
+		variation = cursor
+	else:
+		# Resto de pads: random sin repetir, como antes.
+		variation = randi() % vel_samples.size()
+		if _last_variation.has(pad):
+			var last: int = _last_variation[pad]
+			if vel_samples.size() > 1:
+				while variation == last:
+					variation = randi() % vel_samples.size()
+		_last_variation[pad] = variation
 
 	var stream: AudioStream = vel_samples[variation]
 	if not stream:
@@ -137,7 +192,9 @@ func play_for_lane(lane_index: int, velocity: int = 2) -> void:
 
 	var player: AudioStreamPlayer = _get_player()
 	player.stream = stream
-	player.pitch_scale = 1.0 + (randf() - 0.5) * 0.08
+	# Clone Hero no desafina: la variacion sale del round-robin. En el resto de
+	# pads se mantiene el pitch random de siempre.
+	player.pitch_scale = 1.0 if pad == 8 else 1.0 + (randf() - 0.5) * 0.08
 	player.play()
 
 

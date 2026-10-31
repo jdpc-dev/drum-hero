@@ -19,6 +19,9 @@ var audio_offset_ms: float = 0.0
 var master_volume: float = 1.0
 var sfx_volume: float = 1.0
 var music_volume: float = 1.0
+# Velocidad MIDI (0-127) para pads que no reportan una real. Es el
+# "Default Sample Velocity" de Clone Hero, que usa 100 por defecto.
+var default_sample_velocity: int = 100
 
 var haptic_sensitivity: float = 1.0
 var haptic_enabled: bool = false
@@ -97,6 +100,7 @@ func load_settings() -> void:
 	master_volume = cfg.get_value("audio", "master_volume", 1.0)
 	sfx_volume = cfg.get_value("audio", "sfx_volume", 1.0)
 	music_volume = cfg.get_value("audio", "music_volume", 1.0)
+	default_sample_velocity = int(cfg.get_value("audio", "default_sample_velocity", 100))
 	game_mode = cfg.get_value("gameplay", "mode", 0)
 	haptic_sensitivity = cfg.get_value("haptic", "sensitivity", 1.0)
 	haptic_enabled = cfg.get_value("haptic", "enabled", false)
@@ -173,6 +177,7 @@ func reset_experimental_to_defaults() -> void:
 	show_judgment_areas = false
 	show_menu_status = false
 	haptic_show_debug = false
+	default_sample_velocity = 100
 	gameplay_padding_enabled = false
 	gameplay_padding_left = 75.0
 	gameplay_padding_right = 75.0
@@ -196,6 +201,7 @@ func save_settings() -> void:
 	cfg.set_value("audio", "master_volume", master_volume)
 	cfg.set_value("audio", "sfx_volume", sfx_volume)
 	cfg.set_value("audio", "music_volume", music_volume)
+	cfg.set_value("audio", "default_sample_velocity", default_sample_velocity)
 	cfg.set_value("haptic", "sensitivity", haptic_sensitivity)
 	cfg.set_value("haptic", "enabled", haptic_enabled)
 	cfg.set_value("haptic", "activation_threshold", haptic_activation_threshold)
