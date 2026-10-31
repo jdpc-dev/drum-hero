@@ -65,7 +65,11 @@ func _load_sfx_file(pad: int, vel: int, smp: int) -> AudioStream:
 	var opus_path: String = SFX_DIR + name_base + ".opus"
 	if ResourceLoader.exists(opus_path):
 		return load(opus_path)
-	if OS.get_name() != "Android":
+	# Solo se decodifica si el .opus existe: lanzar ffmpeg por un archivo que
+	# falta bloquea el hilo principal ~0.2s por intento. El kick (pad8) solo
+	# trae samples vel2, asi que el primer KICK en PC intentaba decodificar seis
+	# .opus inexistentes y congelaba el juego alrededor de un segundo.
+	if OS.get_name() != "Android" and FileHelper.file_exists(opus_path):
 		return _decode_opus_to_wav(opus_path)
 
 	return null
