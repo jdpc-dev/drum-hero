@@ -13,16 +13,16 @@ const LANE_TO_PAD: Dictionary = {
 	7: 5,  # Ride -> pad5
 }
 
-# Capas de velocidad por pad. La mayoria usa los sets de Clone Hero: tom 3,
-# hi-hat, crash y ride con 5 capas x 3 variaciones; kick y snare con 6 x 3. Los
-# toms 1-2 usan el motor de YARG (3 capas), y un pad fuera del mapa conserva el
+# Capas de velocidad por pad. Este grupo usa los sets de Clone Hero: hi-hat,
+# crash y ride con 5 capas x 3 variaciones; kick y snare con 6 x 3. Los toms 1-3
+# usan el motor de YARG (3 capas), y un pad fuera del mapa conserva el
 # comportamiento antiguo de 3 capas con variacion aleatoria.
-const PAD_LAYER_COUNTS: Dictionary = {3: 5, 4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
+const PAD_LAYER_COUNTS: Dictionary = {4: 5, 5: 5, 6: 5, 7: 6, 8: 6}
 const DEFAULT_LAYER_COUNT: int = 3
 
 # Pads que usan el motor de YARG: 3 capas con umbrales y volumen escalado por
 # golpe, en vez de la formula de capas de Clone Hero.
-const YARG_PADS: Array = [0, 2]
+const YARG_PADS: Array = [0, 2, 3]
 const YARG_VELOCITY_THRESHOLD: float = 0.35
 const YARG_ACCENT_THRESHOLD: float = 0.7  # YARG: VelocityThreshold * 2
 

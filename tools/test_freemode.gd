@@ -185,10 +185,10 @@ func _ready() -> void:
 
 	var tom3_layers: Dictionary = DrumSfxManager._samples.get(3, {})
 	var tom3_variations: bool = true
-	for layer in range(5):
+	for layer in range(3):
 		if tom3_layers.get(layer, []).size() != 3:
 			tom3_variations = false
-	_check("el tom 3 tiene 5 capas", tom3_layers.size() == 5)
+	_check("el tom 3 (YARG) tiene 3 capas", tom3_layers.size() == 3)
 	_check("cada capa del tom 3 trae 3 variaciones", tom3_variations)
 	_check("un pad sin set mantiene 3 capas", DrumSfxManager._layer_count(1) == 3)
 
@@ -255,10 +255,10 @@ func _ready() -> void:
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom3_round_robin: Array = []
-	for i in 3:
-		DrumSfxManager.play_for_lane(6, 100)
-		tom3_round_robin.append(DrumSfxManager._layer_cursor.get("3:4", -1))
-	_check("round-robin 0,1,2 en la capa 4 del tom 3", tom3_round_robin == [0, 1, 2])
+	for velocity in [20, 60, 100]:
+		DrumSfxManager.play_for_lane(6, velocity)
+		tom3_round_robin.append(DrumSfxManager._layer_cursor.get("3:yarg", -1))
+	_check("round-robin 0,1,2 del tom 3 entre capas", tom3_round_robin == [0, 1, 2])
 
 	var previous_velocity: int = SettingsManager.default_sample_velocity
 	SettingsManager.default_sample_velocity = 30
