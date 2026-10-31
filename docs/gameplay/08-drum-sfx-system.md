@@ -2,7 +2,7 @@
 
 ## Overview
 
-Drum Hero uses the Clone Hero freestyle drum sets for the cymbals, kick and snare (hi-hat, crash, ride, kick and snare) and YARG's sample set for toms 1-3, as **local drum input feedback** rather than a replacement for the song's drum audio.
+Drum Hero uses the full Clone Hero freestyle drum sets (tom 1-3, hi-hat, crash, ride, kick and snare) as **local drum input feedback**, not as a replacement for the song's drum audio.
 
 Every song contains its own synchronized drum stems (e.g., `drums_1`, `drums_2`, `drums_3`, etc.), which represent the actual drum performance heard during gameplay.
 
@@ -50,7 +50,7 @@ vel2pad5smp1.ogg
 
 | Field | Description |
 |--------|-------------|
-| `velocity` | Velocity layer (0–2 toms 1-3 and most pads, 0–4 hi-hat/crash/ride, 0–5 kick/snare) |
+| `velocity` | Velocity layer (0–2 most pads, 0–4 hi-hat/crash, 0–5 kick/snare) |
 | `pad` | Drum component index (0–8) |
 | `variation` | Sample variation (0–2) |
 
@@ -75,10 +75,9 @@ vel2pad3smp2.ogg
 The playback system cycles through these variations so repeated hits never use
 the exact same recording twice in a row:
 
-- **Clone Hero pads** (hi-hat, ride, crash, kick and snare): strict
-  round-robin (`0, 1, 2, 0, …`) per velocity layer. No random pitch shift.
-- **Toms 1-3 (YARG)**: strict round-robin per piece, shared across velocity
-  layers (YARG keeps one rotation counter per drum action). No pitch shift.
+- **All playable pads** (tom 1-3, hi-hat, ride, crash, kick and snare): strict
+  round-robin (`0, 1, 2, 0, …`) per velocity layer, matching Clone Hero. No
+  random pitch shift.
 - **Rest of the pads**: pseudo-random selection that avoids repeating the last
   variation, with a small random pitch shift.
 
@@ -93,9 +92,10 @@ Repeated hits on the same drum component should sound slightly different, closel
 The kick and the snare use the full Clone Hero freestyle sets: **6 velocity
 layers × 3 variations** each. The kick comes from `FreestyleDrums/Kick/`
 (`Kick 1` … `Kick 6`) and the snare from `FreestyleDrums/Snare/`
-(`Snare 1` … `Snare 6`). The hi-hat, the ride and the crash use **5 velocity layers × 3 variations**
-from `FreestyleDrums/Hihat/`, `FreestyleDrums/Ride/` and
-`FreestyleDrums/Crash/` (`Hihat 1` … `Hihat 5`, `Ride 1` … `Ride 5`,
+(`Snare 1` … `Snare 6`). Tom 1, tom 2, tom 3, the hi-hat, the ride and the crash use **5 velocity
+layers × 3 variations** from `FreestyleDrums/Tom1/` … `FreestyleDrums/Tom3/`,
+`FreestyleDrums/Hihat/`, `FreestyleDrums/Ride/` and `FreestyleDrums/Crash/`
+(`Tom1 1` … `Tom3 5`, `Hihat 1` … `Hihat 5`, `Ride 1` … `Ride 5`,
 `Crash 1` … `Crash 5`). Layer 0 is the softest recording and the last layer
 the hardest.
 
@@ -117,30 +117,18 @@ For the kick and snare (`layer_count = 6`):
 | 84–104   | 4 (`Kick 5` / `Snare 5`) |
 | 105–127  | 5 (`Kick 6` / `Snare 6`) |
 
-For the hi-hat, ride and crash (`layer_count = 5`):
+For the toms, hi-hat, ride and crash (`layer_count = 5`):
 
 | Velocity | Layer |
 |----------|-------|
-| 0–24     | 0 (`Hihat 1` / `Ride 1` / `Crash 1`) |
-| 25–49    | 1 (`Hihat 2` / `Ride 2` / `Crash 2`) |
-| 50–74    | 2 (`Hihat 3` / `Ride 3` / `Crash 3`) |
-| 75–99    | 3 (`Hihat 4` / `Ride 4` / `Crash 4`) |
-| 100–127  | 4 (`Hihat 5` / `Ride 5` / `Crash 5`) |
+| 0–24     | 0 (`Tom1 1` / `Tom2 1` / `Tom3 1` / `Hihat 1` / `Ride 1` / `Crash 1`) |
+| 25–49    | 1 (`Tom1 2` / `Tom2 2` / `Tom3 2` / `Hihat 2` / `Ride 2` / `Crash 2`) |
+| 50–74    | 2 (`Tom1 3` / `Tom2 3` / `Tom3 3` / `Hihat 3` / `Ride 3` / `Crash 3`) |
+| 75–99    | 3 (`Tom1 4` / `Tom2 4` / `Tom3 4` / `Hihat 4` / `Ride 4` / `Crash 4`) |
+| 100–127  | 4 (`Tom1 5` / `Tom2 5` / `Tom3 5` / `Hihat 5` / `Ride 5` / `Crash 5`) |
 
-### Toms 1-3 (YARG)
-
-Toms 1-3 use YARG's 3-layer sample set and YARG's own selection rules. Velocity
-is normalized to 0-1 and compared with YARG's thresholds (0.35 and 0.7):
-
-| Velocity (0-1) | Velocity (0-127) | Layer | Volume |
-|----------------|------------------|-------|--------|
-| > 0.70         | 89-127           | 2     | `velocity` |
-| 0.35-0.70      | 45-88            | 1     | `velocity / 0.70` |
-| ≤ 0.35         | 0-44             | 0     | `velocity / 0.35` |
-
-The gain is applied per hit (`volume_db`), so soft hits are quieter even when
-they use the same recording. The remaining pads keep their 3-layer formula
-(`layer_count = 3`) without volume scaling.
+The remaining pads keep their 3 layers and use the same formula with
+`layer_count = 3`.
 
 Drum Hero's inputs (keyboard, touch, haptic kick) do not report a real
 velocity, so they use the **Default Velocity** setting

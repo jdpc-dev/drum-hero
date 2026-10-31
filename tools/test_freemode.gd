@@ -116,7 +116,7 @@ func _ready() -> void:
 	_check("la puntuacion sigue a cero", ScoreManager.score == 0)
 	_check("no hay notas en la pista", _active_note_count(highway) == 0)
 
-	print("=== 7. las piezas usan los sets y motores de Clone Hero / YARG ===")
+	print("=== 7. todos los pads jugables usan los sets de Clone Hero ===")
 	var kick_layers: Dictionary = DrumSfxManager._samples.get(8, {})
 	var kick_variations: bool = true
 	for layer in range(6):
@@ -159,36 +159,26 @@ func _ready() -> void:
 
 	var tom1_layers: Dictionary = DrumSfxManager._samples.get(0, {})
 	var tom1_variations: bool = true
-	for layer in range(3):
+	for layer in range(5):
 		if tom1_layers.get(layer, []).size() != 3:
 			tom1_variations = false
-	_check("el tom 1 (YARG) tiene 3 capas", tom1_layers.size() == 3)
+	_check("el tom 1 tiene 5 capas", tom1_layers.size() == 5)
 	_check("cada capa del tom 1 trae 3 variaciones", tom1_variations)
-	var yarg_high: Dictionary = DrumSfxManager.yarg_layer_and_volume(127)
-	var yarg_mid: Dictionary = DrumSfxManager.yarg_layer_and_volume(45)
-	var yarg_low: Dictionary = DrumSfxManager.yarg_layer_and_volume(22)
-	var yarg_edge: Dictionary = DrumSfxManager.yarg_layer_and_volume(44)
-	_check("YARG 127 -> capa 2", int(yarg_high.layer) == 2)
-	_check("YARG 45 -> capa 1", int(yarg_mid.layer) == 1)
-	_check("YARG 44 -> capa 0", int(yarg_edge.layer) == 0)
-	_check("YARG 22 -> capa 0", int(yarg_low.layer) == 0)
-	_check("YARG escala volumen bajo", float(yarg_low.volume) < 0.6)
-	_check("YARG no escala volumen alto", is_equal_approx(float(yarg_high.volume), 1.0))
 
 	var tom2_layers: Dictionary = DrumSfxManager._samples.get(2, {})
 	var tom2_variations: bool = true
-	for layer in range(3):
+	for layer in range(5):
 		if tom2_layers.get(layer, []).size() != 3:
 			tom2_variations = false
-	_check("el tom 2 (YARG) tiene 3 capas", tom2_layers.size() == 3)
+	_check("el tom 2 tiene 5 capas", tom2_layers.size() == 5)
 	_check("cada capa del tom 2 trae 3 variaciones", tom2_variations)
 
 	var tom3_layers: Dictionary = DrumSfxManager._samples.get(3, {})
 	var tom3_variations: bool = true
-	for layer in range(3):
+	for layer in range(5):
 		if tom3_layers.get(layer, []).size() != 3:
 			tom3_variations = false
-	_check("el tom 3 (YARG) tiene 3 capas", tom3_layers.size() == 3)
+	_check("el tom 3 tiene 5 capas", tom3_layers.size() == 5)
 	_check("cada capa del tom 3 trae 3 variaciones", tom3_variations)
 	_check("un pad sin set mantiene 3 capas", DrumSfxManager._layer_count(1) == 3)
 
@@ -241,24 +231,24 @@ func _ready() -> void:
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom1_round_robin: Array = []
-	for velocity in [20, 60, 100]:
-		DrumSfxManager.play_for_lane(4, velocity)
-		tom1_round_robin.append(DrumSfxManager._layer_cursor.get("0:yarg", -1))
-	_check("round-robin 0,1,2 del tom 1 entre capas", tom1_round_robin == [0, 1, 2])
+	for i in 3:
+		DrumSfxManager.play_for_lane(4, 100)
+		tom1_round_robin.append(DrumSfxManager._layer_cursor.get("0:4", -1))
+	_check("round-robin 0,1,2 en la capa 4 del tom 1", tom1_round_robin == [0, 1, 2])
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom2_round_robin: Array = []
-	for velocity in [20, 60, 100]:
-		DrumSfxManager.play_for_lane(5, velocity)
-		tom2_round_robin.append(DrumSfxManager._layer_cursor.get("2:yarg", -1))
-	_check("round-robin 0,1,2 del tom 2 entre capas", tom2_round_robin == [0, 1, 2])
+	for i in 3:
+		DrumSfxManager.play_for_lane(5, 100)
+		tom2_round_robin.append(DrumSfxManager._layer_cursor.get("2:4", -1))
+	_check("round-robin 0,1,2 en la capa 4 del tom 2", tom2_round_robin == [0, 1, 2])
 
 	DrumSfxManager._layer_cursor.clear()
 	var tom3_round_robin: Array = []
-	for velocity in [20, 60, 100]:
-		DrumSfxManager.play_for_lane(6, velocity)
-		tom3_round_robin.append(DrumSfxManager._layer_cursor.get("3:yarg", -1))
-	_check("round-robin 0,1,2 del tom 3 entre capas", tom3_round_robin == [0, 1, 2])
+	for i in 3:
+		DrumSfxManager.play_for_lane(6, 100)
+		tom3_round_robin.append(DrumSfxManager._layer_cursor.get("3:4", -1))
+	_check("round-robin 0,1,2 en la capa 4 del tom 3", tom3_round_robin == [0, 1, 2])
 
 	var previous_velocity: int = SettingsManager.default_sample_velocity
 	SettingsManager.default_sample_velocity = 30
