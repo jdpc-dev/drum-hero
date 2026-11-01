@@ -1447,7 +1447,10 @@ scale, sidebar items with procedure-drawn icons, switches (a `CheckBox` whose
 icon is a generated switch texture), segmented choices, sliders with generated
 grabber textures, value badges, buttons (primary/secondary/ghost/quiet/danger),
 styled `LineEdit`/`OptionButton`/`ProgressBar` controls and custom scrollbars.
-No new UI literal colors are written outside `Palette.gd`.
+Selected states use the opaque `ACCENT_SURFACE` tokens and focus is expressed by
+a fill change rather than a border, so a rounded component never renders its
+corners in a different shade from its body. No new UI literal colors are
+written outside `Palette.gd`.
 
 Pages:
 
@@ -1476,8 +1479,11 @@ this, the sidebar, page header and navigation strip all use fixed
 Inside that content, every non-interactive node (cards, rows, labels, chips)
 uses `MOUSE_FILTER_PASS`; Godot's built-in drag scrolling only receives the
 drag after it bubbles through the child controls, so a `STOP` filter would leave
-only the gaps between cards swipeable. Interactive controls keep `STOP` so a
-slider or switch owns its own gesture.
+only the gaps between cards swipeable. Sliders and switches keep `STOP` so they
+own their own gesture. `OptionButton`s pass drags through (a tap still opens the
+popup), and `SettingsRoot._handle_field_scroll()` gives the folder `LineEdit`
+explicit vertical-swipe arbitration: a vertical drag scrolls the page and drops
+focus, while a horizontal drag still places the caret.
 
 ---
 

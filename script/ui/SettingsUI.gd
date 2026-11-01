@@ -245,7 +245,7 @@ static func button(text: String, kind: String = "secondary") -> Button:
 	node.add_theme_stylebox_override("hover", hover)
 	node.add_theme_stylebox_override("pressed", pressed)
 	node.add_theme_stylebox_override("disabled", disabled)
-	node.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), px(20), px(12)))
+	node.add_theme_stylebox_override("focus", hover)
 	node.add_theme_color_override("font_color", font_color)
 	node.add_theme_color_override("font_hover_color", Palette.BONE_HI)
 	node.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
@@ -286,7 +286,7 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 	node.add_theme_icon_override("unchecked", switch_texture(false, false))
 	node.add_theme_icon_override("checked_disabled", switch_texture(true, true))
 	node.add_theme_icon_override("unchecked_disabled", switch_texture(false, true))
-	node.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), px(6), px(4)))
+	node.add_theme_stylebox_override("focus", pad(flat(Color(1, 1, 1, 0.04), RADIUS_CONTROL), px(6), px(4)))
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return node
 
@@ -323,7 +323,7 @@ static func switch_texture(on: bool, disabled: bool) -> ImageTexture:
 	var h: int = int(size.y)
 	var image := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var radius: float = h * 0.5
-	var track: Color = Palette.ACCENT if on else Color(1, 1, 1, 0.16)
+	var track: Color = Palette.ACCENT if on else Color(0.220, 0.220, 0.245)
 	if disabled:
 		track = Color(track.r, track.g, track.b, track.a * 0.45)
 	var knob_center := Vector2(w - radius, radius) if on else Vector2(radius, radius)
@@ -413,9 +413,9 @@ class Segmented extends PanelContainer:
 		node.add_theme_icon_override("unchecked_disabled", SettingsUI._empty())
 		node.add_theme_stylebox_override("normal", SettingsUI.flat(Color.TRANSPARENT, 10))
 		node.add_theme_stylebox_override("hover", SettingsUI.flat(Palette.SURFACE_3, 10))
-		node.add_theme_stylebox_override("pressed", SettingsUI.flat(Palette.ACCENT_SOFT, 10))
-		node.add_theme_stylebox_override("hover_pressed", SettingsUI.flat(Palette.ACCENT_SOFT, 10))
-		node.add_theme_stylebox_override("focus", SettingsUI.flat(Palette.ACCENT_SOFT, 10))
+		node.add_theme_stylebox_override("pressed", SettingsUI.flat(Palette.ACCENT_SURFACE, 10))
+		node.add_theme_stylebox_override("hover_pressed", SettingsUI.flat(Palette.ACCENT_SURFACE_HOVER, 10))
+		node.add_theme_stylebox_override("focus", SettingsUI.flat(Palette.ACCENT_SURFACE_HOVER, 10))
 		node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		return node
 
@@ -440,9 +440,9 @@ static func slider(min_value: float, max_value: float, step: float, value: float
 	node.value = value
 	node.custom_minimum_size.y = px(44)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	node.add_theme_stylebox_override("slider", pad(flat(Color(1, 1, 1, 0.10), 4), 0, px(3)))
-	node.add_theme_stylebox_override("grabber_area", pad(flat(Palette.ACCENT, 4), 0, px(3)))
-	node.add_theme_stylebox_override("grabber_area_highlight", pad(flat(Palette.ACCENT_BRIGHT, 4), 0, px(3)))
+	node.add_theme_stylebox_override("slider", pad(flat(Color(1, 1, 1, 0.10), 3), 0, px(3)))
+	node.add_theme_stylebox_override("grabber_area", pad(flat(Palette.ACCENT, 3), 0, px(3)))
+	node.add_theme_stylebox_override("grabber_area_highlight", pad(flat(Palette.ACCENT_BRIGHT, 3), 0, px(3)))
 	node.add_theme_icon_override("grabber", grabber_texture())
 	node.add_theme_icon_override("grabber_highlight", grabber_texture())
 	node.add_theme_stylebox_override("focus", flat(Color.TRANSPARENT, 4))
@@ -522,8 +522,8 @@ static func add_slider_row(parent: VBoxContainer, title_text: String, desc: Stri
 
 static func style_progress(bar: ProgressBar) -> void:
 	bar.mouse_filter = Control.MOUSE_FILTER_PASS
-	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 5), 0, px(4)))
-	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 5), 0, px(4)))
+	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 4), 0, px(4)))
+	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 4), 0, px(4)))
 	bar.custom_minimum_size.y = px(10)
 
 
@@ -538,7 +538,7 @@ static func style_line_edit(edit: LineEdit) -> void:
 	edit.add_theme_color_override("caret_color", Palette.ACCENT)
 	edit.add_theme_color_override("selection_color", Palette.ACCENT_SOFT)
 	var normal := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), px(14), px(10))
-	var focus := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), px(14), px(10))
+	var focus := pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), px(14), px(10))
 	var read_only := pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), px(14), px(10))
 	edit.add_theme_stylebox_override("normal", normal)
 	edit.add_theme_stylebox_override("focus", focus)
@@ -557,8 +557,11 @@ static func style_option(option: OptionButton) -> void:
 	option.add_theme_stylebox_override("normal", pad(flat(Palette.SURFACE_2, 10), px(14), px(9)))
 	option.add_theme_stylebox_override("hover", pad(flat(Palette.SURFACE_3, 10), px(14), px(9)))
 	option.add_theme_stylebox_override("pressed", pad(flat(Palette.SURFACE_3, 10), px(14), px(9)))
-	option.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, 10, 1, Palette.ACCENT_EDGE), px(14), px(9)))
+	option.add_theme_stylebox_override("focus", pad(flat(Palette.SURFACE_3, 10), px(14), px(9)))
 	option.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	# Let a drag that starts on the selector reach the ScrollContainer instead
+	# of being swallowed by the button; a tap still opens the popup.
+	option.mouse_filter = Control.MOUSE_FILTER_PASS
 
 
 # --- Navigation -------------------------------------------------------------
@@ -586,7 +589,7 @@ class NavButton extends Button:
 		var side_pad: int = SettingsUI.px(14 if compact else 54)
 		var normal := SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12), side_pad, SettingsUI.px(8))
 		var hover := SettingsUI.pad(SettingsUI.flat(Palette.SURFACE_2, 12), side_pad, SettingsUI.px(8))
-		var active := SettingsUI.flat(Palette.ACCENT_SOFT, 12)
+		var active := SettingsUI.flat(Palette.ACCENT_SURFACE, 12)
 		active.content_margin_left = side_pad
 		active.content_margin_right = side_pad
 		active.content_margin_top = SettingsUI.px(8)
@@ -595,7 +598,7 @@ class NavButton extends Button:
 		add_theme_stylebox_override("hover", hover)
 		add_theme_stylebox_override("pressed", active)
 		add_theme_stylebox_override("hover_pressed", active)
-		add_theme_stylebox_override("focus", SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12, 1, Palette.ACCENT_EDGE), side_pad, SettingsUI.px(8)))
+		add_theme_stylebox_override("focus", SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12), side_pad, SettingsUI.px(8)))
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		toggled.connect(func(_on: bool) -> void: queue_redraw())
 		mouse_entered.connect(queue_redraw)

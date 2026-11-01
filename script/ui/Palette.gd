@@ -54,6 +54,12 @@ const ACCENT_SOFT: Color = Color(0.902, 0.224, 0.275, 0.14)
 const ACCENT_FAINT: Color = Color(0.902, 0.224, 0.275, 0.07)
 const ACCENT_EDGE: Color = Color(0.902, 0.224, 0.275, 0.42)
 
+# Opaque version of ACCENT_SOFT over the settings cards. Rounded pills use it
+# instead of the translucent token so their antialiased corners do not pick up
+# a different shade from whatever surface happens to sit behind them.
+const ACCENT_SURFACE: Color = Color(0.220, 0.102, 0.145)
+const ACCENT_SURFACE_HOVER: Color = Color(0.270, 0.126, 0.176)
+
 # --- Text ---
 const INK: Color = Color(0.020, 0.020, 0.031)
 const INK_SOFT: Color = Color(0.020, 0.020, 0.031, 0.8)

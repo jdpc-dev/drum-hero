@@ -46,6 +46,10 @@ var _keyboard_last_height: int = 0
 var _keyboard_last_viewport: Vector2 = Vector2.ZERO
 var _keyboard_poll_accum: float = 0.0
 var _keyboard_settle_frames: int = 0
+var _field_touch_active: bool = false
+var _field_touch_dragging: bool = false
+var _field_touch_start: Vector2 = Vector2.ZERO
+var _field_scroll_start: int = 0
 
 # ADVANCED tab elements
 var _padding_check: CheckBox
@@ -252,12 +256,60 @@ func _refresh_permission_state() -> void:
 
 
 func _input(event: InputEvent) -> void:
+	if _handle_field_scroll(event):
+		get_viewport().set_input_as_handled()
+		return
 	if event.is_action_pressed("ui_cancel"):
 		if _about_is_open():
 			_close_about()
 		else:
 			_on_back()
 		get_viewport().set_input_as_handled()
+
+
+# A LineEdit accepts the touch press to focus itself, so the ScrollContainer
+# never receives it and cannot start its own drag. Vertical swipes that begin
+# on the folder field are therefore handled here, while horizontal swipes are
+# left to the field for caret placement.
+func _handle_field_scroll(event: InputEvent) -> bool:
+	if _about_is_open():
+		_field_touch_active = false
+		_field_touch_dragging = false
+		return false
+	if not is_instance_valid(_root_path_edit) or not is_instance_valid(_content_scroll):
+		_field_touch_active = false
+		_field_touch_dragging = false
+		return false
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_field_touch_active = _root_path_edit.get_global_rect().has_point(event.position)
+			if _field_touch_active:
+				_field_touch_start = event.position
+				_field_scroll_start = _content_scroll.scroll_vertical
+				_field_touch_dragging = false
+			return false
+		if _field_touch_active:
+			var dragged: bool = _field_touch_dragging
+			_field_touch_active = false
+			_field_touch_dragging = false
+			return dragged
+		return false
+	if _field_touch_dragging:
+		# These are the emulated mouse events Android derives from the touch.
+		# Swallow them so the field does not select text while scrolling.
+		if event is InputEventMouseMotion or event is InputEventMouseButton:
+			return true
+	if event is InputEventScreenDrag and _field_touch_active:
+		var delta: Vector2 = event.position - _field_touch_start
+		if not _field_touch_dragging:
+			if absf(delta.y) > 12.0 and absf(delta.y) > absf(delta.x):
+				_field_touch_dragging = true
+				if _root_path_edit.has_focus():
+					_root_path_edit.release_focus()
+		if _field_touch_dragging:
+			_content_scroll.scroll_vertical = int(_field_scroll_start - delta.y)
+			return true
+	return false
 
 
 # --- shell ------------------------------------------------------------------
@@ -479,7 +531,7 @@ func _build_nav_strip() -> Control:
 	nav_scroll.custom_minimum_size.y = SettingsUI.px(58)
 	nav_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	nav_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	var sb := SettingsUI.flat(Palette.SURFACE_0, 14, 1, Palette.BORDER_SOFT)
+	var sb := SettingsUI.flat(Palette.SURFACE_0, 14)
 	SettingsUI.pad(sb, SettingsUI.px(4), SettingsUI.px(4))
 	nav_scroll.add_theme_stylebox_override("panel", sb)
 
@@ -587,6 +639,8 @@ func _build_tab_content() -> void:
 	_padding_top_slider = null
 	_padding_bottom_slider = null
 	_keyboard_settle_frames = 0
+	_field_touch_active = false
+	_field_touch_dragging = false
 	for child in _content_container.get_children():
 		_content_container.remove_child(child)
 		child.queue_free()
