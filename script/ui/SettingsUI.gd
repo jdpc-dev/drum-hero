@@ -750,7 +750,9 @@ static func style_option(option: OptionButton) -> void:
 		if option.selected >= 0:
 			popup.set_focused_item(option.selected)
 	)
-
+	# PopupMenu shrink-wraps to its item content. Give the selector the same
+	# minimum width so the list and the button share the same edges.
+	option.custom_minimum_size.x = maxf(option.custom_minimum_size.x, popup.get_contents_minimum_size().x)
 
 # --- Navigation -------------------------------------------------------------
 

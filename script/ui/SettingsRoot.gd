@@ -661,6 +661,25 @@ func _build_tab_content() -> void:
 		fade.tween_property(_content_container, "modulate:a", 1.0, 0.16).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	if is_instance_valid(_content_scroll):
 		_content_scroll.scroll_vertical = 0
+	if _current_tab == SONGS_TAB:
+		_sync_selector_widths.call_deferred()
+
+
+# The PopupMenu theme is applied after the option enters the tree, so its
+# content minimum width is only available on the next frame. Match the selector
+# button to that width, which makes the dropdown and the button share edges.
+func _sync_selector_widths() -> void:
+	await get_tree().process_frame
+	if is_instance_valid(_content_container):
+		_apply_selector_widths(_content_container)
+
+
+func _apply_selector_widths(node: Node) -> void:
+	if node is OptionButton:
+		var option := node as OptionButton
+		option.custom_minimum_size.x = maxf(option.custom_minimum_size.x, option.get_popup().get_contents_minimum_size().x)
+	for child in node.get_children():
+		_apply_selector_widths(child)
 
 
 func _build_controls_content(parent: VBoxContainer) -> void:
