@@ -153,7 +153,7 @@ func _setup_input() -> void:
 	haptic_kick.setup(hit_detection)
 
 
-func _start_loading() -> void:
+func _start_loading(reload_audio: bool = true) -> void:
 	_is_loading = true
 	_show_loading_screen()
 	await get_tree().create_timer(0.0).timeout
@@ -166,14 +166,20 @@ func _start_loading() -> void:
 		_hide_loading_screen()
 		return
 
-	_update_loading(0.0, "Loading audio stems...")
-	await get_tree().create_timer(0.0).timeout
+	if reload_audio:
+		_update_loading(0.0, "Loading audio stems...")
+		await get_tree().create_timer(0.0).timeout
 
-	if not AudioManager.load_stems(song_path):
-		_update_loading(0.25, "No audio found (silent gameplay)")
+		if not AudioManager.load_stems(song_path):
+			_update_loading(0.25, "No audio found (silent gameplay)")
+		else:
+			_update_loading(0.4, "Audio loaded, reading chart...")
+		await get_tree().create_timer(0.0).timeout
 	else:
-		_update_loading(0.4, "Audio loaded, reading chart...")
-	await get_tree().create_timer(0.0).timeout
+		# Changing difficulty reuses the stems already in memory: only the chart
+		# has to be read again.
+		_update_loading(0.4, "Reading chart...")
+		await get_tree().create_timer(0.0).timeout
 
 	var song_notes_path: String = _find_notes_file(song_path)
 	if song_notes_path.is_empty():
@@ -464,13 +470,7 @@ func _restart_song() -> void:
 	# would start two runs.
 	if _is_loading:
 		return
-	_is_paused = false
-	_hide_pause_overlay()
-	_hide_countdown()
-	_hide_result_overlay()
-	TimingEngine.stop()
-	highway.restart()
-	ScoreManager.reset()
+	_reset_run_state()
 
 	# The audio stems and the parsed chart are still in memory, so a retry only
 	# needs to rewind the run instead of reading the song from disk again.
@@ -480,6 +480,54 @@ func _restart_song() -> void:
 		_begin_run(ChartParser.get_duration_seconds())
 	else:
 		_start_loading()
+
+
+# Clears the state of the current run. It is shared by restart and by a
+# difficulty change, which also restarts the song from the beginning.
+func _reset_run_state() -> void:
+	_is_paused = false
+	_hide_pause_overlay()
+	_hide_countdown()
+	_hide_result_overlay()
+	TimingEngine.stop()
+	highway.restart()
+	ScoreManager.reset()
+
+
+# Difficulty of the current song: first from the scanned library (already in
+# memory), then by reading the chart if the gameplay was started without it.
+func _get_available_difficulties() -> Array:
+	for song in SongLoader.song_list:
+		if String(song.get("path", "")) == GameManager.current_song_path:
+			var diffs: Array = song.get("difficulties", [])
+			if not diffs.is_empty():
+				return diffs
+			break
+
+	var notes_path: String = _find_notes_file(GameManager.current_song_path)
+	if notes_path.is_empty():
+		return []
+	var info: Dictionary
+	if notes_path.get_extension().to_lower() == "chart":
+		info = preload("res://script/chart/DotChartParser.gd").detect_difficulties_fast(
+			notes_path, SettingsManager.use_guitar_fallback
+		)
+	else:
+		info = preload("res://script/chart/MidiParser.gd").detect_difficulties_fast(
+			notes_path, SettingsManager.use_guitar_fallback
+		)
+	return info.get("difficulties", [])
+
+
+# Changing difficulty needs a new chart, so it reloads the chart but keeps the
+# audio stems that are already loaded.
+func _on_pause_difficulty_pressed(offset: int, difficulty_name: String) -> void:
+	if _is_loading or offset == GameManager.current_difficulty_offset:
+		return
+	GameManager.current_difficulty_offset = offset
+	GameManager.current_difficulty_name = difficulty_name
+	_reset_run_state()
+	_start_loading(false)
 
 
 func _exit_to_menu() -> void:
@@ -519,15 +567,23 @@ func _show_pause_overlay() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_pause_overlay.add_child(bg)
 
+	var difficulties: Array = _get_available_difficulties()
+	_pause_overlay.add_child(_build_pause_main_menu(difficulties))
+	_pause_overlay.add_child(_build_pause_difficulty_menu(difficulties))
+
+	add_child(_pause_overlay)
+
+
+func _build_pause_main_menu(difficulties: Array) -> VBoxContainer:
 	var vbox: VBoxContainer = VBoxContainer.new()
 	vbox.name = "PauseMenu"
 	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.offset_left = -120
-	vbox.offset_top = -120
-	vbox.offset_right = 120
-	vbox.offset_bottom = 120
+	vbox.offset_left = -180
+	vbox.offset_top = -160
+	vbox.offset_right = 180
+	vbox.offset_bottom = 160
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	_pause_overlay.add_child(vbox)
+	vbox.add_theme_constant_override("separation", 6)
 
 	var title: Label = Label.new()
 	title.text = "PAUSED"
@@ -555,13 +611,107 @@ func _show_pause_overlay() -> void:
 	restart_btn.pressed.connect(_restart_song)
 	vbox.add_child(restart_btn)
 
+	var change_difficulty_btn: Button = Button.new()
+	change_difficulty_btn.name = "ChangeDifficultyButton"
+	change_difficulty_btn.text = "CHANGE DIFFICULTY"
+	change_difficulty_btn.custom_minimum_size = Vector2(200, 50)
+	change_difficulty_btn.disabled = difficulties.is_empty()
+	change_difficulty_btn.pressed.connect(_show_pause_difficulty_menu)
+	vbox.add_child(change_difficulty_btn)
+
 	var exit_btn: Button = Button.new()
 	exit_btn.text = "EXIT"
 	exit_btn.custom_minimum_size = Vector2(200, 50)
 	exit_btn.pressed.connect(_exit_to_menu)
 	vbox.add_child(exit_btn)
 
-	add_child(_pause_overlay)
+	return vbox
+
+
+func _build_pause_difficulty_menu(difficulties: Array) -> VBoxContainer:
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.name = "DifficultyMenu"
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.offset_left = -180
+	vbox.offset_top = -230
+	vbox.offset_right = 180
+	vbox.offset_bottom = 230
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 8)
+	vbox.visible = false
+
+	var title: Label = Label.new()
+	title.text = "DIFFICULTY"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 40)
+	title.add_theme_color_override("font_color", Palette.BONE)
+	title.add_theme_color_override("font_shadow_color", Palette.INK)
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 2)
+	vbox.add_child(title)
+
+	var spacing := Control.new()
+	spacing.custom_minimum_size = Vector2(0, 12)
+	vbox.add_child(spacing)
+
+	var list: VBoxContainer = VBoxContainer.new()
+	list.name = "DifficultyList"
+	list.alignment = BoxContainer.ALIGNMENT_CENTER
+	list.add_theme_constant_override("separation", 8)
+	vbox.add_child(list)
+
+	# Only the difficulties present in this song, in Easy -> Expert+ order.
+	var by_offset: Dictionary = {}
+	for diff in difficulties:
+		var off: int = int(diff.get("offset", -1))
+		if off >= 0:
+			by_offset[off] = diff
+	var offsets: Array = by_offset.keys()
+	offsets.sort()
+
+	var group := ButtonGroup.new()
+	for off in offsets:
+		var diff: Dictionary = by_offset[off]
+		var btn: Button = Button.new()
+		btn.name = "Difficulty" + str(off)
+		btn.text = String(diff.get("name", ChartData.DIFFICULTY_NAMES.get(off, str(off))))
+		btn.custom_minimum_size = Vector2(260, 50)
+		btn.toggle_mode = true
+		btn.button_group = group
+		btn.button_pressed = off == GameManager.current_difficulty_offset
+		btn.pressed.connect(_on_pause_difficulty_pressed.bind(off, btn.text))
+		list.add_child(btn)
+
+	var back_btn: Button = Button.new()
+	back_btn.name = "DifficultyBackButton"
+	back_btn.text = "BACK"
+	back_btn.custom_minimum_size = Vector2(260, 50)
+	back_btn.pressed.connect(_show_pause_main_menu)
+	vbox.add_child(back_btn)
+
+	return vbox
+
+
+func _show_pause_difficulty_menu() -> void:
+	if _pause_overlay == null:
+		return
+	var main_menu: Control = _pause_overlay.get_node_or_null("PauseMenu") as Control
+	var difficulty_menu: Control = _pause_overlay.get_node_or_null("DifficultyMenu") as Control
+	if main_menu:
+		main_menu.hide()
+	if difficulty_menu:
+		difficulty_menu.show()
+
+
+func _show_pause_main_menu() -> void:
+	if _pause_overlay == null:
+		return
+	var main_menu: Control = _pause_overlay.get_node_or_null("PauseMenu") as Control
+	var difficulty_menu: Control = _pause_overlay.get_node_or_null("DifficultyMenu") as Control
+	if main_menu:
+		main_menu.show()
+	if difficulty_menu:
+		difficulty_menu.hide()
 
 
 func _hide_pause_overlay() -> void:
