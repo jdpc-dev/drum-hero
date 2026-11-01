@@ -47,7 +47,7 @@ var use_guitar_fallback: bool = false
 var show_judgment_areas: bool = false
 var show_menu_status: bool = false
 var preview_volume: float = 0.8
-var gameplay_padding_enabled: bool = false
+var gameplay_padding_enabled: bool = OS.get_name() == "Android"
 var gameplay_padding_left: float = 75.0   # dp
 var gameplay_padding_right: float = 75.0  # dp
 var gameplay_padding_top: float = 0.0     # dp
@@ -57,6 +57,12 @@ var library_roots: PackedStringArray = PackedStringArray()
 var library_preset_downloads: bool = false
 var library_recursive: bool = true
 var library_max_depth: int = 3
+
+
+func _default_gameplay_padding_enabled() -> bool:
+	# Padding only has an effect on Android (dp_to_godot_px returns 0
+	# elsewhere), and it keeps the highway clear of the system back gesture.
+	return OS.get_name() == "Android"
 
 
 func dp_to_godot_px(dp_value: float) -> float:
@@ -84,8 +90,8 @@ func load_settings() -> void:
 	var cfg := ConfigFile.new()
 	var err := cfg.load(SETTINGS_PATH)
 	if err != OK:
+		gameplay_padding_enabled = _default_gameplay_padding_enabled()
 		if OS.get_name() == "Android":
-			gameplay_padding_enabled = true
 			library_preset_downloads = true
 		return
 
@@ -123,7 +129,7 @@ func load_settings() -> void:
 	show_judgment_areas = cfg.get_value("visual", "show_judgment_areas", false)
 	show_menu_status = cfg.get_value("visual", "show_menu_status", false)
 	preview_volume = cfg.get_value("audio", "preview_volume", 0.8)
-	gameplay_padding_enabled = cfg.get_value("experimental", "gameplay_padding_enabled", false)
+	gameplay_padding_enabled = cfg.get_value("experimental", "gameplay_padding_enabled", _default_gameplay_padding_enabled())
 	gameplay_padding_left = cfg.get_value("experimental", "gameplay_padding_left", cfg.get_value("experimental", "gameplay_padding_amount", 75.0))
 	gameplay_padding_right = cfg.get_value("experimental", "gameplay_padding_right", cfg.get_value("experimental", "gameplay_padding_amount", 75.0))
 	gameplay_padding_top = cfg.get_value("experimental", "gameplay_padding_top", cfg.get_value("experimental", "gameplay_padding_amount", 0.0))
@@ -185,7 +191,7 @@ func reset_experimental_to_defaults() -> void:
 	show_judgment_areas = false
 	show_menu_status = false
 	haptic_show_debug = false
-	gameplay_padding_enabled = false
+	gameplay_padding_enabled = _default_gameplay_padding_enabled()
 	gameplay_padding_left = 75.0
 	gameplay_padding_right = 75.0
 	gameplay_padding_top = 0.0

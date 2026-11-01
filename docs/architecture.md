@@ -500,9 +500,11 @@ zones.
 - The system may ignore the rects if it detects abuse
 - On desktop/iOS, `AndroidBridge` is a no-op
 
-**Auto-enable on Android:** on first launch (no settings file),
-`gameplay_padding_enabled` is automatically set to `true` on Android to mitigate
-the edge problem.
+**Auto-enable on Android:** the default is `true` on Android (including when an
+older settings file has no `gameplay_padding_enabled` key), and *Reset ADVANCED
+to Defaults* restores it. An explicit saved `false` is preserved, so a player
+who turns padding off does not get it forced back on at every launch. On other
+platforms the default is `false` because padding is Android-only.
 
 **Build prerequisites:**
 1. Install the Android Build Template: `Project → Install Android Build Template...`
@@ -1422,7 +1424,7 @@ values:
 | `note_speed` | 1.0 | Note scroll speed |
 | `show_judgment_areas` | false | Draw judgement zones on the hit line |
 | `show_menu_status` | false | Show the main menu status line (chart/audio of the selected song, songs found) |
-| `gameplay_padding_enabled` | false | Condense gameplay with padding to avoid edge touches |
+| `gameplay_padding_enabled` | true on Android, false elsewhere | Condense gameplay with padding to avoid edge touches |
 | `gameplay_padding_left` | 75.0 | Left padding in dp (0-100, Android only) |
 | `gameplay_padding_right` | 75.0 | Right padding in dp (0-100, Android only) |
 | `gameplay_padding_top` | 0.0 | Top padding in dp (0-100, Android only) |
