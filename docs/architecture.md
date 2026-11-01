@@ -1449,8 +1449,8 @@ scale, sidebar items with procedure-drawn icons, switches (a `CheckBox` whose
 icon is a generated switch texture), segmented choices, sliders with generated
 grabber textures, value badges, buttons (primary/secondary/ghost/quiet/danger),
 styled `LineEdit`/`OptionButton`/`ProgressBar` controls, matching OptionButton
-dropdowns (surface, typography, touch rows and radio marker) and custom
-scrollbars.
+dropdowns (surface, typography, touch rows and a highlighted selected row) and
+custom scrollbars.
 Selected states use the opaque `ACCENT_SURFACE` tokens and focus is expressed by
 a fill change rather than a border, so a rounded component never renders its
 corners in a different shade from its body. No new UI literal colors are

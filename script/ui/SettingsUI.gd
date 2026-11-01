@@ -41,7 +41,6 @@ static var _switch_on_disabled: ImageTexture
 static var _switch_off_disabled: ImageTexture
 static var _empty_icon: ImageTexture
 static var _grabber: ImageTexture
-static var _option_radios: Dictionary = {}
 
 
 # --- Surfaces and type ------------------------------------------------------
@@ -728,48 +727,29 @@ static func style_option(option: OptionButton) -> void:
 	popup.add_theme_constant_override("h_separation", px(10))
 	popup.add_theme_constant_override("item_start_padding", px(14))
 	popup.add_theme_constant_override("item_end_padding", px(14))
-	popup.add_theme_constant_override("indent", px(10))
-	popup.add_theme_constant_override("icon_max_width", px(18))
+	popup.add_theme_constant_override("indent", 0)
 	popup.add_theme_stylebox_override("panel", pad(flat(Palette.SURFACE_2, 14), px(6), px(6)))
-	popup.add_theme_stylebox_override("hover", flat(Palette.SURFACE_4, 10))
+	popup.add_theme_stylebox_override("hover", flat(Palette.ACCENT_SURFACE, 10))
 	var separator := StyleBoxLine.new()
 	separator.color = Palette.BORDER_SOFT
 	separator.thickness = px(1)
 	popup.add_theme_stylebox_override("separator", separator)
 	popup.add_theme_stylebox_override("labeled_separator_left", separator)
 	popup.add_theme_stylebox_override("labeled_separator_right", separator)
-	popup.add_theme_icon_override("radio_checked", option_radio_texture(true))
-	popup.add_theme_icon_override("radio_unchecked", option_radio_texture(false))
-	popup.add_theme_icon_override("radio_checked_disabled", option_radio_texture(true, true))
-	popup.add_theme_icon_override("radio_unchecked_disabled", option_radio_texture(false, true))
-	popup.add_theme_icon_override("checked", option_radio_texture(true))
-	popup.add_theme_icon_override("unchecked", option_radio_texture(false))
-	popup.add_theme_icon_override("checked_disabled", option_radio_texture(true, true))
-	popup.add_theme_icon_override("unchecked_disabled", option_radio_texture(false, true))
-
-
-# 18dp radio marker for the OptionButton popup. Unselected rows use a
-# transparent marker of the same size so the text column stays aligned.
-static func option_radio_texture(checked: bool, disabled: bool = false) -> ImageTexture:
-	var key: String = "on" if checked else "off"
-	if disabled:
-		key += "_disabled"
-	if _option_radios.has(key):
-		return _option_radios[key]
-	var size: int = px(18)
-	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
-	if checked:
-		var center := Vector2(size * 0.5, size * 0.5)
-		var radius: float = float(size) * 0.30
-		var color: Color = Palette.MUTED if disabled else Palette.ACCENT
-		for y in size:
-			for x in size:
-				var p := Vector2(x + 0.5, y + 0.5)
-				var coverage := _coverage(p.distance_to(center) - radius)
-				_blend(image, x, y, Color(color.r, color.g, color.b, coverage))
-	var texture := ImageTexture.create_from_image(image)
-	_option_radios[key] = texture
-	return texture
+	# The selected value is shown by highlighting its row, not by a radio
+	# marker: hide the check icons and focus that row when the list opens.
+	popup.add_theme_icon_override("radio_checked", _empty())
+	popup.add_theme_icon_override("radio_unchecked", _empty())
+	popup.add_theme_icon_override("radio_checked_disabled", _empty())
+	popup.add_theme_icon_override("radio_unchecked_disabled", _empty())
+	popup.add_theme_icon_override("checked", _empty())
+	popup.add_theme_icon_override("unchecked", _empty())
+	popup.add_theme_icon_override("checked_disabled", _empty())
+	popup.add_theme_icon_override("unchecked_disabled", _empty())
+	popup.about_to_popup.connect(func() -> void:
+		if option.selected >= 0:
+			popup.set_focused_item(option.selected)
+	)
 
 
 # --- Navigation -------------------------------------------------------------
