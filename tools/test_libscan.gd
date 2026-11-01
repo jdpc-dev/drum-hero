@@ -179,7 +179,7 @@ func _ready() -> void:
 	var b: int = SongLoader.song_list.size()
 	SongLoader.scan_songs()
 	var c: int = SongLoader.song_list.size()
-	print("  ", a, " / ", b, " / ", c, " (esperado iguales; incluye las de res://Songs)")
+	print("  ", a, " / ", b, " / ", c, " (esperado iguales; incluye las de res://songs)")
 
 	print("=== 7b. persistencia de [library] en settings.cfg ===")
 	SettingsManager.library_roots = PackedStringArray(["/tmp/one", "/tmp/dos"])
@@ -197,7 +197,7 @@ func _ready() -> void:
 	print("  recursive=", SettingsManager.library_recursive, " max_depth=", SettingsManager.library_max_depth)
 	print("  roots(tipo)=", typeof(SettingsManager.library_roots))
 
-	print("=== 8. ruta de juego real (res://Songs) intacta ===")
+	print("=== 8. ruta de juego real (res://songs) intacta ===")
 	_reset(3, true, PackedStringArray())
 	SongLoader.scan_songs()
 	for s in SongLoader.song_list:

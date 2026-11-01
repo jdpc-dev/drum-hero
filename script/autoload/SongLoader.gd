@@ -598,7 +598,7 @@ func _finish_scan() -> void:
 
 func get_scan_roots() -> PackedStringArray:
 	var roots := PackedStringArray()
-	roots.append("res://Songs")
+	roots.append("res://songs")
 	var own_dir: String = get_user_song_dir()
 	if not own_dir.is_empty():
 		DirAccess.make_dir_recursive_absolute(own_dir)

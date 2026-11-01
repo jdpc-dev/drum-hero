@@ -6,7 +6,7 @@ extends Node
 #   1.5 s tail -> RESULT state -> ResultOverlay visible on screen.
 # Usage: godot --headless --path . res://tools/test_song_end_e2e.tscn
 
-const SONG_DIR: String = "res://Songs/Republica - Ready to Go"
+const SONG_DIR: String = "res://songs/Republica - Ready to Go"
 const NOTES_OFFSET: int = 3
 const SEEK_MARGIN: float = 1.0
 

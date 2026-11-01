@@ -375,7 +375,7 @@ MenuRoot (CanvasLayer)
 
 **Technical considerations:**
 
-- **Android `res://` fix:** in exported Android builds, files under `res://Songs/` are packed into the PCK. `FileHelper.file_exists()` (based on `FileAccess.open()`) cannot read them directly. `SongLoader.get_stem_path()` and `_scan_song()` use `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in external storage (`FileAccess`) and in packaged `res://` (`ResourceLoader`). `AudioManager._find_stem_file()` already used both; the fix unifies the pattern in `SongLoader` so previews and metadata detection work the same as gameplay.
+- **Android `res://` fix:** in exported Android builds, files under `res://songs/` are packed into the PCK. `FileHelper.file_exists()` (based on `FileAccess.open()`) cannot read them directly. `SongLoader.get_stem_path()` and `_scan_song()` use `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in external storage (`FileAccess`) and in packaged `res://` (`ResourceLoader`). `AudioManager._find_stem_file()` already used both; the fix unifies the pattern in `SongLoader` so previews and metadata detection work the same as gameplay.
 - **Lazy loading:** songs are not preloaded at startup. Each preview is loaded on demand when selected, avoiding OOM on Android with 30+ songs.
 - **Per-platform loading:** on desktop, `_load_audio_stream()` runs in a separate `Thread` via `_preview_load_func()` (does not block the main thread). On Android, it runs synchronously in `_process()` (same pattern as `GameplayRoot._start_loading()`, which already works on Android).
 - **LRU cache:** loaded streams are stored in `_preview_cache` (Dictionary path→AudioStream) with a maximum of `PREVIEW_CACHE_MAX = 5` entries. When scrolling between previously heard songs, loading is instant (~25MB with native .ogg).
@@ -876,14 +876,14 @@ is in `InputManager._process()`:
 
 ## External song libraries
 
-In addition to the songs packaged in `res://Songs/`, the player can point the game
+In addition to the songs packaged in `res://songs/`, the player can point the game
 at their own libraries (Clone Hero, YARG, Rock Band, Phase Shift) **without
 copying the files**: they are referenced in place.
 
 ### Scan roots
 
 `SongLoader.get_scan_roots()` builds the root list in this order:
-1. `res://Songs` (always)
+1. `res://songs` (always)
 2. `get_user_song_dir()` — the app's own folder (created if it does not exist)
 3. `SYSTEM_DIR_DOWNLOADS` when `library_preset_downloads` is enabled
 4. `SettingsManager.library_roots` — paths typed by the user
@@ -1098,7 +1098,7 @@ CRASH, SNARE, KICK, TOM 1, TOM 2, TOM 3, RIDE):
 
 **Toms at 66/67/68.** Clone Hero/Phase Shift `.chart` charts encode toms in lanes
 66, 67 and 68, not 5/6/7. This was deduced from
-`Songs/Caos - La Planta (jdpc.dev)/notes.chart`, the only chart in the project
+`songs/Caos - La Planta (jdpc.dev)/notes.chart`, the only chart in the project
 with drums: it uses 0-4 and 66/67/68, exactly 8 lanes that fit one-to-one with
 the game's lanes. Previously those toms were discarded, leaving out 718 of the
 2027 notes in Expert.
@@ -1211,10 +1211,10 @@ That `meta-data` is what makes Godot register the singleton in
 
 ## Song format
 
-Songs included in the APK are in `res://Songs/` with `.ogg` files (converted from
+Songs included in the APK are in `res://songs/` with `.ogg` files (converted from
 `.opus` by `tools/convert_opus_to_ogg.sh` before the build). That script accepts
 `--remove-opus` to delete the `.opus` once a valid `.ogg` exists, and only deletes
-under `Songs/`: the `.opus` files in `asset/drumSfx/` are versioned in git and
+under `songs/`: the `.opus` files in `asset/drumSfx/` are versioned in git and
 are always kept. Deletion requires the `.ogg` to be non-empty and to start with
 the `OggS` magic bytes, asks for confirmation once before the first deletion
 (`--yes` skips it) and `DRY_RUN=true` deletes nothing. User songs go in
@@ -1222,7 +1222,7 @@ the `OggS` magic bytes, asks for confirmation once before the first deletion
 Custom roots can be added — see [External song libraries](#external-song-libraries).
 
 ```
-Songs/<artist> - <song>/
+songs/<artist> - <song>/
 ├── song.ini           ← metadata (optional; folder name and the .chart [Song] header cover the rest)
 ├── notes.mid          ← MIDI chart (Rock Band / Clone Hero mapping) — priority
 ├── notes.chart        ← .chart chart (Feedback format, Clone Hero) — fallback if there is no .mid
@@ -1383,7 +1383,7 @@ no notes.
 `SettingsManager.save_settings()` regenerates its file with only its own keys and
 would delete foreign sections).
 
-- **Key**: `md5(song.path) + "|" + difficulty_offset`. `song.path` is the song identity (`res://Songs/...` or an absolute path); the hash avoids characters that would break `ConfigFile`'s INI format. The difficulty uses the chart code (60/72/84/96/120), the same one exposed by `song.difficulties` and received by `GameManager.current_difficulty_offset` in the real run.
+- **Key**: `md5(song.path) + "|" + difficulty_offset`. `song.path` is the song identity (`res://songs/...` or an absolute path); the hash avoids characters that would break `ConfigFile`'s INI format. The difficulty uses the chart code (60/72/84/96/120), the same one exposed by `song.difficulties` and received by `GameManager.current_difficulty_offset` in the real run.
 - **When it is saved**: `GameplayRoot._show_result()`, right after `Highway.flush_unjudged_notes()` (the score is already final) and before `set_state(RESULT)`. It only touches disk if it beats the previous record.
 - **When it is shown**: `MenuRoot._create_song_row()` paints `ScoreData.format_score(get_best_for_song(path, difficulties))` in each row's score label; without a record it keeps the `--,---pts` placeholder. `get_best_for_song` returns the maximum across the chart's difficulties.
 - The store is an autoload that loads the file in `_ready()`; when returning from gameplay `Main.tscn` is re-instantiated and the rows already show the newly achieved record.

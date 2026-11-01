@@ -8,7 +8,7 @@ extends Node
 #      and the placeholder "--,---pts" when there is no record.
 # Usage: godot --headless --path . res://tools/test_highscores.tscn
 
-const TEST_PATH: String = "res://Songs/Test Song"
+const TEST_PATH: String = "res://songs/Test Song"
 
 var _backup: PackedByteArray = PackedByteArray()
 var _existed: bool = false
@@ -90,7 +90,7 @@ func _ready() -> void:
 	HighScoreStore.record_score(TEST_PATH, 84, 50000)
 	print("  best_for_song([84, 96])=", HighScoreStore.get_best_for_song(TEST_PATH, [84, 96]))
 	_check("best_for_song toma el maximo entre dificultades", HighScoreStore.get_best_for_song(TEST_PATH, [84, 96]) == 100000)
-	_check("best_for_song devuelve 0 sin records", HighScoreStore.get_best_for_song("res://Songs/Otra", [60, 72]) == 0)
+	_check("best_for_song devuelve 0 sin records", HighScoreStore.get_best_for_song("res://songs/Otra", [60, 72]) == 0)
 
 	print("== persistencia ==")
 	var store2 = load("res://script/autoload/HighScoreStore.gd").new()
@@ -99,7 +99,7 @@ func _ready() -> void:
 	_check("recarga desde disco: max en 96", store2.get_best(TEST_PATH, 96) == 100000)
 
 	print("== fila del menu ==")
-	# SongLoader scans res://Songs in _ready; we use its first real song.
+	# SongLoader scans res://songs in _ready; we use its first real song.
 	if SongLoader.song_list.is_empty():
 		SongLoader.scan_songs()
 	if SongLoader.song_list.is_empty():

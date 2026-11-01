@@ -13,12 +13,12 @@ usage() {
     cat <<'EOF'
 Usage: tools/convert_opus_to_ogg.sh [options]
 
-Converts every .opus under asset/drumSfx and Songs to .ogg (44100 Hz stereo).
+Converts every .opus under asset/drumSfx and songs to .ogg (44100 Hz stereo).
 An .ogg that already exists is skipped, not re-encoded.
 
 Options:
   -r, --remove-opus   Delete the .opus source once a valid .ogg exists.
-                      Only applies to Songs/ -- the git-tracked
+                      Only applies to songs/ -- the git-tracked
                       asset/drumSfx/*.opus originals are always kept.
                       Covers both freshly converted and already-converted files.
   -y, --yes           Do not ask for confirmation before deleting.
@@ -77,11 +77,11 @@ skipped=0
 removed=0
 kept=0
 
-# Solo se borran fuentes .opus de Songs/; los .opus de asset/drumSfx estan
+# Solo se borran fuentes .opus de songs/; los .opus de asset/drumSfx estan
 # versionados en git y son el original de la conversion, asi que se conservan.
 is_removable_path() {
     case "$1" in
-        Songs/*) return 0 ;;
+        songs/*) return 0 ;;
         *)       return 1 ;;
     esac
 }
@@ -99,7 +99,7 @@ confirm_removal() {
         return 1
     fi
     echo
-    printf 'About to delete .opus sources under Songs/ (replaced by .ogg). Type yes to continue: ' >&2
+    printf 'About to delete .opus sources under songs/ (replaced by .ogg). Type yes to continue: ' >&2
     local answer=""
     # 2>/dev/null va antes del redirect de entrada para tapar el error del
     # propio shell cuando no hay terminal de control; sin respuesta se cancela.
@@ -189,7 +189,7 @@ while IFS= read -r -d '' opus; do
     strip_ogg_comments "$ogg"
     count=$((count + 1))
     maybe_remove_opus "$opus"
-done < <(find asset/drumSfx Songs -name '*.opus' -not -path '*/.*' -print0 2>/dev/null)
+done < <(find asset/drumSfx songs -name '*.opus' -not -path '*/.*' -print0 2>/dev/null)
 
 if [ "$REMOVE_OPUS" = "true" ]; then
     echo "Done. Converted $count files (skipped $skipped, removed $removed .opus, kept $kept)."

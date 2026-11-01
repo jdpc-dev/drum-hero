@@ -195,7 +195,7 @@ func _find_value_label(overlay: ResultOverlay, name: String) -> Label:
 # Godot resets get_playback_position() to 0, so a detector that looks at the
 # position never sees the end and the song hangs.
 func _run_real_audio_case() -> void:
-	var song_path: String = "res://Songs/Republica - Ready to Go"
+	var song_path: String = "res://songs/Republica - Ready to Go"
 	if not DirAccess.dir_exists_absolute(song_path):
 		print("  SKIP no hay cancion de prueba en ", song_path)
 		return

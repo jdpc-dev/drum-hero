@@ -77,7 +77,7 @@ func _ready() -> void:
 	_check("las 8 carriles del juego se usan", used.size() == 8)
 
 	print("=== 3. cancion real: Caos - La Planta ===")
-	var song_path: String = "res://Songs/Caos - La Planta (jdpc.dev)/notes.chart"
+	var song_path: String = "res://songs/Caos - La Planta (jdpc.dev)/notes.chart"
 	if not FileAccess.file_exists(song_path):
 		print("  (omitida: cancion no presente)")
 	else:

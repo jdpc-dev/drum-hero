@@ -34,7 +34,8 @@ mono_crash.*.json
 /GestureExclusionPlugin/plugin/build/
 
 # User content
-/Songs/
+/songs/*
+!/songs/te-cague.jpg
 
 # Exports
 *.apk

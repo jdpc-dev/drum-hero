@@ -114,7 +114,7 @@ func _ready() -> void:
 	print("=== 1b. los covers empaquetados se resuelven aunque el listado no los traiga ===")
 	# In an exported build DirAccess may not list imported images/audio by their
 	# source name; _optional_file falls back to ResourceLoader for res://.
-	var res_dir: String = "res://Songs/Caos - La Planta (jdpc.dev)"
+	var res_dir: String = "res://songs/Caos - La Planta (jdpc.dev)"
 	var fallback_art: String = SongLoader._optional_file(res_dir, {}, "album.png")
 	_check(
 		"el fallback res:// encuentra el cover",

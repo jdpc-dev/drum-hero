@@ -76,7 +76,7 @@ Looking for songs? Browse community song folders, packs and charts from the [Dru
 A song is any folder whose direct child is `notes.mid` or `notes.chart`:
 
 ```text
-Songs/<artist> - <song>/
+songs/<artist> - <song>/
 ├── song.ini           # optional metadata (title, artist, preview start, song length…)
 ├── notes.mid          # MIDI chart — preferred
 ├── notes.chart        # Feedback/.chart chart — used when notes.mid is absent
