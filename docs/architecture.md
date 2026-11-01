@@ -1433,13 +1433,14 @@ values:
 The settings menu (`SettingsRoot.gd`) is a **navigation rail** on wide windows
 and a **horizontal navigation strip** on compact windows (breakpoint on the
 physical window width). Mobile builds always use the compact layout, even on a
-wide screen, and apply a DPI-aware `SettingsUI.ui_scale` multiplier (1.0–1.6,
-targeting ~16dp body text) to type sizes, paddings and touch targets. The main
-column is capped at `CONTENT_MAX_WIDTH` (1180) and centered in the remaining
-space, so the wider mobile viewport does not stretch rows edge to edge. The
-active page name and a one-line description stay pinned above the scroll area,
-so the context never scrolls away. Content is a stack of cards
-(`SettingsUI.Section`) with full-width, touch-sized rows.
+wide screen, and apply a DPI-aware `SettingsUI.ui_scale` multiplier (1.2–1.9,
+targeting ~19dp row titles and ~46dp touch targets) to type sizes, paddings,
+radii and control heights. The main column is capped at `CONTENT_MAX_WIDTH`
+(1180 design units, scaled with `ui_scale`) and centered in the remaining space,
+so an ultrawide desktop window does not stretch rows edge to edge while a phone
+uses the available width. The active page name and a one-line description stay
+pinned above the scroll area, so the context never scrolls away. Content is a
+stack of cards (`SettingsUI.Section`) with full-width, touch-sized rows.
 
 The visual kit lives in `SettingsUI.gd`: palette-backed surfaces, the type
 scale, sidebar items with procedure-drawn icons, switches (a `CheckBox` whose

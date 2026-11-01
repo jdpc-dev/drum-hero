@@ -63,11 +63,11 @@ const SONGS_TAB: int = 3
 const TAB_COUNT: int = 5
 const WIDE_BREAKPOINT: float = 1000.0
 const CONTENT_MAX_WIDTH: float = 1180.0
-const MOBILE_BODY_TARGET_DP: float = 16.0
-const MOBILE_BASE_BODY_UNITS: float = 19.0
-const MOBILE_UI_SCALE_MIN: float = 1.0
-const MOBILE_UI_SCALE_MAX: float = 1.6
-const MOBILE_UI_SCALE_FALLBACK: float = 1.35
+const MOBILE_ROW_TARGET_DP: float = 19.0
+const MOBILE_BASE_ROW_UNITS: float = 19.0
+const MOBILE_UI_SCALE_MIN: float = 1.2
+const MOBILE_UI_SCALE_MAX: float = 1.9
+const MOBILE_UI_SCALE_FALLBACK: float = 1.5
 const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
 
@@ -274,19 +274,21 @@ func _is_wide_layout() -> bool:
 
 
 func _mobile_ui_scale() -> float:
-	# The canvas is 720 units tall, so on a dense phone the default text ends
-	# up physically tiny. Bring the 19-unit body text up to roughly 16dp,
-	# independent of resolution, while keeping the scale inside sane bounds.
+	# The canvas is 720 units tall on a landscape phone, so on a dense screen
+	# the default text ends up physically tiny. Bring the 19-unit row titles up
+	# to roughly 19dp, independent of resolution, while keeping the scale inside
+	# sane bounds. Mobile always uses the compact top navigation.
 	if not OS.has_feature("mobile"):
 		return 1.0
 	var dpi: float = float(DisplayServer.screen_get_dpi())
 	var window_height: float = float(DisplayServer.window_get_size().y)
-	if dpi <= 0.0 or window_height <= 0.0:
+	var viewport_height: float = get_viewport().get_visible_rect().size.y
+	if dpi <= 0.0 or window_height <= 0.0 or viewport_height <= 0.0:
 		return MOBILE_UI_SCALE_FALLBACK
-	var canvas_scale: float = window_height / 720.0
+	var canvas_scale: float = window_height / viewport_height
 	var units_per_dp: float = (dpi / 160.0) / maxf(canvas_scale, 0.01)
-	var target_units: float = MOBILE_BODY_TARGET_DP * units_per_dp
-	return clampf(target_units / MOBILE_BASE_BODY_UNITS, MOBILE_UI_SCALE_MIN, MOBILE_UI_SCALE_MAX)
+	var target_units: float = MOBILE_ROW_TARGET_DP * units_per_dp
+	return clampf(target_units / MOBILE_BASE_ROW_UNITS, MOBILE_UI_SCALE_MIN, MOBILE_UI_SCALE_MAX)
 
 
 func _on_viewport_resized() -> void:
@@ -331,7 +333,7 @@ func _build_ui() -> void:
 		margin.add_child(shell)
 		shell.add_child(_build_sidebar())
 		var wide_content := SettingsUI.ContentLimit.new()
-		wide_content.max_width = CONTENT_MAX_WIDTH
+		wide_content.max_width = float(SettingsUI.px(CONTENT_MAX_WIDTH))
 		wide_content.add_child(_build_main_column(false))
 		shell.add_child(wide_content)
 	else:
@@ -341,7 +343,7 @@ func _build_ui() -> void:
 		shell.add_theme_constant_override("separation", SettingsUI.px(10))
 		margin.add_child(shell)
 		var compact_content := SettingsUI.ContentLimit.new()
-		compact_content.max_width = CONTENT_MAX_WIDTH
+		compact_content.max_width = float(SettingsUI.px(CONTENT_MAX_WIDTH))
 		compact_content.add_child(_build_main_column(true))
 		shell.add_child(compact_content)
 
@@ -943,6 +945,7 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	_scan_folder = ScanFeedback.make_folder_label()
 	_scan_folder.name = "ScanFolder"
 	_scan_folder.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+	_scan_folder.add_theme_font_size_override("font_size", SettingsUI.px(14))
 	scan_card.body.add_child(_scan_folder)
 
 	_scan_summary = SettingsUI.description("")

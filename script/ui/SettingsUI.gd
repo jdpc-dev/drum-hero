@@ -48,7 +48,7 @@ static var _grabber: ImageTexture
 static func flat(bg: Color, radius: int = RADIUS_CONTROL, border: int = 0, border_color: Color = Color.TRANSPARENT) -> StyleBoxFlat:
 	var sb := StyleBoxFlat.new()
 	sb.bg_color = bg
-	sb.set_corner_radius_all(radius)
+	sb.set_corner_radius_all(px(radius))
 	if border > 0:
 		sb.set_border_width_all(border)
 		sb.border_color = border_color
