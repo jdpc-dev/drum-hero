@@ -488,7 +488,6 @@ func _build_main_column(compact_nav: bool) -> Control:
 func _build_page_header() -> Control:
 	var header_scroll := ScrollContainer.new()
 	header_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	header_scroll.custom_minimum_size.y = SettingsUI.px(88 if _wide_layout else 78)
 	header_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	header_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_style_scroll(header_scroll)
@@ -566,9 +565,6 @@ func _build_content_scroll() -> Control:
 	var wrapper := MarginContainer.new()
 	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wrapper.mouse_filter = Control.MOUSE_FILTER_PASS
-	wrapper.add_theme_constant_override("margin_left", SettingsUI.px(4))
-	wrapper.add_theme_constant_override("margin_right", SettingsUI.px(4))
-	wrapper.add_theme_constant_override("margin_top", SettingsUI.px(2))
 	wrapper.add_theme_constant_override("margin_bottom", SettingsUI.px(24))
 	content_scroll.add_child(wrapper)
 
