@@ -517,46 +517,58 @@ static func detect_difficulties(path: String, use_guitar_fallback: bool = false)
 	return {"difficulties": result, "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
 
 
-static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = false) -> Dictionary:
+static func detect_chart_info(path: String) -> Dictionary:
+	# Both track sets are collected in a single read so the guitar fallback can
+	# be toggled without walking the library or re-reading the chart. Toggling it
+	# used to trigger a full rescan just to recompute these arrays.
 	var data: PackedByteArray = FileHelper.read_file(path)
+	var empty: Dictionary = {
+		"drum_difficulties": [],
+		"guitar_difficulties": [],
+		"has_drum_chart": false,
+	}
 	if data.is_empty():
-		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+		return empty
 	var content: String = data.get_string_from_utf8()
 	if content.is_empty():
-		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+		return empty
 
-	var has_drum: bool = false
-	var difficulties: Array = []
-
+	var drums: Array = []
 	if content.find("[EasyDrums]") >= 0:
-		has_drum = true
-		difficulties.append({"offset": 60, "name": "Easy"})
+		drums.append({"offset": 60, "name": "Easy"})
 	if content.find("[MediumDrums]") >= 0:
-		has_drum = true
-		difficulties.append({"offset": 72, "name": "Medium"})
+		drums.append({"offset": 72, "name": "Medium"})
 	if content.find("[HardDrums]") >= 0:
-		has_drum = true
-		difficulties.append({"offset": 84, "name": "Hard"})
+		drums.append({"offset": 84, "name": "Hard"})
 	if content.find("[ExpertDrums]") >= 0:
-		has_drum = true
-		difficulties.append({"offset": 96, "name": "Expert"})
+		drums.append({"offset": 96, "name": "Expert"})
 	if content.find("[ExpertPlusDrums]") >= 0:
-		has_drum = true
-		difficulties.append({"offset": 120, "name": "Expert+"})
+		drums.append({"offset": 120, "name": "Expert+"})
 
-	if not has_drum and use_guitar_fallback:
-		if content.find("[EasySingle]") >= 0:
-			difficulties.append({"offset": 60, "name": "Easy"})
-		if content.find("[MediumSingle]") >= 0:
-			difficulties.append({"offset": 72, "name": "Medium"})
-		if content.find("[HardSingle]") >= 0:
-			difficulties.append({"offset": 84, "name": "Hard"})
-		if content.find("[ExpertSingle]") >= 0:
-			difficulties.append({"offset": 96, "name": "Expert"})
-		if not difficulties.is_empty():
-			return {"difficulties": difficulties, "has_drum_chart": false, "guitar_fallback_used": true}
+	var guitar: Array = []
+	if content.find("[EasySingle]") >= 0:
+		guitar.append({"offset": 60, "name": "Easy"})
+	if content.find("[MediumSingle]") >= 0:
+		guitar.append({"offset": 72, "name": "Medium"})
+	if content.find("[HardSingle]") >= 0:
+		guitar.append({"offset": 84, "name": "Hard"})
+	if content.find("[ExpertSingle]") >= 0:
+		guitar.append({"offset": 96, "name": "Expert"})
 
-	return {"difficulties": difficulties, "has_drum_chart": has_drum, "guitar_fallback_used": false}
+	return {
+		"drum_difficulties": drums,
+		"guitar_difficulties": guitar,
+		"has_drum_chart": not drums.is_empty(),
+	}
+
+
+static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = false) -> Dictionary:
+	var info: Dictionary = detect_chart_info(path)
+	if info.has_drum_chart:
+		return {"difficulties": info.drum_difficulties, "has_drum_chart": true, "guitar_fallback_used": false}
+	if use_guitar_fallback and not info.guitar_difficulties.is_empty():
+		return {"difficulties": info.guitar_difficulties, "has_drum_chart": false, "guitar_fallback_used": true}
+	return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
 
 
 static func strip_quotes(value: String) -> String:

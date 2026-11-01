@@ -2,7 +2,11 @@ extends Node
 
 var _settings_backup: PackedByteArray = PackedByteArray()
 var _settings_existed: bool = false
+var _cache_backup: String = ""
+var _cache_existed: bool = false
 var _failures: int = 0
+# Lambdas capture by value: the progress probe writes here, not to a local.
+var _reached_wide: bool = false
 
 
 func _backup_settings() -> void:
@@ -19,6 +23,24 @@ func _restore_settings() -> void:
 		return
 	var f := FileAccess.open(SettingsManager.SETTINGS_PATH, FileAccess.WRITE)
 	f.store_buffer(_settings_backup)
+	f.close()
+
+
+func _backup_cache() -> void:
+	if not FileAccess.file_exists(SongLoader.CACHE_PATH):
+		return
+	_cache_existed = true
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.READ)
+	_cache_backup = f.get_as_text()
+	f.close()
+
+
+func _restore_cache() -> void:
+	if not _cache_existed:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+		return
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.WRITE)
+	f.store_string(_cache_backup)
 	f.close()
 
 
@@ -71,6 +93,11 @@ func _text_dump(node: Node) -> String:
 
 func _ready() -> void:
 	_backup_settings()
+	_backup_cache()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+	SongLoader.song_list.clear()
+	SongLoader.cache_loaded = false
+	SongLoader.last_scan_fingerprint = ""
 	var root := preload("res://scene/Settings.tscn").instantiate()
 	add_child(root)
 	await get_tree().process_frame
@@ -298,6 +325,51 @@ func _ready() -> void:
 	_check("y consume el estado (idempotente)", not menu._library_changed())
 	SettingsManager.library_roots = PackedStringArray(["/tmp/x"])
 	_check("cambio de raices -> true", menu._library_changed())
+
+	print("=== 12b. cerrar Ajustes sin cambios rehace las filas desde song_list ===")
+	SongLoader.scan_songs()
+	menu._old_library_state = [
+		SettingsManager.library_roots,
+		SettingsManager.library_preset_downloads,
+		SettingsManager.library_preset_documents,
+		SettingsManager.library_recursive,
+		SettingsManager.library_max_depth,
+	]
+	menu._old_guitar_fallback = SettingsManager.use_guitar_fallback
+	menu._old_menu_status = SettingsManager.show_menu_status
+	menu._selected_song_index = -1
+	# A song found by a scan inside Settings arrives here without any library
+	# setting changing: the menu must rebuild its rows anyway.
+	SongLoader.song_list.append({"path": "/tmp/x", "name": "Test", "artist": "Artist"})
+	menu._on_settings_closed()
+	await get_tree().process_frame
+	_check(
+		"las filas se rehacen aunque no cambie la biblioteca",
+		menu._song_list_container.get_child_count() == SongLoader.song_list.size()
+	)
+
+	print("=== 12c. cambiar la biblioteca no lanza un escaneo ===")
+	root._on_tab_selected(root.SONGS_TAB)
+	await get_tree().process_frame
+	var previous_documents: bool = SettingsManager.library_preset_documents
+	root._on_preset_documents_toggled(not previous_documents)
+	_check("el cambio se guarda", SettingsManager.library_preset_documents == (not previous_documents))
+	_check("no arranca un escaneo", not SongLoader.is_scanning and not root._scan_pump_active)
+	_check("el resumen pide Rescan now", root._scan_summary.text.contains("Press Rescan now"))
+	root._on_preset_documents_toggled(previous_documents)
+
+	print("=== 12d. cerrar Ajustes o cambiar el fallback no lanza un escaneo ===")
+	var previous_fallback: bool = SettingsManager.use_guitar_fallback
+	SettingsManager.use_guitar_fallback = not previous_fallback
+	menu._old_guitar_fallback = previous_fallback
+	menu._old_menu_status = SettingsManager.show_menu_status
+	menu._on_settings_closed()
+	_check("el fallback se aplica sin escanear", not SongLoader.is_scanning)
+	SettingsManager.use_guitar_fallback = previous_fallback
+	menu._old_guitar_fallback = previous_fallback
+	menu._on_settings_closed()
+	_check("cerrar Ajustes sin cambios tampoco escanea", not SongLoader.is_scanning)
+
 	print("=== 13. indicador de escaneo en Ajustes ▸ Canciones ===")
 	# Any scan coming from earlier (the menu's own _ready requests it if the
 	# list is empty) is allowed to finish: otherwise, the panel would not be the
@@ -350,8 +422,22 @@ func _ready() -> void:
 		DirAccess.make_dir_recursive_absolute(wide + "/d" + str(i))
 	var previous_roots: PackedStringArray = SettingsManager.library_roots
 	SettingsManager.library_roots = PackedStringArray([wide])
+	# Wait until the walk has actually entered the wide root: cancelling between
+	# roots is also valid but leaves the next one as "never reached", which is a
+	# different diagnostic than a half-walked root.
+	_reached_wide = false
+	var probe := func(_ri: int, _rt: int, current_dir: String, _dv: int, _sf: int) -> void:
+		if current_dir.begins_with(wide):
+			_reached_wide = true
+	SongLoader.scan_progress.connect(probe)
 	root._scan_summary_and_rescan()
 	_check("el escaneo vuelve a arrancar", SongLoader.is_scanning)
+	for i in 300:
+		if _reached_wide:
+			break
+		await get_tree().process_frame
+	SongLoader.scan_progress.disconnect(probe)
+	_check("el escaneo llega a la raiz ancha", _reached_wide)
 	root._cancel_scan_button.emit_signal("pressed")
 	_check("pulsar cancelar no corta en seco", SongLoader.is_scanning)
 	for i in 300:
@@ -409,6 +495,7 @@ func _ready() -> void:
 	else:
 		print("=== ", _failures, " FALLOS ===")
 	_restore_settings()
+	_restore_cache()
 	get_tree().quit()
 
 

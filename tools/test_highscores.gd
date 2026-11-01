@@ -12,6 +12,8 @@ const TEST_PATH: String = "res://Songs/Test Song"
 
 var _backup: PackedByteArray = PackedByteArray()
 var _existed: bool = false
+var _library_cache_backup: String = ""
+var _library_cache_existed: bool = false
 var _failures: int = 0
 
 
@@ -40,8 +42,30 @@ func _restore_scores() -> void:
 	f.close()
 
 
+func _backup_library_cache() -> void:
+	if not FileAccess.file_exists(SongLoader.CACHE_PATH):
+		return
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.READ)
+	_library_cache_backup = f.get_as_text()
+	f.close()
+	_library_cache_existed = true
+
+
+func _restore_library_cache() -> void:
+	if not _library_cache_existed:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+		return
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.WRITE)
+	f.store_string(_library_cache_backup)
+	f.close()
+
+
 func _ready() -> void:
 	_backup_scores()
+	_backup_library_cache()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+	SongLoader.song_list.clear()
+	SongLoader.cache_loaded = false
 	# Clean starting point: empty file reloaded.
 	var empty := FileAccess.open(HighScoreStore.SCORES_PATH, FileAccess.WRITE)
 	empty.store_string("")
@@ -118,6 +142,7 @@ func _ready() -> void:
 
 	print("")
 	_restore_scores()
+	_restore_library_cache()
 	if _failures == 0:
 		print("OK: mejores puntuaciones correctas")
 	else:

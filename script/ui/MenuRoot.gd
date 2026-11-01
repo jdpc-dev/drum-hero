@@ -42,6 +42,9 @@ var _scan_pump_active: bool = false
 var _old_guitar_fallback: bool = false
 var _old_menu_status: bool = false
 var _old_library_state: Array = []
+# Generation of SongLoader.song_list shown by this menu. A scan run inside
+# Settings bumps it; the rows are rebuilt without walking the disks again.
+var _library_generation: int = 0
 var _is_switching_scene: bool = false
 var _row_dragging: bool = false
 var _row_drag_start: Vector2 = Vector2.ZERO
@@ -51,6 +54,8 @@ var _preview_player: AudioStreamPlayer
 var _preview_song_path: String = ""
 var _preview_loaded_stream: AudioStream = null
 var _preview_status_label: Label
+
+const SCAN_OWNER: String = "menu"
 
 const PREVIEW_STEM_NAMES := ["drums", "bass", "guitar", "keys", "rhythm", "vocals"]
 var _preview_stem_paths: Array[String] = []
@@ -89,6 +94,11 @@ var _preview_fading_out: bool = false
 func _ready() -> void:
 	GameManager.set_state(GameManager.GameState.MENU)
 	get_tree().auto_accept_quit = false
+	# A cached library is already in memory: the menu opens without a scan.
+	# Applying the chart options is a memory pass, so it covers a fallback
+	# changed while the menu was rebuilt (e.g. after Free Mode).
+	SongLoader.apply_chart_options()
+	_library_generation = SongLoader.library_generation
 	# The setlist is rebuilt when returning from gameplay: restore the search
 	# before building the UI so the LineEdit and the filter are already filled
 	# in. The selected song is restored later, when the rows already exist.
@@ -102,7 +112,7 @@ func _ready() -> void:
 	_rebuild_filtered_list()
 	_restore_selected_song()
 	_restore_scroll_position()
-	if SongLoader.song_list.is_empty():
+	if SongLoader.song_list.is_empty() and not SongLoader.cache_loaded:
 		_show_loading_screen()
 		call_deferred("_refresh_song_list")
 	elif _selected_song_index < 0:
@@ -217,13 +227,13 @@ func _process(delta: float) -> void:
 # can disappear in the middle of a batch without leaving SongLoader stuck with
 # is_scanning = true, which would block the next scan forever.
 func _pump_scan() -> void:
-	if SongLoader.pump_scan(SongLoader.frame_deadline_usec()):
+	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
 		_finish_song_list_refresh()
 
 
 func _abort_scan() -> void:
 	_scan_pump_active = false
-	SongLoader.abort_scan()
+	SongLoader.abort_scan(SCAN_OWNER)
 
 
 func _on_scan_progress(root_index: int, root_total: int, current_dir: String, _dirs_visited: int, songs_found: int) -> void:
@@ -430,7 +440,13 @@ func _rebuild_song_rows() -> void:
 
 	if _filtered_indices.is_empty():
 		var empty_label := Label.new()
-		empty_label.text = "No songs found" if not _search_text.is_empty() else "Put songs in: " + SongLoader.get_user_song_dir()
+		if not _search_text.is_empty():
+			empty_label.text = "No songs found"
+		elif not SongLoader.library_rescan_reason().is_empty():
+			# Cached-empty or stale library: the player must ask for a rescan.
+			empty_label.text = "No songs yet. Open Settings > Songs and press Rescan now."
+		else:
+			empty_label.text = "Put songs in: " + SongLoader.get_user_song_dir()
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		empty_label.add_theme_font_size_override("font_size", 20)
 		empty_label.add_theme_color_override("font_color", Palette.MUTED)
@@ -608,8 +624,14 @@ func _update_status_for_song(original_index: int) -> void:
 
 func _update_status_text() -> void:
 	if SongLoader.song_list.size() > 0:
-		var roots: PackedStringArray = SongLoader.get_scan_roots()
-		_status_label.text = str(SongLoader.song_list.size()) + " songs found from " + str(roots.size()) + " location(s)"
+		# Visited, not configured: a cancelled scan that never reached a root
+		# must not claim it checked it.
+		var locations: int = SongLoader.visited_roots.size()
+		if locations <= 0:
+			locations = SongLoader.get_scan_roots().size()
+		_status_label.text = "%d songs found from %d location(s)" % [
+			SongLoader.song_list.size(), locations
+		]
 	else:
 		_status_label.text = ""
 	_apply_status_visibility()
@@ -710,12 +732,14 @@ func _restore_scroll_position() -> void:
 
 
 func _refresh_song_list() -> void:
+	# Only the first run reaches here (no cached library). Every later refresh
+	# is explicit through Settings ▸ Songs ▸ Rescan now.
 	if _scan_pump_active:
 		return
 	_scan_pump_active = true
 	_show_loading_screen(true)
 	_update_loading(0.0, "Scanning songs...")
-	SongLoader.request_scan()
+	SongLoader.request_scan(SCAN_OWNER)
 	_pump_scan()
 
 
@@ -1126,13 +1150,44 @@ func _on_free_mode_requested() -> void:
 # its tree_exited fires during destruction: continuing to react there would
 # launch a library scan while the tree is already being torn down.
 func _on_settings_closed() -> void:
+	# Closing Settings never starts a scan. Changes to the library are applied
+	# only through "Rescan now"; this method just reflects what SongLoader
+	# already has in memory.
 	if _is_switching_scene or not is_inside_tree():
 		return
-	if SettingsManager.use_guitar_fallback != _old_guitar_fallback or _library_changed():
-		_refresh_song_list()
 	if SettingsManager.show_menu_status != _old_menu_status:
 		_apply_status_visibility()
 	_root.show()
+	_library_changed()
+	var fallback_changed: bool = SettingsManager.use_guitar_fallback != _old_guitar_fallback
+	if fallback_changed:
+		# Difficulties are stored per chart source, so the fallback is a memory
+		# pass instead of a disk walk.
+		SongLoader.apply_chart_options()
+	var library_changed: bool = SongLoader.library_generation != _library_generation
+	_library_generation = SongLoader.library_generation
+	if fallback_changed or library_changed:
+		_rebuild_from_library()
+	else:
+		_update_status_text()
+
+
+func _rebuild_from_library() -> void:
+	# Rebuilds rows from the current `song_list`, keeping the selected song by
+	# path (a rescan can insert or remove songs before it).
+	var selected_path: String = ""
+	if _selected_song_index >= 0 and _selected_song_index < SongLoader.song_list.size():
+		selected_path = SongLoader.song_list[_selected_song_index].path
+	_rebuild_filtered_list()
+	_selected_song_index = -1
+	if not selected_path.is_empty():
+		for i in SongLoader.song_list.size():
+			if SongLoader.song_list[i].path == selected_path and _filtered_indices.has(i):
+				_selected_song_index = i
+				break
+	_update_status_text()
+	_update_difficulty_visibility()
+	_update_selection_ui()
 
 
 func _library_changed() -> bool:

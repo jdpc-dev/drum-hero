@@ -2,6 +2,8 @@ extends Node
 
 var _settings_backup: PackedByteArray = PackedByteArray()
 var _settings_existed: bool = false
+var _cache_backup: String = ""
+var _cache_existed: bool = false
 var _failures: int = 0
 # Lambda counters live here: GDScript captures by value and a
 # `finished += 1` inside the lambda would not be seen from outside.
@@ -91,8 +93,32 @@ func _restore_settings() -> void:
 	f.close()
 
 
+func _backup_cache() -> void:
+	if not FileAccess.file_exists(SongLoader.CACHE_PATH):
+		return
+	_cache_existed = true
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.READ)
+	_cache_backup = f.get_as_text()
+	f.close()
+
+
+func _restore_cache() -> void:
+	if not _cache_existed:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+		return
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.WRITE)
+	f.store_string(_cache_backup)
+	f.close()
+
+
 func _ready() -> void:
 	_backup_settings()
+	_backup_cache()
+	# Start without a persisted library so the scan assertions are not affected
+	# by whatever the developer's last run cached.
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+	SongLoader.song_list.clear()
+	SongLoader.cache_loaded = false
 	_ensure_fixture()
 	var A := "/tmp/opencode/libtest/rootA"
 	var B := "/tmp/opencode/libtest/rootB"
@@ -214,6 +240,12 @@ func _ready() -> void:
 	_check("mismas raices truncadas", SongLoader.truncated_roots == whole_truncated)
 	_check("nada se marco como cancelado", SongLoader.cancelled_roots.is_empty())
 	_check("hubo eventos de progreso", events.size() > 0)
+	_check(
+		"quedan anotadas las raices visitadas",
+		SongLoader.visited_roots.size() == SongLoader.get_scan_roots().size()
+	)
+	_check("no queda ninguna raiz sin visitar", SongLoader.unvisited_roots.is_empty())
+	_check("el log de escaneo no esta vacio", SongLoader.last_scan_log.size() > 0)
 	var monotonic: bool = true
 	var in_range: bool = true
 	var last_dirs: int = -1
@@ -235,12 +267,18 @@ func _ready() -> void:
 	SongLoader.begin_scan()
 	SongLoader.scan_step(1)
 	SongLoader.scan_step(1)
-	var partial: int = SongLoader.song_list.size()
+	# The staging count, because song_list keeps the previous library until the
+	# walk publishes its result.
+	var partial: int = SongLoader.get_scanned_song_count()
+	var previous_list: Array[Dictionary] = SongLoader.song_list.duplicate(true)
+	_check("mientras camina la lista visible no se toca", SongLoader.song_list == previous_list)
 	SongLoader.cancel_scan()
 	_check("cancel_scan() no corta en seco", SongLoader.is_scanning)
 	_check("el lote siguiente cierra el escaneo", SongLoader.scan_step(64))
 	_check("is_scanning se apaga", not SongLoader.is_scanning)
 	_check("no se pierden las canciones ya encontradas", SongLoader.song_list.size() >= partial)
+	# The cancel is honored at the next batch boundary, so the published prefix
+	# may include the directories of that batch (56 here, not 1).
 	_check("la lista es exactamente el principio del recorrido completo", SongLoader.song_list == whole.slice(0, SongLoader.song_list.size()))
 	_check("y se ha quedado corta", SongLoader.song_list.size() < whole.size())
 	_check("se anota la raiz a medias en cancelled_roots", SongLoader.cancelled_roots.size() == 1)
@@ -249,12 +287,33 @@ func _ready() -> void:
 
 	print("=== 11. abort_scan() deja SongLoader como estaba ===")
 	_reset(3, true, MIX)
+	var before_abort: Array[Dictionary] = SongLoader.song_list.duplicate(true)
 	SongLoader.request_scan()
 	SongLoader.pump_scan(SongLoader.frame_deadline_usec())
 	_check("pump_scan() arranca el escaneo pedido", SongLoader.is_scanning)
 	SongLoader.abort_scan()
 	_check("abort_scan() apaga is_scanning", not SongLoader.is_scanning)
+	_check("abort_scan() conserva la lista que ya habia", SongLoader.song_list == before_abort)
 	_check("y no deja peticiones pendientes", SongLoader.pump_scan(SongLoader.frame_deadline_usec()))
+	_check(
+		"tampoco deja diagnosticos a medias",
+		SongLoader.visited_roots.is_empty() and SongLoader.unvisited_roots.is_empty()
+	)
+
+	print("=== 11b. abort_scan(owner) no cancela un escaneo ajeno ===")
+	# MIX includes the 100-song root so one frame cannot finish the walk.
+	_reset(3, true, MIX)
+	SongLoader.request_scan("menu")
+	SongLoader.pump_scan(SongLoader.frame_deadline_usec(), "menu")
+	_check("el escaneo del menu arranca", SongLoader.is_scanning)
+	SongLoader.abort_scan("settings")
+	_check("un abort de otra superficie no lo cancela", SongLoader.is_scanning)
+	_check(
+		"y la otra superficie tampoco puede avanzarlo",
+		not SongLoader.pump_scan(SongLoader.frame_deadline_usec(), "settings")
+	)
+	SongLoader.abort_scan("menu")
+	_check("el dueno si lo cancela", not SongLoader.is_scanning)
 
 	print("=== 12. el pump de la UI completa el recorrido ===")
 	_reset(3, true, MIX)
@@ -292,6 +351,30 @@ func _ready() -> void:
 	_check("truncated_roots no se duplica al reescanear", SongLoader.truncated_roots == expected_truncated)
 	print("  ", SongLoader.truncated_roots)
 
+	print("=== 14. la biblioteca se persiste y se rehidrata ===")
+	_check("un escaneo completo escribe la cache", FileAccess.file_exists(SongLoader.CACHE_PATH))
+	var expected_names: PackedStringArray = _names()
+	SongLoader.song_list.clear()
+	_check("load_library_cache() recarga la lista", SongLoader.load_library_cache())
+	_check("con las mismas canciones y orden", _names() == expected_names)
+	_check("y no pide reescanear", not SongLoader.library_needs_rescan())
+	_check("el motivo esta vacio", SongLoader.library_rescan_reason().is_empty())
+	SettingsManager.library_roots = PackedStringArray([B])
+	_check("otra raiz pide reescanear", SongLoader.library_needs_rescan())
+	SettingsManager.library_roots = PackedStringArray([A])
+	_check("volver a la configuracion guardada no pide reescanear", not SongLoader.library_needs_rescan())
+
+	print("=== 14b. cancelar no escribe una cache parcial ===")
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+	_reset(3, true, MIX)
+	SongLoader.begin_scan()
+	SongLoader.scan_step(1)
+	SongLoader.cancel_scan()
+	SongLoader.scan_step(64)
+	_check("no se escribe la cache", not FileAccess.file_exists(SongLoader.CACHE_PATH))
+	_check("y queda pendiente de reescanear", SongLoader.library_needs_rescan())
+	_check("porque el ultimo escaneo se cancelo", SongLoader.library_rescan_reason().contains("cancelled"))
+
 	print("")
 	if _failures == 0:
 		print("=== TODAS LAS COMPROBACIONES OK ===")
@@ -299,4 +382,5 @@ func _ready() -> void:
 		print("=== ", _failures, " FALLOS ===")
 	print("=== DONE ===")
 	_restore_settings()
+	_restore_cache()
 	get_tree().quit()

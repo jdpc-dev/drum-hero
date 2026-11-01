@@ -72,6 +72,7 @@ const LANE_LABELS: PackedStringArray = [
 ]
 
 const SONGS_TAB: int = 2
+const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
 
 const LANE_COLORS: Array[Color] = [
@@ -105,7 +106,7 @@ func _process(_delta: float) -> void:
 	# can be closed in the middle of a batch without leaving anything hanging.
 	if not _scan_pump_active:
 		return
-	if SongLoader.pump_scan(SongLoader.frame_deadline_usec()):
+	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
 		_finish_scan()
 
 
@@ -127,7 +128,10 @@ func _refresh_permission_state() -> void:
 	_permission_was_granted = has_access
 	_update_permission_section()
 	if has_access and not had_access:
-		_scan_summary_and_rescan()
+		# A grant changes which songs a scan could find, but walking the disks
+		# is the player's call now: the summary reports the change and points at
+		# the Rescan button instead of starting a scan behind their back.
+		_update_scan_summary()
 
 
 func _input(event: InputEvent) -> void:
@@ -1033,7 +1037,24 @@ func _update_scan_summary() -> void:
 	if not is_instance_valid(_scan_summary):
 		return
 	var lines: PackedStringArray = PackedStringArray()
-	lines.append("Last scan: " + str(SongLoader.song_list.size()) + " songs from " + str(SongLoader.get_scan_roots().size()) + " location(s).")
+	# Visited locations, not configured ones: a scan that was cancelled (or cut
+	# short by leaving this tab) never reached the remaining roots, and claiming
+	# otherwise made a missing library look like a scan that had found nothing.
+	var last_scan: String = _format_last_scan()
+	lines.append("Last scan: %s - %d songs from %d of %d location(s) (recursive=%s, depth=%d)." % [
+		last_scan,
+		SongLoader.song_list.size(),
+		SongLoader.visited_roots.size(),
+		SongLoader.get_scan_roots().size(),
+		"on" if SettingsManager.library_recursive else "off",
+		SettingsManager.library_max_depth,
+	])
+	# Scanning is explicit: this is the only place that tells the player the
+	# cached list no longer matches the current roots/settings. While a scan is
+	# running the progress widgets already explain what is happening.
+	var stale_reason: String = "" if SongLoader.is_scanning else SongLoader.library_rescan_reason()
+	if not stale_reason.is_empty():
+		lines.append(stale_reason + " Press Rescan now to refresh the library.")
 	var blocked: int = 0
 	for song in SongLoader.song_list:
 		if song.get("audio_blocked", false):
@@ -1046,7 +1067,25 @@ func _update_scan_summary() -> void:
 		lines.append("Too deep (raise max subfolder depth): " + path)
 	for path in SongLoader.cancelled_roots:
 		lines.append("Scan cancelled before finishing here, this location may have more songs: " + path)
+	for path in SongLoader.unvisited_roots:
+		if SongLoader.cancelled_roots.has(path):
+			continue
+		lines.append("Not scanned, this location was never reached: " + path)
 	_scan_summary.text = "\n".join(lines)
+
+
+func _format_last_scan() -> String:
+	# Relative age is locale-free and easier to read than a UTC timestamp.
+	if SongLoader.last_scan_at <= 0:
+		return "never"
+	var age: int = int(Time.get_unix_time_from_system()) - SongLoader.last_scan_at
+	if age < 60:
+		return "just now"
+	if age < 3600:
+		return str(age / 60) + " min ago"
+	if age < 86400:
+		return str(age / 3600) + " h ago"
+	return str(age / 86400) + " day(s) ago"
 
 
 func _on_add_root(raw_path: String) -> void:
@@ -1061,6 +1100,7 @@ func _on_add_root(raw_path: String) -> void:
 	SettingsManager.library_roots.append(path)
 	SettingsManager.save_settings()
 	_rebuild_roots_list()
+	_update_scan_summary()
 
 
 func _on_root_path_submitted(text: String) -> void:
@@ -1073,26 +1113,31 @@ func _on_remove_root(index: int) -> void:
 	SettingsManager.library_roots.remove_at(index)
 	SettingsManager.save_settings()
 	_rebuild_roots_list()
+	_update_scan_summary()
 
 
 func _on_preset_downloads_toggled(toggled: bool) -> void:
 	SettingsManager.library_preset_downloads = toggled
 	SettingsManager.save_settings()
+	_update_scan_summary()
 
 
 func _on_preset_documents_toggled(toggled: bool) -> void:
 	SettingsManager.library_preset_documents = toggled
 	SettingsManager.save_settings()
+	_update_scan_summary()
 
 
 func _on_recursive_toggled(toggled: bool) -> void:
 	SettingsManager.library_recursive = toggled
 	SettingsManager.save_settings()
+	_update_scan_summary()
 
 
 func _on_depth_selected(index: int) -> void:
 	SettingsManager.library_max_depth = index
 	SettingsManager.save_settings()
+	_update_scan_summary()
 
 
 func _on_rescan_pressed() -> void:
@@ -1108,17 +1153,20 @@ func _on_cancel_scan_pressed() -> void:
 
 
 func _scan_summary_and_rescan() -> void:
-	# The permission may be granted with the panel on any tab, and there is no
-	# indicator to show there: the scan continues, and when it finishes it
-	# updates the summary, which is the only thing read from this tab.
+	# The only explicit way to walk the disks. Nothing else starts a scan:
+	# library changes and permission grants just update the summary.
 	if _scan_pump_active:
+		# A rescan requested here (Rescan now, or returning from the system
+		# permission screen) used to be dropped silently while another walk was
+		# running. Queue it so pump_scan() serves it when the current one ends.
+		SongLoader.request_scan(SCAN_OWNER)
 		return
 	_scan_pump_active = true
 	_set_scan_widgets_visible(true)
 	if is_instance_valid(_scan_status):
 		_scan_status.text = "Scanning..."
-	SongLoader.request_scan()
-	if SongLoader.pump_scan(SongLoader.frame_deadline_usec()):
+	SongLoader.request_scan(SCAN_OWNER)
+	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
 		_finish_scan()
 
 
@@ -1142,7 +1190,9 @@ func _abort_scan() -> void:
 	if not (_scan_pump_active or SongLoader.is_scanning):
 		return
 	_scan_pump_active = false
-	SongLoader.abort_scan()
+	# Only a walk started from this panel is cancelled: leaving Settings must
+	# not cut the scan the menu is showing underneath.
+	SongLoader.abort_scan(SCAN_OWNER)
 	_set_scan_widgets_visible(false)
 
 

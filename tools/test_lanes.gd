@@ -1,6 +1,26 @@
 extends Node
 
 var _failures: int = 0
+var _cache_backup: String = ""
+var _cache_existed: bool = false
+
+
+func _backup_cache() -> void:
+	if not FileAccess.file_exists(SongLoader.CACHE_PATH):
+		return
+	_cache_existed = true
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.READ)
+	_cache_backup = f.get_as_text()
+	f.close()
+
+
+func _restore_cache() -> void:
+	if not _cache_existed:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+		return
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.WRITE)
+	f.store_string(_cache_backup)
+	f.close()
 
 
 func _check(label: String, ok: bool) -> void:
@@ -25,6 +45,10 @@ func _lane_of(notes: Array, chart_lane: int) -> int:
 
 
 func _ready() -> void:
+	_backup_cache()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+	SongLoader.song_list.clear()
+	SongLoader.cache_loaded = false
 	var path: String = "/tmp/opencode/libtest/lanes/notes.chart"
 
 	print("=== 1. los toms 66/67/68 ya NO se descartan ===")
@@ -107,4 +131,5 @@ func _ready() -> void:
 		print("=== TODAS LAS COMPROBACIONES OK ===")
 	else:
 		print("=== ", _failures, " FALLOS ===")
+	_restore_cache()
 	get_tree().quit()

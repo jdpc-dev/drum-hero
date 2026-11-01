@@ -5,6 +5,12 @@ extends Node
 # something on screen call `begin_scan()` and then `scan_step()` once per frame
 # from their `_process`: the walk is split into batches, the UI responds between
 # batches, and `cancel_scan()` stops it without losing what was already found.
+#
+# Results are collected in a staging list and only published to `song_list`
+# when the walk ends. An aborted scan (`abort_scan()`, used when a panel
+# disappears mid-walk) is discarded and the previous library stays visible:
+# clearing `song_list` at the start left the menu empty when a scan was cut
+# short, which looked exactly like "no songs on this device".
 signal scan_progress(root_index: int, root_total: int, current_dir: String, dirs_visited: int, songs_found: int)
 signal scan_finished(songs_found: int, cancelled: bool)
 
@@ -12,9 +18,33 @@ var song_list: Array[Dictionary] = []
 var unreadable_roots: PackedStringArray = PackedStringArray()
 var truncated_roots: PackedStringArray = PackedStringArray()
 var cancelled_roots: PackedStringArray = PackedStringArray()
+# Roots the walk actually finished (or reached) in the last scan, and the ones
+# it never got to. The summary uses these instead of counting configured roots,
+# which made a cancelled scan claim it had checked all of them.
+var visited_roots: PackedStringArray = PackedStringArray()
+var unvisited_roots: PackedStringArray = PackedStringArray()
+# Human-readable trace of the last scan. It is printed to stdout (logcat on
+# Android) so a device report can show which roots were unreadable, which
+# settings were active, and who started/aborted the walk.
+var last_scan_log: PackedStringArray = PackedStringArray()
 var is_scanning: bool = false
+# The library is persisted so a launch can show it without walking the disks.
+# `last_scan_fingerprint` describes the roots/settings the published list was
+# built with; `library_rescan_reason()` tells the UI when it is stale.
+var last_scan_at: int = 0
+var last_scan_fingerprint: String = ""
+var last_scan_cancelled: bool = false
+# True once a cached list (even an empty one) has been restored: the menu uses
+# it to open without scanning on every launch.
+var cache_loaded: bool = false
+var last_scan_access: bool = false
+# Bumped every time `song_list` is replaced (scan finish, cancel, cache load).
+# The menu compares it across a Settings visit to know whether to rebuild.
+var library_generation: int = 0
 
 const SUPPORTED_FORMATS = ["ogg", "opus", "wav", "mp3"]
+const CACHE_PATH: String = "user://song_library.json"
+const CACHE_SCHEMA: int = 1
 const CHART_FILENAMES = ["notes.mid", "notes.chart"]
 const MAX_DIRS_PER_ROOT = 4000
 # Work ceiling per batch. The limit is directories, not time: a large library is
@@ -40,35 +70,71 @@ var _scan_stack: Array = []
 var _scan_cancelled: bool = false
 var _scan_requested: bool = false
 var _scan_dirs_total: int = 0
+# Staging list: `song_list` is only replaced on a natural finish or a user
+# cancel, never while the walk is running.
+var _scan_results: Array[Dictionary] = []
+# Who owns the walk ("menu", "settings", ...). `abort_scan(owner)` must not
+# cancel a scan started by another surface: closing Settings used to abort the
+# menu's scan and leave the list half-built.
+var _scan_owner: String = ""
+var _requested_owner: String = ""
+var _scan_aborted: bool = false
+# Stats of the root being walked, for the trace.
+var _root_dirs_start: int = 0
+var _root_songs_start: int = 0
+var _root_unreadable: bool = false
+# Fingerprint of the scan in progress and of the published list.
+var _scan_fingerprint: String = ""
+var _scan_app_version: String = ""
+var _scan_access: bool = false
+var _library_app_version: String = ""
 
 
 func _ready() -> void:
-	pass
+	load_library_cache()
 
 
-func begin_scan() -> bool:
+func begin_scan(owner: String = "") -> bool:
 	# Returns false if a scan is already running: SongLoader is a singleton and
 	# only allows one, so the second caller must wait for it to finish instead
 	# of overwriting the first one's half-built song_list.
 	if is_scanning:
 		return false
-	song_list.clear()
+	_scan_results = []
 	unreadable_roots = PackedStringArray()
 	truncated_roots = PackedStringArray()
 	cancelled_roots = PackedStringArray()
+	visited_roots = PackedStringArray()
+	unvisited_roots = PackedStringArray()
+	last_scan_log = PackedStringArray()
 	_scanned_paths = {}
 	_scan_roots = get_scan_roots()
+	_scan_fingerprint = _fingerprint_for_roots(_scan_roots)
+	_scan_app_version = _app_version()
+	_scan_access = AndroidBridge.has_all_files_access()
 	_scan_root_index = 0
 	_scan_current_dir = ""
 	_scan_stack = []
 	_scan_cancelled = false
 	_scan_requested = false
+	_scan_aborted = false
+	_scan_owner = owner
 	_scan_dirs_total = 0
+	_root_dirs_start = 0
+	_root_songs_start = 0
+	_root_unreadable = false
 	# The current root is cleared so closing the previous scan does not get
 	# attached to the next one.
 	_current_root = ""
 	_depth_truncated = false
 	is_scanning = true
+	last_scan_log.append("begin owner='%s' locations=%d recursive=%s max_depth=%d access=%s" % [
+		owner,
+		_scan_roots.size(),
+		"on" if SettingsManager.library_recursive else "off",
+		SettingsManager.library_max_depth,
+		"granted" if AndroidBridge.has_all_files_access() else "not granted",
+	])
 	return true
 
 
@@ -78,12 +144,13 @@ func cancel_scan() -> void:
 	_scan_cancelled = true
 
 
-func request_scan() -> void:
+func request_scan(owner: String = "") -> void:
 	# Requests a scan as soon as SongLoader is free. Since it is a singleton and
 	# only allows one at a time, a second rescan (Settings over the menu, or
 	# returning from the permissions screen) is queued instead of overwriting
 	# the first one's half-built song_list.
 	_scan_requested = true
+	_requested_owner = owner
 
 
 func frame_deadline_usec() -> int:
@@ -92,31 +159,228 @@ func frame_deadline_usec() -> int:
 	return Time.get_ticks_usec() + SCAN_FRAME_BUDGET_MS * 1000
 
 
-func pump_scan(deadline_usec: int) -> bool:
+func pump_scan(deadline_usec: int, owner: String = "") -> bool:
 	# A scan frame for callers with UI on screen: advances the walk (or starts
 	# it if it was queued) and returns true only when nothing remains, neither a
 	# running scan nor another one queued behind it. A rescan queued during the
 	# current scan is served on the next frame, where the UI can already refresh
 	# the previous list; meanwhile, the overlay stays up and does not flicker.
+	#
+	# `owner` is optional for tests and one-shot callers. A UI only advances the
+	# scan it requested, so two panels cannot step the same walk at once; the
+	# owner keeps pumping from its own `_process`.
 	if not is_scanning:
 		if not _scan_requested:
 			return true
 		_scan_requested = false
-		begin_scan()
+		var requested_by: String = _requested_owner
+		_requested_owner = ""
+		begin_scan(requested_by)
+		return false
+	if not _owns_scan(owner):
 		return false
 	return scan_step(MAX_DIRS_PER_FRAME, deadline_usec) and not _scan_requested
 
 
-func abort_scan() -> void:
+func abort_scan(owner: String = "") -> void:
 	# Leaves SongLoader as it was before starting: no pending request and no
 	# half-finished scan. If is_scanning = true were left behind, the next
 	# begin_scan() would always fail and the library would freeze.
-	_scan_requested = false
-	if is_scanning:
-		cancel_scan()
-		# A batch of 0 only serves to close the just-cancelled scan, without
-		# walking anything.
-		scan_step(0)
+	#
+	# With an explicit owner, only that surface's request/scan is affected: a
+	# panel closing must not cancel the walk another screen is showing.
+	if _scan_requested and _owns_request(owner):
+		_scan_requested = false
+		_requested_owner = ""
+	if not is_scanning:
+		return
+	if not _owns_scan(owner):
+		return
+	_scan_aborted = true
+	cancel_scan()
+	# A batch of 0 only serves to close the just-cancelled scan, without
+	# walking anything.
+	scan_step(0)
+
+
+func _owns_scan(owner: String) -> bool:
+	# An empty owner means "whoever" (tests, one-shot callers).
+	return owner.is_empty() or _scan_owner.is_empty() or owner == _scan_owner
+
+
+func _owns_request(owner: String) -> bool:
+	return owner.is_empty() or _requested_owner.is_empty() or owner == _requested_owner
+
+
+func get_scanned_song_count() -> int:
+	# Songs found by the walk in progress. The UI reads progress from
+	# `scan_progress`; this is for callers that need the count mid-scan.
+	return _scan_results.size()
+
+
+func scan_fingerprint() -> String:
+	# Everything that changes which songs a scan would find. Read-only for the
+	# UI: the scan settings only take effect when the player asks for a rescan.
+	return _fingerprint_for_roots(get_scan_roots())
+
+
+func library_rescan_reason() -> String:
+	# Empty when the published list matches the current roots and settings.
+	# The UI shows this instead of scanning by itself.
+	if song_list.is_empty() and last_scan_at <= 0:
+		return "No library has been scanned yet."
+	if _library_app_version != _app_version():
+		return "The app was updated since the last scan."
+	if last_scan_cancelled:
+		return "The last scan was cancelled before finishing."
+	if last_scan_access != AndroidBridge.has_all_files_access():
+		return "Storage access changed since the last scan."
+	if scan_fingerprint() != last_scan_fingerprint:
+		return "Library locations or scan settings changed."
+	return ""
+
+
+func library_needs_rescan() -> bool:
+	return not library_rescan_reason().is_empty()
+
+
+func apply_chart_options() -> void:
+	# Difficulty sets are stored per source during the scan, so switching the
+	# guitar fallback is a memory pass instead of a disk walk.
+	for entry in song_list:
+		_apply_chart_options_to_entry(entry)
+
+
+func load_library_cache() -> bool:
+	if not FileAccess.file_exists(CACHE_PATH):
+		return false
+	var file := FileAccess.open(CACHE_PATH, FileAccess.READ)
+	if not file:
+		return false
+	var parsed: Variant = JSON.parse_string(file.get_as_text())
+	file.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return false
+	var data: Dictionary = parsed
+	if int(data.get("schema", 0)) != CACHE_SCHEMA:
+		return false
+	var songs: Variant = data.get("songs", [])
+	if not (songs is Array):
+		return false
+	var loaded: Array[Dictionary] = []
+	for item in songs:
+		if item is Dictionary:
+			_normalize_cached_entry(item)
+			loaded.append(item)
+	# A scanned-empty library is still a valid cache: without it the menu would
+	# walk the disks on every launch just to find nothing again.
+	var scanned_at: int = int(data.get("scanned_at", 0))
+	if loaded.is_empty() and scanned_at <= 0:
+		return false
+	song_list.assign(loaded)
+	last_scan_fingerprint = str(data.get("fingerprint", ""))
+	last_scan_at = scanned_at
+	_library_app_version = str(data.get("app_version", ""))
+	last_scan_access = bool(data.get("access", false))
+	last_scan_cancelled = false
+	cache_loaded = true
+	cancelled_roots = PackedStringArray()
+	visited_roots = _to_packed_strings(data.get("visited_roots", []))
+	unreadable_roots = _to_packed_strings(data.get("unreadable_roots", []))
+	truncated_roots = _to_packed_strings(data.get("truncated_roots", []))
+	library_generation += 1
+	apply_chart_options()
+	return true
+
+
+func _save_library_cache() -> void:
+	var file := FileAccess.open(CACHE_PATH, FileAccess.WRITE)
+	if not file:
+		return
+	var data: Dictionary = {
+		"schema": CACHE_SCHEMA,
+		"app_version": _app_version(),
+		"fingerprint": last_scan_fingerprint,
+		"scanned_at": last_scan_at,
+		"access": last_scan_access,
+		"songs": song_list,
+		"visited_roots": _to_array(visited_roots),
+		"unreadable_roots": _to_array(unreadable_roots),
+		"truncated_roots": _to_array(truncated_roots),
+	}
+	file.store_string(JSON.stringify(data))
+	file.close()
+
+
+func _normalize_cached_entry(entry: Dictionary) -> void:
+	# JSON has no integer type: restore the integers the menu compares with
+	# (difficulty offsets are dictionary keys, so 60.0 and 60 must not mix).
+	for key in ["diff_drums", "preview_start_time", "song_length", "delay"]:
+		if entry.has(key):
+			entry[key] = int(entry[key])
+	for key in ["has_drum_chart", "guitar_fallback_used", "audio_blocked"]:
+		if entry.has(key):
+			entry[key] = bool(entry[key])
+	for key in ["difficulties", "drum_difficulties", "guitar_difficulties"]:
+		var diffs: Variant = entry.get(key, [])
+		if diffs is Array:
+			for diff in diffs:
+				if diff is Dictionary and diff.has("offset"):
+					diff["offset"] = int(diff["offset"])
+
+
+func _apply_chart_options_to_entry(entry: Dictionary) -> void:
+	# Entries built by hand (tests, older data) may not carry the split arrays.
+	# In that case leave their `difficulties` untouched instead of wiping them.
+	var has_drum_info: bool = entry.has("drum_difficulties")
+	var has_guitar_info: bool = entry.has("guitar_difficulties")
+	if not has_drum_info and not has_guitar_info:
+		return
+	var has_drum: bool = bool(entry.get("has_drum_chart", false))
+	var guitar: Array = entry.get("guitar_difficulties", [])
+	if has_drum:
+		entry["difficulties"] = entry.get("drum_difficulties", [])
+		entry["guitar_fallback_used"] = false
+	elif SettingsManager.use_guitar_fallback and not guitar.is_empty():
+		entry["difficulties"] = guitar
+		entry["guitar_fallback_used"] = true
+	else:
+		entry["difficulties"] = []
+		entry["guitar_fallback_used"] = false
+
+
+func _fingerprint_for_roots(roots: PackedStringArray) -> String:
+	var parts := PackedStringArray()
+	for root in roots:
+		var readable: DirAccess = DirAccess.open(root)
+		parts.append("%s:%s" % [root, "1" if readable != null else "0"])
+	return "%d|%s|%s|recursive=%s|depth=%d|access=%s" % [
+		CACHE_SCHEMA,
+		_app_version(),
+		"|".join(parts),
+		"on" if SettingsManager.library_recursive else "off",
+		SettingsManager.library_max_depth,
+		"granted" if AndroidBridge.has_all_files_access() else "not granted",
+	]
+
+
+func _app_version() -> String:
+	return str(ProjectSettings.get_setting("application/config/version", ""))
+
+
+func _to_packed_strings(value: Variant) -> PackedStringArray:
+	var out := PackedStringArray()
+	if value is Array:
+		for item in value:
+			out.append(str(item))
+	return out
+
+
+func _to_array(values: PackedStringArray) -> Array:
+	var out: Array = []
+	for value in values:
+		out.append(value)
+	return out
 
 
 func scan_step(dir_budget: int, deadline_usec: int = 0) -> bool:
@@ -165,6 +429,9 @@ func _advance_to_next_root() -> bool:
 		_dirs_visited = 0
 		_depth_truncated = false
 		_current_root = root.simplify_path()
+		_root_dirs_start = _scan_dirs_total
+		_root_songs_start = _scan_results.size()
+		_root_unreadable = false
 		_scan_stack.append([root, 0])
 		return true
 	return false
@@ -175,9 +442,20 @@ func _close_current_root() -> void:
 	# limit, a warning is reported. Called once per root, when the stack empties.
 	if _current_root.is_empty():
 		return
-	if _depth_truncated and not truncated_roots.has(_current_root):
-		truncated_roots.append(_current_root)
+	var root_path: String = _current_root
 	_current_root = ""
+	if _depth_truncated and not truncated_roots.has(root_path):
+		truncated_roots.append(root_path)
+	if not visited_roots.has(root_path):
+		visited_roots.append(root_path)
+	if _root_unreadable:
+		last_scan_log.append("  location '%s': unreadable" % root_path)
+		return
+	var dirs: int = _scan_dirs_total - _root_dirs_start
+	var songs: int = _scan_results.size() - _root_songs_start
+	last_scan_log.append("  location '%s': dirs=%d songs=%d%s" % [
+		root_path, dirs, songs, " (truncated)" if _depth_truncated else ""
+	])
 
 
 func _has_roots_left() -> bool:
@@ -212,12 +490,17 @@ func _scan_one_dir() -> void:
 		# noise in every library.
 		if depth == 0:
 			unreadable_roots.append(dir_path)
+			_root_unreadable = true
 		return
 	_dirs_visited += 1
 
 	var is_song: bool = false
 	var chart_filename: String = ""
 	var subdirs: PackedStringArray = PackedStringArray()
+	# Lowercased file name -> real name. Passing this to _scan_song() avoids up
+	# to nine additional FileAccess/ResourceLoader probes per song for previews,
+	# album art, backgrounds and audio on Android external storage.
+	var files: Dictionary = {}
 	dir.list_dir_begin()
 	var name: String = dir.get_next()
 	while name != "":
@@ -226,6 +509,7 @@ func _scan_one_dir() -> void:
 				subdirs.append(name)
 			else:
 				var lower_name: String = name.to_lower()
+				files[lower_name] = name
 				for filename in CHART_FILENAMES:
 					if lower_name == filename:
 						is_song = true
@@ -235,7 +519,7 @@ func _scan_one_dir() -> void:
 	dir.list_dir_end()
 
 	if is_song:
-		_scan_song(dir_path, chart_filename)
+		_scan_song(dir_path, chart_filename, files)
 		return
 	if depth >= SettingsManager.library_max_depth:
 		_depth_truncated = true
@@ -251,7 +535,10 @@ func _scan_one_dir() -> void:
 
 
 func _emit_progress() -> void:
-	scan_progress.emit(_scan_root_index, _scan_roots.size(), _scan_current_dir, _scan_dirs_total, song_list.size())
+	scan_progress.emit(
+		_scan_root_index, _scan_roots.size(), _scan_current_dir,
+		_scan_dirs_total, _scan_results.size()
+	)
 
 
 func _finish_scan() -> void:
@@ -261,9 +548,48 @@ func _finish_scan() -> void:
 		# Half-walked root: it is recorded separately from truncated_roots
 		# because there the warning is "increase the depth" and here the scan
 		# was stopped on purpose.
-		cancelled_roots.append(_current_root)
+		if not cancelled_roots.has(_current_root):
+			cancelled_roots.append(_current_root)
+		if not unvisited_roots.has(_current_root):
+			unvisited_roots.append(_current_root)
+		last_scan_log.append("  location '%s': cancelled" % _current_root)
+	else:
+		_close_current_root()
+	# Roots after the one that was in progress never got a single directory.
+	for i in range(_scan_root_index, _scan_roots.size()):
+		var root: String = _scan_roots[i]
+		if not root.is_empty() and not unvisited_roots.has(root):
+			unvisited_roots.append(root)
+	_current_root = ""
 	_scan_stack = []
 	is_scanning = false
+	if _scan_aborted:
+		# As if the scan had never started: the previous library is published.
+		_scan_results.clear()
+		unreadable_roots = PackedStringArray()
+		truncated_roots = PackedStringArray()
+		cancelled_roots = PackedStringArray()
+		visited_roots = PackedStringArray()
+		unvisited_roots = PackedStringArray()
+		last_scan_log.append("aborted owner='%s'" % _scan_owner)
+	else:
+		# Staging -> published. Copied so the next begin_scan() can reuse the
+		# staging array without clearing the visible library.
+		song_list.assign(_scan_results)
+		library_generation += 1
+		last_scan_at = int(Time.get_unix_time_from_system())
+		last_scan_cancelled = _scan_cancelled
+		if not _scan_cancelled:
+			last_scan_fingerprint = _scan_fingerprint
+			_library_app_version = _scan_app_version
+			last_scan_access = _scan_access
+			cache_loaded = true
+			# Only a complete walk is cached: a cancelled prefix would hide the
+			# songs the player has not scanned yet.
+			_save_library_cache()
+		last_scan_log.append("end songs=%d cancelled=%s" % [song_list.size(), str(_scan_cancelled)])
+	for line in last_scan_log:
+		print("[SongLoader] " + line)
 	scan_finished.emit(song_list.size(), _scan_cancelled)
 
 
@@ -319,19 +645,24 @@ func get_user_song_dir() -> String:
 			return p
 	return ProjectSettings.globalize_path("user://DrumHero")
 
-func _scan_song(song_path: String, notes_filename: String) -> void:
+func _scan_song(song_path: String, notes_filename: String, files: Dictionary) -> void:
 	var notes_path: String = song_path.path_join(notes_filename)
-	var meta: Dictionary = _derive_metadata(song_path, notes_path)
+	var meta: Dictionary = _derive_metadata(song_path, notes_path, files)
 	var preview_path: String = ""
 	for ext in SUPPORTED_FORMATS:
-		var p: String = song_path.path_join("preview." + ext)
-		if _file_exists(p):
-			preview_path = p
+		var preview_name: String = "preview." + ext
+		if files.has(preview_name):
+			preview_path = song_path.path_join(str(files[preview_name]))
 			break
 
-	var album_jpg: String = song_path.path_join("album.jpg")
-	var album_png: String = song_path.path_join("album.png")
-	var bg_jpg: String = song_path.path_join("background.jpg")
+	var album_path: String = ""
+	if files.has("album.jpg"):
+		album_path = song_path.path_join(str(files["album.jpg"]))
+	elif files.has("album.png"):
+		album_path = song_path.path_join(str(files["album.png"]))
+	var background_path: String = ""
+	if files.has("background.jpg"):
+		background_path = song_path.path_join(str(files["background.jpg"]))
 	var entry: Dictionary = {
 		"path": song_path,
 		"name": meta.get("name", song_path.get_file()),
@@ -341,37 +672,30 @@ func _scan_song(song_path: String, notes_filename: String) -> void:
 		"year": meta.get("year", ""),
 		"charter": meta.get("charter", ""),
 		"diff_drums": meta.get("diff_drums", 0),
-		"album_path": album_jpg if _file_exists(album_jpg) else (album_png if _file_exists(album_png) else ""),
-		"background_path": bg_jpg if _file_exists(bg_jpg) else "",
+		"album_path": album_path,
+		"background_path": background_path,
 		"notes_path": notes_path,
 		"preview_path": preview_path,
 		"preview_start_time": int(meta.get("preview_start_time", -1)),
 		"song_length": int(meta.get("song_length", 0)),
 		"delay": int(meta.get("delay", 0)),
-		"audio_blocked": _detect_blocked_audio(song_path),
+		"audio_blocked": files.has("song.opus") and not files.has("song.ogg"),
 	}
-	if not entry.notes_path.is_empty():
-		var diff_result: Dictionary = _detect_song_difficulties(entry.notes_path)
-		entry["difficulties"] = diff_result.difficulties
-		entry["has_drum_chart"] = diff_result.has_drum_chart
-		entry["guitar_fallback_used"] = diff_result.guitar_fallback_used
-	else:
-		entry["difficulties"] = []
-		entry["has_drum_chart"] = false
-		entry["guitar_fallback_used"] = false
-	song_list.append(entry)
+	var chart_info: Dictionary = _detect_chart_info(notes_path)
+	entry["drum_difficulties"] = chart_info.drum_difficulties
+	entry["guitar_difficulties"] = chart_info.guitar_difficulties
+	entry["has_drum_chart"] = chart_info.has_drum_chart
+	_apply_chart_options_to_entry(entry)
+	_scan_results.append(entry)
 
 
-func _file_exists(path: String) -> bool:
-	return FileHelper.file_exists(path) or ResourceLoader.exists(path)
-
-
-func _derive_metadata(song_path: String, notes_path: String) -> Dictionary:
+func _derive_metadata(song_path: String, notes_path: String, files: Dictionary) -> Dictionary:
 	var meta: Dictionary = {}
 	_apply_folder_name(meta, song_path)
 	if notes_path.get_extension().to_lower() == "chart":
 		_apply_chart_header(meta, notes_path)
-	_apply_ini(meta, song_path.path_join("song.ini"))
+	if files.has("song.ini"):
+		_apply_ini(meta, song_path.path_join(str(files["song.ini"])))
 	return meta
 
 
@@ -419,8 +743,6 @@ func _apply_chart_header(meta: Dictionary, notes_path: String) -> void:
 
 
 func _apply_ini(meta: Dictionary, ini_path: String) -> void:
-	if not _file_exists(ini_path):
-		return
 	var ini_data: Dictionary = _parse_ini(ini_path)
 	for key in ini_data:
 		var value: String = str(ini_data[key])
@@ -441,13 +763,20 @@ func _extract_year(raw: String) -> String:
 	return digits
 
 
-func _detect_song_difficulties(notes_path: String) -> Dictionary:
+func _detect_chart_info(notes_path: String) -> Dictionary:
+	var empty: Dictionary = {
+		"drum_difficulties": [],
+		"guitar_difficulties": [],
+		"has_drum_chart": false,
+	}
+	if notes_path.is_empty():
+		return empty
 	var ext: String = notes_path.get_extension().to_lower()
 	if ext == "chart":
 		var DotChartParserClass = preload("res://script/chart/DotChartParser.gd")
-		return DotChartParserClass.detect_difficulties_fast(notes_path, SettingsManager.use_guitar_fallback)
+		return DotChartParserClass.detect_chart_info(notes_path)
 	var MidiParserClass = preload("res://script/chart/MidiParser.gd")
-	return MidiParserClass.detect_difficulties_fast(notes_path, SettingsManager.use_guitar_fallback)
+	return MidiParserClass.detect_chart_info(notes_path)
 
 
 func _parse_ini(path: String) -> Dictionary:
@@ -473,15 +802,6 @@ func _parse_ini(path: String) -> Dictionary:
 			var value: String = DotChartParser.strip_quotes(line.substr(eq_pos + 1))
 			result[key] = value
 	return result
-
-
-func _detect_blocked_audio(song_path: String) -> bool:
-	# Android does not decode .opus (AudioManager only falls back to a sibling .ogg).
-	# Without that .ogg the song is listed but plays as silence.
-	var opus_path: String = song_path.path_join("song.opus")
-	if not _file_exists(opus_path):
-		return false
-	return not _file_exists(song_path.path_join("song.ogg"))
 
 
 func get_stem_path(song_path: String, stem_name: String) -> String:

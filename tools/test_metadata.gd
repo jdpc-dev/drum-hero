@@ -2,6 +2,8 @@ extends Node
 
 var _settings_backup: PackedByteArray = PackedByteArray()
 var _settings_existed: bool = false
+var _cache_backup: String = ""
+var _cache_existed: bool = false
 
 
 func _backup_settings() -> void:
@@ -41,8 +43,30 @@ func _show(root_rel: String) -> void:
 		print("      difficulties=%s has_drum_chart=%s" % [str(s.get("difficulties", [])), str(s.get("has_drum_chart", false))])
 
 
+func _backup_cache() -> void:
+	if not FileAccess.file_exists(SongLoader.CACHE_PATH):
+		return
+	_cache_existed = true
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.READ)
+	_cache_backup = f.get_as_text()
+	f.close()
+
+
+func _restore_cache() -> void:
+	if not _cache_existed:
+		DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+		return
+	var f := FileAccess.open(SongLoader.CACHE_PATH, FileAccess.WRITE)
+	f.store_string(_cache_backup)
+	f.close()
+
+
 func _ready() -> void:
 	_backup_settings()
+	_backup_cache()
+	DirAccess.remove_absolute(ProjectSettings.globalize_path(SongLoader.CACHE_PATH))
+	SongLoader.song_list.clear()
+	SongLoader.cache_loaded = false
 
 	print("=== 1. sin song.ini: metadatos del nombre de carpeta ===")
 	_show("meta")
@@ -81,4 +105,5 @@ func _ready() -> void:
 
 	print("=== DONE ===")
 	_restore_settings()
+	_restore_cache()
 	get_tree().quit()

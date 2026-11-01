@@ -148,8 +148,8 @@ MenuRoot._on_free_mode_requested()   → _stop_preview()
 
 `MenuRoot._is_switching_scene` guards `_on_settings_closed()`: when changing
 scene, the panel is dismantled together with the menu and its `tree_exited` fires
-during destruction. Without that guard, that close would rescan the song library
-while the tree is already half torn down.
+during destruction. Without that guard, that close would rebuild the song rows
+(and apply chart options) while the tree is already half torn down.
 
 **ChartParser is an autoload and survives scene changes.** That is why
 `FreeModeRoot._ready()` calls `ChartParser.clear()`: without it, the notes from
@@ -175,7 +175,7 @@ any scene.
 | `AudioManager` | Loads multi-track stems (song, drums, bass, guitar, rhythm, keys, vocals). Skips `song` if individual stems exist to avoid duplication. Decodes `.opus` to stereo via `ffmpeg`. Provides `duck_drums()` to mute drums temporarily. | — |
 | `InputManager` | Touch input routing and haptic sensor pipeline (accelerometer for kick). Two-phase detection: lift (peak on the screen's Z axis) → zero crossing → KICK. States: `KickState` (IDLE / KICK_DOWN / COOLDOWN). | — |
 | `SettingsManager` | Settings persistence (`user://settings.cfg`). Judgements, sensitivity, haptic mode, lane order, guitar fallback. | — |
-| `SongLoader` | Scans a list of configurable roots (see *External song libraries*), parses `song.ini`, exposes the song list with metadata. Detects the chart source (PART DRUMS vs PART GUITAR). Each song entry includes `preview_path` (str), `preview_start_time` (int, in milliseconds, -1 if undefined), `song_length` (float). `get_stem_path()` and `_scan_song()` use `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in `user://` (FileAccess) and in packaged `res://` (ResourceLoader). `album_path` looks for `album.jpg` first and falls back to `album.png` if missing. Scanning is interruptible: `begin_scan()` / `scan_step()` / `pump_scan()` advance it in batches, `request_scan()` queues it and `cancel_scan()` stops it without losing what was found (see *Walk*). Emits `scan_progress` and `scan_finished`, and exposes `unreadable_roots`, `truncated_roots` and `cancelled_roots` for diagnostics. | — |
+| `SongLoader` | Scans a list of configurable roots (see *External song libraries*), parses `song.ini`, exposes the song list with metadata. Detects the chart source (PART DRUMS vs PART GUITAR). Each song entry includes both `drum_difficulties` and `guitar_difficulties`, `preview_path` (str), `preview_start_time` (int, in milliseconds, -1 if undefined) and `song_length` (int, in milliseconds). `_scan_song()` reads the `DirAccess` listing it was given instead of probing every optional file, so `preview.*`, `album.jpg`/`album.png`, `background.jpg` and `song.ogg`/`song.opus` cost no extra `FileAccess` calls; `get_stem_path()` still uses `FileHelper.file_exists() OR ResourceLoader.exists()` at play time. The scanned list is persisted in `user://song_library.json` and rehydrated on launch (see *Cached library and rescan policy*). Scanning is interruptible: `begin_scan(owner)` / `scan_step()` / `pump_scan()` advance it in batches, `request_scan()` queues it and `cancel_scan()` stops it without losing what was found (see *Walk*). Emits `scan_progress` and `scan_finished`, exposes `unreadable_roots`, `truncated_roots`, `cancelled_roots`, `visited_roots`, `unvisited_roots` and `last_scan_log` for diagnostics, and `apply_chart_options()` re-derives difficulty lists when the guitar fallback setting changes. | — |
 | `ChartParser` | Loads `notes.mid` (via `MidiParser.gd`) or `notes.chart` (via `DotChartParser.gd`) depending on the file extension. Produces the same `NoteEvent` array for both formats. Supports fallback to PART GUITAR / `[ExpertSingle]` when there are no drums. `get_notes_in_range()` uses binary search (`find_next_note_index`) to jump to the requested range. `clear()` empties the chart; free mode calls it, since it builds the Highway without notes (see *Free mode*). | `ChartData.gd` (data classes) |
 | `TimingEngine` | Master clock. With audio it uses `AudioManager.get_position()`, otherwise frame delta. Emits `time_updated`, `song_ended` (only once, see *End of song*). `stop()` freezes the clock wherever it is; `start()` re-arms it. | `AudioManager` |
 | `ScoreManager` | Score, combo, multiplier, streaks. API: `register_hit(diff)`, `register_miss()`, `reset()`. | — |
@@ -880,12 +880,13 @@ The walk is **interruptible**: `SongLoader` does not have a recursive function
 that sweeps the whole disk in one go, but a batched walk that the UI advances
 frame by frame.
 
-- `begin_scan()` leaves `SongLoader` ready (clears `song_list` and diagnostics, calculates the roots) and returns `false` if a scan was already running. Since it is a singleton it only allows one: the second caller waits, it does not overwrite the half-built list.
+- `begin_scan(owner)` leaves `SongLoader` ready (clears diagnostics and staging, calculates the roots) and returns `false` if a scan was already running. Since it is a singleton it only allows one: the second caller waits, it does not overwrite the half-built list. It does **not** clear `song_list`: the walk fills a staging array and only publishes it when it ends, so a scan cut short can never leave the visible library empty.
 - `scan_step(dir_budget, deadline_usec)` walks up to `dir_budget` directories or until `deadline_usec` passes, and returns `true` when the scan has finished.
-- `pump_scan(deadline_usec)` is the shortcut for callers with UI on screen: one scan frame with `MAX_DIRS_PER_FRAME` (64) and `SCAN_FRAME_BUDGET_MS` (8), and returns `true` only when nothing remains pending — neither a running scan nor another one queued behind it. The scan is served, paused or cancelled within a frame, not in one block.
-- `request_scan()` queues a scan for when `SongLoader` is free (Settings requesting a rescan while the menu is scanning). `abort_scan()` is the emergency exit: it clears the request and closes a half-finished scan, so `is_scanning` never stays `true` and blocks the next one.
+- `pump_scan(deadline_usec, owner)` is the shortcut for callers with UI on screen: one scan frame with `MAX_DIRS_PER_FRAME` (64) and `SCAN_FRAME_BUDGET_MS` (8), and returns `true` only when nothing remains pending — neither a running scan nor another one queued behind it. A surface only advances the walk it owns, so the menu and Settings cannot step the same scan at once. The scan is served, paused or cancelled within a frame, not in one block.
+- `request_scan(owner)` queues a scan for when `SongLoader` is free (Settings requesting a rescan while the menu is scanning). A request made while `_scan_pump_active` is already true is still queued, not dropped.
+- `abort_scan(owner)` is the emergency exit: it clears the matching request and closes a half-finished scan, so `is_scanning` never stays `true` and blocks the next one. With an explicit owner it only affects that surface's scan: closing Settings no longer cancels the walk the menu is showing. An aborted scan is **discarded** — the previous `song_list` stays visible — which is what the "leaves SongLoader as it was" contract always meant.
 - `scan_songs()` is the one-shot mode (`scan_step` with no limit) for tests and any caller with no UI to respond.
-- `cancel_scan()` is honored in the next batch, at most one frame later. What was already found stays in `song_list`, and `scan_finished` exits with `cancelled = true`.
+- `cancel_scan()` is honored in the next batch, at most one frame later. The staging prefix is published, so what was already found stays in `song_list`, and `scan_finished` exits with `cancelled = true`.
 
 The walk state lives in an explicit stack (`[path, depth]`), not in GDScript
 recursion: this way a batch can be cut between directories without leaving
@@ -907,6 +908,41 @@ on the already-listed entries instead of probing with `FileAccess.open()`. This
 avoids up to 2 failed opens (and 2 more from `FileHelper`'s `content://` fallback
 on Android) for each folder of a deep tree.
 
+### Cached library and rescan policy
+
+The walk is expensive (directory listings plus every chart and `song.ini`), so
+the result is **persisted** in `user://song_library.json` and a normal launch does
+not scan at all:
+
+- `SongLoader._ready()` rehydrates `song_list` from the cache; the menu opens with
+  the setlist already built (no loading overlay). `cache_loaded` is set even for
+  an empty cache, so a scan that legitimately found no songs is not repeated on
+  every launch. Only a missing/unreadable cache (first run, corrupt file, schema
+  change) triggers the initial scan.
+- The cache stores the entries, `visited_roots`, `unreadable_roots`,
+  `truncated_roots`, `scanned_at`, the app version and a `fingerprint`. Entries
+  include both `drum_difficulties` and `guitar_difficulties` (see *Guitar
+  fallback*), so the fallback can change without invalidating anything.
+- `scan_fingerprint()` = roots + their readability + `recursive` + `max_depth` +
+  All-files-access state + cache schema/app version.
+  `library_rescan_reason()` compares it with the fingerprint of the published
+  list and returns an empty string when the list is current. The UI **only shows
+  that reason**; it never starts a scan on its own.
+- Only a complete walk is cached. A cancelled prefix is published for the
+  session (as before) but not written, and `last_scan_cancelled` makes the reason
+  say so.
+- `library_generation` is bumped whenever `song_list` is replaced, so the menu
+  knows a scan happened inside Settings and rebuilds the rows without walking the
+  disks again.
+
+A rescan is therefore explicit: **Settings ▸ Songs ▸ Rescan now** (or the
+first-run scan when there is nothing to show). Adding roots, changing depth or
+recursion, toggling presets and granting *All files access* only mark the
+library as stale; the summary shows why and points at the button. This is
+deliberate: the old behaviour walked every song on launch, closed Settings with a
+second walk, and walked again for the guitar fallback, which the player paid for
+with seconds of their session.
+
 ### Progress and cancellation in the UI
 
 `SongLoader` emits `scan_progress(root_index, root_total, current_dir,
@@ -916,22 +952,28 @@ counts the entire walk, so the last number the UI sees is the correct one.
 `script/ui/ScanFeedback.gd` is the single place where that progress is formatted,
 and both surfaces share it:
 
-- **Settings ▸ Songs** — `Rescan now` triggers `_scan_summary_and_rescan()`, which requests the scan and pumps it from `_process`. The panel shows a bar, `i/N` with the songs found and the current folder, with `Cancel` next to it. When finished, `_update_scan_summary()` adds the warning for cancelled roots.
-- **Menu** — `_refresh_song_list()` uses the same loading overlay, but only with `Cancel` and the folder when what is loading is the library; when loading a song it keeps the percentage, which is reliable, and the scan does not show it because `i/N` is not a percentage.
+- **Settings ▸ Songs** — `Rescan now` triggers `_scan_summary_and_rescan()`, which requests the scan and pumps it from `_process` (owner `settings`). The panel shows a bar, `i/N` with the songs found and the current folder, with `Cancel` next to it. When finished, `_update_scan_summary()` refreshes the "Last scan" line and the warnings for cancelled/unreachable roots.
+- **Menu** — `_refresh_song_list()` uses the same loading overlay (owner `menu`), but only when there is no cached library (first run). Closing Settings never scans: the menu applies the guitar fallback in memory and rebuilds the rows when `SongLoader.library_generation` changed (a scan ran inside the panel). The scan details, including why a rescan is pending, live in *Settings ▸ Songs*.
 
 The cancel button does not cut abruptly: it requests `cancel_scan()` and shows
 "Cancelling...". The list is rebuilt with what was found, which is an exact
 prefix of the full walk.
 
-Any running scan is aborted in `_exit_tree()` and when changing tabs in Settings:
-if the UI disappears mid-scan, `SongLoader` must not be left with `is_scanning =
-true`.
+Any scan started by a surface is aborted in its `_exit_tree()` and when changing
+tabs in Settings: if the UI disappears mid-scan, `SongLoader` must not be left
+with `is_scanning = true`. The abort is scoped to that surface's owner and
+discards the staging results, so the last complete library stays visible instead
+of the panel's half-walked prefix.
 
 ### Diagnostics
 
+- `SongLoader.last_scan_at` / `last_scan_fingerprint` / `last_scan_cancelled` — when the published list was built, with which roots/settings, and whether it was left incomplete. They survive a relaunch through the cache.
+- `SongLoader.library_rescan_reason()` — human-readable reason the cached list is stale (app updated, permission changed, roots/settings changed, last scan cancelled). Empty when current.
 - `SongLoader.unreadable_roots` — roots that could not be opened. On Android without *All files access* granted this is the typical symptom: `Download/` and `Documents/` are not listable under scoped storage.
 - `SongLoader.truncated_roots` — roots whose walk was cut by `max_depth` or `MAX_DIRS_PER_ROOT`, meaning there may be deeper songs left undiscovered.
 - `SongLoader.cancelled_roots` — roots halfway through the walk when it was cancelled. They are kept separate from truncated ones because the warning is different: there the player knows they stopped it.
+- `SongLoader.visited_roots` / `unvisited_roots` — what the walk actually reached and what it never got to. The SONGS summary counts visited roots, not configured ones: before, a cancelled scan reported "N songs from 5 locations" even when it had only walked the first two.
+- `SongLoader.last_scan_log` — one line per event of the last scan: owner, settings (`recursive`, `max_depth`), permission state, and per-root directories/songs/status (`unreadable`, `truncated`, `cancelled`). It is also printed as `[SongLoader] ...` to stdout, so `adb logcat -s godot` shows exactly which root failed on a device.
 
 ### Required permission
 
@@ -992,13 +1034,17 @@ every song during the scan, in exchange for purely decorative data.
 - **LIBRARY LOCATIONS** — `Download`/`Documents` checks, maximum depth (0 = only that folder) and *Search subfolders*.
 - **EXTRA FOLDERS** — list of custom roots with a *Remove* button, plus a `LineEdit` to add absolute paths. Paths are normalized with `simplify_path()`, prefixed with `/` if missing and duplicates are discarded. Paths that do not exist are shown in red in the list.
 - **Rescan now** and **Cancel**, with a progress bar, `i/N` locations, songs found and current folder while the scan lasts (see *Progress and cancellation in the UI*).
-- A summary of the last scan reporting the number of songs, the number of locations, and roots that were unreadable, truncated by depth or cancelled halfway.
+- A summary of the last scan reporting when it ran, the number of songs, how many of the configured locations were actually visited (`visited of total`), the active `recursive`/`depth` values, and roots that were unreadable, truncated by depth, cancelled halfway or never reached. When `library_rescan_reason()` is not empty, a line explains what changed and asks the player to press **Rescan now**.
 - **Reset SONGS to Defaults**.
 
-Library changes persist instantly (`SettingsManager.save_settings()`), but the
-rescan does not happen on every toggle: `MenuRoot._library_changed()` compares a
-snapshot and only refreshes the list when Settings closes. Rescanning on every
-toggle would be a disk walk per checkbox.
+Library changes persist instantly (`SettingsManager.save_settings()`) and only
+mark the library as stale; they never start a scan. `MenuRoot._library_changed()`
+still compares the snapshot when Settings closes, but its result is only used to
+keep that snapshot current. The single scan trigger is **Rescan now** (plus the
+menu's first-run scan when no cache exists). `use_guitar_fallback` is not part of
+the fingerprint: the parser stores drum and guitar difficulty sets during the
+scan, and `SongLoader.apply_chart_options()` picks one in memory when the menu
+closes.
 
 `AndroidBridge` is an autoload; `OS.request_permissions()` is not used for All
 Files Access because it does not include `MANAGE_EXTERNAL_STORAGE`.
@@ -1080,9 +1126,11 @@ inert control.
 **Refresh on return.** `SettingsRoot` re-evaluates the permission on
 `NOTIFICATION_APPLICATION_FOCUS_IN` and `NOTIFICATION_WM_WINDOW_FOCUS_IN`,
 because returning from Settings does not emit any Godot signal. If the
-permission became granted, it rescans the library. On Android 11+ the system may
-kill the process when granting the permission; in that case the state is read
-correctly when the app is reopened.
+permission became granted, it does **not** rescan: the fingerprint now differs,
+so `library_rescan_reason()` reports it and the summary asks for **Rescan now**.
+On Android 11+ the system may kill the process when granting the permission; in
+that case the state and the pending reason are read correctly when the app is
+reopened.
 
 ### Build requirement: "Use Gradle Build" must be enabled
 

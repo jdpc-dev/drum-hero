@@ -365,21 +365,28 @@ static func detect_difficulties(path: String, use_guitar_fallback: bool = false)
 	return {"difficulties": result, "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
 
 
-static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = false) -> Dictionary:
+static func detect_chart_info(path: String) -> Dictionary:
+	# One pass over the MIDI collects both difficulty sets, so switching the
+	# guitar fallback does not need a library rescan or a second chart read.
 	var data: PackedByteArray = FileHelper.read_file(path)
+	var empty: Dictionary = {
+		"drum_difficulties": [],
+		"guitar_difficulties": [],
+		"has_drum_chart": false,
+	}
 	if data.size() < 12:
-		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+		return empty
 	if data.slice(0, 4).get_string_from_ascii() != "MThd":
-		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+		return empty
 
 	var header_len: int = (data[4] << 24) | (data[5] << 16) | (data[6] << 8) | data[7]
 	var pos: int = 8 + header_len
 	if pos >= data.size():
-		return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+		return empty
 
 	var has_drum: bool = false
-	var guitar_used: bool = false
-	var found: Dictionary = {}
+	var drum_found: Dictionary = {}
+	var guitar_found: Dictionary = {}
 	var DIFFS: Array[int] = [60, 72, 84, 96, 120]
 
 	while pos + 8 <= data.size():
@@ -425,7 +432,7 @@ static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = f
 						if name.begins_with("PART DRUMS"):
 							is_drum = true
 							has_drum = true
-						elif use_guitar_fallback and not has_drum and name.begins_with("PART GUITAR"):
+						elif name.begins_with("PART GUITAR"):
 							is_guitar = true
 				elif mt == 0x2F:
 					pos += mlen
@@ -448,17 +455,16 @@ static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = f
 					pos += 1
 					var vel: int = data[pos]
 					pos += 1
-					if (is_drum or is_guitar) and vel > 0:
-						if is_guitar:
-							var guitar_off: int = _guitar_note_offset(note)
-							if guitar_off >= 0:
-								found[guitar_off] = true
-								guitar_used = true
-						else:
+					if vel > 0:
+						if is_drum:
 							for d in DIFFS:
 								if note >= d and note < d + 12:
-									found[d] = true
+									drum_found[d] = true
 									break
+						elif is_guitar:
+							var guitar_off: int = _guitar_note_offset(note)
+							if guitar_off >= 0:
+								guitar_found[guitar_off] = true
 				continue
 
 			if (ev & 0xF0) == 0x80:
@@ -484,12 +490,28 @@ static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = f
 		pos = track_end
 
 	var ChartData = preload("res://script/chart/ChartData.gd")
-	var difficulties: Array = []
+	var drums: Array = []
+	var guitar: Array = []
 	for off in ChartData.DIFFICULTY_OFFSETS:
-		if found.has(off):
-			difficulties.append({"offset": off, "name": ChartData.DIFFICULTY_NAMES.get(off, "Unknown")})
+		if drum_found.has(off):
+			drums.append({"offset": off, "name": ChartData.DIFFICULTY_NAMES.get(off, "Unknown")})
+		if guitar_found.has(off):
+			guitar.append({"offset": off, "name": ChartData.DIFFICULTY_NAMES.get(off, "Unknown")})
 
-	return {"difficulties": difficulties, "has_drum_chart": has_drum, "guitar_fallback_used": guitar_used}
+	return {
+		"drum_difficulties": drums,
+		"guitar_difficulties": guitar,
+		"has_drum_chart": has_drum,
+	}
+
+
+static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = false) -> Dictionary:
+	var info: Dictionary = detect_chart_info(path)
+	if info.has_drum_chart:
+		return {"difficulties": info.drum_difficulties, "has_drum_chart": true, "guitar_fallback_used": false}
+	if use_guitar_fallback and not info.guitar_difficulties.is_empty():
+		return {"difficulties": info.guitar_difficulties, "has_drum_chart": false, "guitar_fallback_used": true}
+	return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
 
 
 static func _guitar_note_offset(note: int) -> int:
