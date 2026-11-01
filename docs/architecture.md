@@ -1444,6 +1444,13 @@ uses the available width. The active page name and a one-line description stay
 pinned above the scroll area, so the context never scrolls away. Content is a
 stack of cards (`SettingsUI.Section`) with full-width, touch-sized rows.
 
+On Android the extra-folder `LineEdit` reports the IME height. The page compares
+the pre-keyboard window height with the current one to tell whether
+`adjustResize` already removed the keyboard from the window, or whether it
+overlays the game. Overlay space is added to the outer margin, the compact
+navigation strip is hidden while typing, and the field is scrolled above the
+keyboard; everything is restored when focus leaves the field.
+
 The visual kit lives in `SettingsUI.gd`: palette-backed surfaces, the type
 scale, sidebar items with procedure-drawn icons, switches (a `CheckBox` whose
 icon is a generated switch texture), segmented choices, sliders with generated

@@ -42,11 +42,15 @@ var _root_path_edit: LineEdit
 var _root_location_option: OptionButton
 var _storage_locations: Array[Dictionary] = []
 var _keyboard_spacer: Control
-var _keyboard_base_viewport_h: float = 0.0
+var _keyboard_base_window_h: int = 0
 var _keyboard_last_height: int = 0
 var _keyboard_last_viewport: Vector2 = Vector2.ZERO
+var _keyboard_last_window: Vector2i = Vector2i.ZERO
 var _keyboard_poll_accum: float = 0.0
 var _keyboard_settle_frames: int = 0
+var _outer_margin: MarginContainer
+var _outer_edge: int = 0
+var _nav_strip: Control
 var _field_touch_active: bool = false
 var _field_touch_dragging: bool = false
 var _field_touch_start: Vector2 = Vector2.ZERO
@@ -173,9 +177,11 @@ func _follow_path_edit_keyboard(delta: float) -> void:
 		_keyboard_poll_accum = 0.0
 		var keyboard_height: int = DisplayServer.virtual_keyboard_get_height()
 		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
-		if keyboard_height != _keyboard_last_height or viewport_size != _keyboard_last_viewport:
+		var window_size: Vector2i = DisplayServer.window_get_size()
+		if keyboard_height != _keyboard_last_height or viewport_size != _keyboard_last_viewport or window_size != _keyboard_last_window:
 			_keyboard_last_height = keyboard_height
 			_keyboard_last_viewport = viewport_size
+			_keyboard_last_window = window_size
 			# The scrollbar maximum is updated in a deferred layout pass. Keep
 			# applying the position for a few frames so the field ends at the
 			# final offset instead of the old maximum.
@@ -191,36 +197,49 @@ func _keep_path_edit_above_keyboard() -> void:
 		return
 	var edit := _root_path_edit
 	var scroll := _content_scroll
-	# The OS reports the keyboard in physical pixels. The screen transform
-	# converts it to the units used by the scroll container and the spacer.
-	var screen_scale_y: float = maxf(scroll.get_screen_transform().get_scale().y, 0.001)
-	var keyboard_h: float = float(DisplayServer.virtual_keyboard_get_height()) / screen_scale_y
-	# With adjustResize the window may already have shrunk by the keyboard, so
-	# only the part of the keyboard that still covers the window is inset.
-	var covered_h: float = maxf(0.0, _keyboard_base_viewport_h - get_viewport().get_visible_rect().size.y)
-	var inset: float = maxf(0.0, keyboard_h - covered_h)
-
-	if inset <= 0.0:
-		if is_instance_valid(_keyboard_spacer):
-			_keyboard_spacer.custom_minimum_size.y = 0.0
+	var keyboard_px: float = float(DisplayServer.virtual_keyboard_get_height())
+	if keyboard_px <= 0.0:
+		_set_keyboard_inset(0.0)
 		scroll.ensure_control_visible(edit)
 		return
 
-	# The tab may end right below the input (scan controls, reset button), so
-	# without extra room the ScrollContainer cannot lift the field above the
-	# keyboard. The spacer is only bottom padding: the field does not move.
-	if is_instance_valid(_keyboard_spacer):
-		_keyboard_spacer.custom_minimum_size.y = inset + 24.0
+	# adjustResize shrinks the window by the keyboard; when that happens the
+	# keyboard is outside the window and no inset is needed. With edge-to-edge
+	# the window keeps its height and the keyboard overlays it instead.
+	var current_window_h: int = DisplayServer.window_get_size().y
+	var resized_px: float = maxf(0.0, float(_keyboard_base_window_h - current_window_h))
+	var overlay_px: float = maxf(0.0, keyboard_px - resized_px)
+	# The OS reports the keyboard in physical pixels; the screen transform
+	# converts it to the units used by the layout and the scroll container.
+	var screen_scale_y: float = maxf(scroll.get_screen_transform().get_scale().y, 0.001)
+	var inset: float = overlay_px / screen_scale_y
+	_set_keyboard_inset(inset)
 
 	scroll.ensure_control_visible(edit)
 	# ensure_control_visible() only guarantees the field is inside the scroll
-	# viewport, which can still sit behind an overlaying keyboard. Scroll the
-	# remaining distance explicitly.
+	# viewport. Keep the explicit pass for the frames where the inset has just
+	# changed and the container has not finished re-laying out.
 	var row_top: float = edit.get_global_rect().position.y - scroll.get_global_rect().position.y + scroll.scroll_vertical
 	var row_bottom: float = row_top + edit.size.y
-	var usable_bottom: float = scroll.scroll_vertical + scroll.size.y - inset - 16.0
+	var usable_bottom: float = scroll.scroll_vertical + scroll.size.y - SettingsUI.px(16)
 	if row_bottom > usable_bottom:
 		scroll.scroll_vertical += int(ceil(row_bottom - usable_bottom))
+
+
+# Inset the whole page, not just the content: the header and navigation strip
+# stay anchored, while the scroll viewport ends above the keyboard. This is what
+# lets the focused field be scrolled into the still-visible part of the screen.
+func _set_keyboard_inset(inset: float) -> void:
+	if is_instance_valid(_outer_margin):
+		var bottom: int = _outer_edge + int(ceil(maxf(inset, 0.0)))
+		if _outer_margin.get_theme_constant("margin_bottom") != bottom:
+			_outer_margin.add_theme_constant_override("margin_bottom", bottom)
+	if is_instance_valid(_nav_strip):
+		# The navigation strip is not needed while typing and would eat most of
+		# the remaining height above the keyboard on a phone.
+		_nav_strip.visible = inset <= 0.0
+	if is_instance_valid(_keyboard_spacer):
+		_keyboard_spacer.custom_minimum_size.y = 0.0
 
 
 func _notification(what: int) -> void:
@@ -361,6 +380,7 @@ func _on_viewport_resized() -> void:
 	_content_scroll = null
 	_page_title_label = null
 	_page_subtitle_label = null
+	_nav_strip = null
 	_build_ui()
 	_load_current_settings()
 
@@ -377,6 +397,8 @@ func _build_ui() -> void:
 	var edge: int = SettingsUI.px(26 if _wide_layout else 16)
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, edge)
+	_outer_margin = margin
+	_outer_edge = edge
 	add_child(margin)
 
 	if _wide_layout:
@@ -482,7 +504,10 @@ func _build_main_column(compact_nav: bool) -> Control:
 	column.add_theme_constant_override("separation", SettingsUI.px(12))
 	column.add_child(_build_page_header())
 	if compact_nav:
-		column.add_child(_build_nav_strip())
+		_nav_strip = _build_nav_strip()
+		column.add_child(_nav_strip)
+	else:
+		_nav_strip = null
 	column.add_child(_build_content_scroll())
 	return column
 
@@ -1265,12 +1290,13 @@ func _on_root_path_focus_entered(edit: LineEdit) -> void:
 		return
 	if not DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
 		return
-	# The baseline is taken before the keyboard appears: the difference with the
-	# current viewport tells how much of the keyboard Android already made room
-	# for through adjustResize.
-	_keyboard_base_viewport_h = get_viewport().get_visible_rect().size.y
+	# The baseline is taken before the keyboard appears: comparing the window
+	# height tells whether adjustResize already made room for the keyboard or
+	# whether it overlays the game (edge-to-edge).
+	_keyboard_base_window_h = DisplayServer.window_get_size().y
 	_keyboard_last_height = DisplayServer.virtual_keyboard_get_height()
 	_keyboard_last_viewport = get_viewport().get_visible_rect().size
+	_keyboard_last_window = DisplayServer.window_get_size()
 	_keyboard_poll_accum = 0.0
 	_keyboard_settle_frames = 8
 	_keep_path_edit_above_keyboard.call_deferred()
@@ -1280,10 +1306,10 @@ func _on_root_path_focus_exited(edit: LineEdit) -> void:
 	if edit != _root_path_edit:
 		return
 	_keyboard_settle_frames = 0
-	if is_instance_valid(_keyboard_spacer):
-		_keyboard_spacer.custom_minimum_size.y = 0.0
+	_set_keyboard_inset(0.0)
 	_keyboard_last_height = DisplayServer.virtual_keyboard_get_height()
 	_keyboard_last_viewport = get_viewport().get_visible_rect().size
+	_keyboard_last_window = DisplayServer.window_get_size()
 
 
 func _on_remove_root(index: int) -> void:
