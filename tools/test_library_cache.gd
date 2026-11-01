@@ -112,6 +112,24 @@ func _ready() -> void:
 	_check("no queda un rescan pendiente", not SongLoader.library_needs_rescan())
 	_check("el motivo esta vacio", SongLoader.library_rescan_reason().is_empty())
 
+	print("=== 1b. los covers empaquetados se resuelven aunque el listado no los traiga ===")
+	# In an exported build DirAccess may not list imported images/audio by their
+	# source name; _optional_file falls back to ResourceLoader for res://.
+	var res_dir: String = "res://Songs/Caos - La Planta (jdpc.dev)"
+	var fallback_art: String = SongLoader._optional_file(res_dir, {}, "album.png")
+	_check(
+		"el fallback res:// encuentra el cover",
+		not fallback_art.is_empty() and ResourceLoader.load(fallback_art) != null
+	)
+	var bundled_art: int = 0
+	for song in SongLoader.song_list:
+		if not str(song.get("path", "")).begins_with("res://"):
+			continue
+		var art: String = str(song.get("album_path", ""))
+		if not art.is_empty() and ResourceLoader.load(art) != null:
+			bundled_art += 1
+	_check("las canciones empaquetadas guardan un cover valido", bundled_art > 0)
+
 	print("=== 2. un arranque simulado rehidrata sin recorrer el disco ===")
 	SongLoader.song_list.clear()
 	SongLoader.cache_loaded = false
@@ -121,6 +139,11 @@ func _ready() -> void:
 	_check("mismas canciones y orden", _names() == scanned)
 	_check("cache_loaded", SongLoader.cache_loaded)
 	_check("sin rescan pendiente", not SongLoader.library_needs_rescan())
+	var cached_art: int = 0
+	for song in SongLoader.song_list:
+		if str(song.get("path", "")).begins_with("res://") and not str(song.get("album_path", "")).is_empty():
+			cached_art += 1
+	_check("los covers sobreviven a la cache", cached_art > 0)
 
 	print("=== 3. el menu abre desde la cache y no escanea ===")
 	GameManager.menu_search_text = ""

@@ -44,7 +44,10 @@ var library_generation: int = 0
 
 const SUPPORTED_FORMATS = ["ogg", "opus", "wav", "mp3"]
 const CACHE_PATH: String = "user://song_library.json"
-const CACHE_SCHEMA: int = 1
+# Bumped when the shape of an entry changes. Schema 1 caches could have empty
+# album/preview paths for packaged songs (imported files are not listed by
+# DirAccess in exported builds), so they are discarded and rescanned once.
+const CACHE_SCHEMA: int = 2
 const CHART_FILENAMES = ["notes.mid", "notes.chart"]
 const MAX_DIRS_PER_ROOT = 4000
 # Work ceiling per batch. The limit is directories, not time: a large library is
@@ -645,24 +648,38 @@ func get_user_song_dir() -> String:
 			return p
 	return ProjectSettings.globalize_path("user://DrumHero")
 
+func _optional_file(song_path: String, files: Dictionary, lower_name: String) -> String:
+	# The directory listing covers external libraries without extra stat calls.
+	# Packaged songs are special: images and audio are imported, and DirAccess
+	# does not necessarily list their source names in an exported build. For
+	# `res://` the old ResourceLoader probe is kept so album art and previews
+	# still resolve there (a handful of bundled songs).
+	if files.has(lower_name):
+		return song_path.path_join(str(files[lower_name]))
+	if song_path.begins_with("res://") and _file_exists(song_path.path_join(lower_name)):
+		return song_path.path_join(lower_name)
+	return ""
+
+
+func _file_exists(path: String) -> bool:
+	return FileHelper.file_exists(path) or ResourceLoader.exists(path)
+
+
 func _scan_song(song_path: String, notes_filename: String, files: Dictionary) -> void:
 	var notes_path: String = song_path.path_join(notes_filename)
 	var meta: Dictionary = _derive_metadata(song_path, notes_path, files)
 	var preview_path: String = ""
 	for ext in SUPPORTED_FORMATS:
-		var preview_name: String = "preview." + ext
-		if files.has(preview_name):
-			preview_path = song_path.path_join(str(files[preview_name]))
+		preview_path = _optional_file(song_path, files, "preview." + ext)
+		if not preview_path.is_empty():
 			break
 
-	var album_path: String = ""
-	if files.has("album.jpg"):
-		album_path = song_path.path_join(str(files["album.jpg"]))
-	elif files.has("album.png"):
-		album_path = song_path.path_join(str(files["album.png"]))
-	var background_path: String = ""
-	if files.has("background.jpg"):
-		background_path = song_path.path_join(str(files["background.jpg"]))
+	var album_path: String = _optional_file(song_path, files, "album.jpg")
+	if album_path.is_empty():
+		album_path = _optional_file(song_path, files, "album.png")
+	var background_path: String = _optional_file(song_path, files, "background.jpg")
+	var opus_path: String = _optional_file(song_path, files, "song.opus")
+	var ogg_path: String = _optional_file(song_path, files, "song.ogg")
 	var entry: Dictionary = {
 		"path": song_path,
 		"name": meta.get("name", song_path.get_file()),
@@ -679,7 +696,8 @@ func _scan_song(song_path: String, notes_filename: String, files: Dictionary) ->
 		"preview_start_time": int(meta.get("preview_start_time", -1)),
 		"song_length": int(meta.get("song_length", 0)),
 		"delay": int(meta.get("delay", 0)),
-		"audio_blocked": files.has("song.opus") and not files.has("song.ogg"),
+		# Android does not decode .opus; a sibling .ogg avoids silent playback.
+		"audio_blocked": not opus_path.is_empty() and ogg_path.is_empty(),
 	}
 	var chart_info: Dictionary = _detect_chart_info(notes_path)
 	entry["drum_difficulties"] = chart_info.drum_difficulties
@@ -694,8 +712,9 @@ func _derive_metadata(song_path: String, notes_path: String, files: Dictionary) 
 	_apply_folder_name(meta, song_path)
 	if notes_path.get_extension().to_lower() == "chart":
 		_apply_chart_header(meta, notes_path)
-	if files.has("song.ini"):
-		_apply_ini(meta, song_path.path_join(str(files["song.ini"])))
+	var ini_path: String = _optional_file(song_path, files, "song.ini")
+	if not ini_path.is_empty():
+		_apply_ini(meta, ini_path)
 	return meta
 
 
