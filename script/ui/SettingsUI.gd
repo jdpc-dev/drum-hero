@@ -14,6 +14,18 @@ const RADIUS_CARD: int = 18
 const RADIUS_CONTROL: int = 12
 const SWITCH_SIZE: Vector2 = Vector2(54, 30)
 
+# Multiplier applied to type sizes and touch targets. SettingsRoot raises it
+# on mobile before building, so the same design reads comfortably on a phone.
+static var ui_scale: float = 1.0
+
+
+static func px(value: float) -> int:
+	return maxi(1, int(round(value * ui_scale)))
+
+
+static func switch_size() -> Vector2:
+	return Vector2(px(SWITCH_SIZE.x), px(SWITCH_SIZE.y))
+
 # Nav icon kinds, drawn by NavButton.
 const ICON_CONTROLS: int = 0
 const ICON_GAMEPLAY: int = 1
@@ -68,7 +80,7 @@ static func label(text: String, font_size: int, color: Color, weight: int = 400)
 	node.text = text
 	node.mouse_filter = Control.MOUSE_FILTER_PASS
 	node.add_theme_font_override("font", font_weight(weight))
-	node.add_theme_font_size_override("font_size", font_size)
+	node.add_theme_font_size_override("font_size", px(font_size))
 	node.add_theme_color_override("font_color", color)
 	return node
 
@@ -111,12 +123,12 @@ class Section extends PanelContainer:
 	func _init(title_text: String = "", subtitle_text: String = "") -> void:
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		var sb := SettingsUI.flat(Palette.SURFACE_1, SettingsUI.RADIUS_CARD)
-		SettingsUI.pad(sb, 22, 20)
+		SettingsUI.pad(sb, SettingsUI.px(22), SettingsUI.px(20))
 		add_theme_stylebox_override("panel", sb)
 
 		var column := VBoxContainer.new()
 		column.mouse_filter = Control.MOUSE_FILTER_PASS
-		column.add_theme_constant_override("separation", 12)
+		column.add_theme_constant_override("separation", SettingsUI.px(12))
 		add_child(column)
 
 		if not title_text.is_empty():
@@ -126,7 +138,7 @@ class Section extends PanelContainer:
 
 		body = VBoxContainer.new()
 		body.mouse_filter = Control.MOUSE_FILTER_PASS
-		body.add_theme_constant_override("separation", 16)
+		body.add_theme_constant_override("separation", SettingsUI.px(16))
 		column.add_child(body)
 
 
@@ -134,17 +146,45 @@ static func section(title_text: String = "", subtitle_text: String = "") -> Sect
 	return Section.new(title_text, subtitle_text)
 
 
+# Keeps the main settings column at a comfortable reading width and centers it
+# in the remaining space. On a phone the viewport can be much wider than the
+# 1280 design width; without this the cards would stretch edge to edge.
+class ContentLimit extends Container:
+	var max_width: float = 1180.0
+
+	func _init() -> void:
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		size_flags_vertical = Control.SIZE_EXPAND_FILL
+
+	func _get_minimum_size() -> Vector2:
+		if get_child_count() == 0:
+			return Vector2.ZERO
+		return (get_child(0) as Control).get_combined_minimum_size()
+
+	func _notification(what: int) -> void:
+		if what == NOTIFICATION_SORT_CHILDREN:
+			if get_child_count() == 0:
+				return
+			var child := get_child(0) as Control
+			if child == null:
+				return
+			var width: float = minf(size.x, max_width)
+			var x: float = floorf((size.x - width) * 0.5)
+			fit_child_in_rect(child, Rect2(Vector2(x, 0.0), Vector2(width, size.y)))
+
+
 # --- Rows -------------------------------------------------------------------
 
 static func row(title_text: String, desc: String = "", control: Control = null) -> HBoxContainer:
 	var node := HBoxContainer.new()
 	node.mouse_filter = Control.MOUSE_FILTER_PASS
-	node.add_theme_constant_override("separation", 18)
+	node.add_theme_constant_override("separation", SettingsUI.px(18))
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var text_column := VBoxContainer.new()
 	text_column.mouse_filter = Control.MOUSE_FILTER_PASS
-	text_column.add_theme_constant_override("separation", 3)
+	text_column.add_theme_constant_override("separation", SettingsUI.px(3))
 	text_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	text_column.add_child(label(title_text, 19, Palette.TEXT, 500))
@@ -163,9 +203,9 @@ static func row(title_text: String, desc: String = "", control: Control = null) 
 static func button(text: String, kind: String = "secondary") -> Button:
 	var node := Button.new()
 	node.text = text
-	node.custom_minimum_size.y = 46
+	node.custom_minimum_size.y = px(46)
 	node.add_theme_font_override("font", font_weight(500))
-	node.add_theme_font_size_override("font_size", 17)
+	node.add_theme_font_size_override("font_size", px(17))
 
 	var normal := flat(Color.TRANSPARENT, RADIUS_CONTROL)
 	var hover := flat(Color.TRANSPARENT, RADIUS_CONTROL)
@@ -175,29 +215,29 @@ static func button(text: String, kind: String = "secondary") -> Button:
 
 	match kind:
 		"primary":
-			normal = pad(flat(Palette.ACCENT, RADIUS_CONTROL), 22, 12)
-			hover = pad(flat(Palette.ACCENT_BRIGHT, RADIUS_CONTROL), 22, 12)
-			pressed = pad(flat(Palette.BLOOD_BRIGHT, RADIUS_CONTROL), 22, 12)
+			normal = pad(flat(Palette.ACCENT, RADIUS_CONTROL), px(22), px(12))
+			hover = pad(flat(Palette.ACCENT_BRIGHT, RADIUS_CONTROL), px(22), px(12))
+			pressed = pad(flat(Palette.BLOOD_BRIGHT, RADIUS_CONTROL), px(22), px(12))
 			font_color = Palette.BONE_HI
 		"ghost":
-			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), 20, 12)
-			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), 20, 12)
-			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), 20, 12)
+			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), px(20), px(12))
+			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), px(20), px(12))
+			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), px(20), px(12))
 			font_color = Palette.CHROME
 		"quiet":
-			normal = pad(flat(Color.TRANSPARENT, RADIUS_CONTROL), 16, 12)
-			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), 16, 12)
-			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), 16, 12)
+			normal = pad(flat(Color.TRANSPARENT, RADIUS_CONTROL), px(16), px(12))
+			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), px(16), px(12))
+			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), px(16), px(12))
 			font_color = Palette.CHROME
 		"danger":
-			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), 20, 12)
-			hover = pad(flat(Palette.ACCENT_FAINT, RADIUS_CONTROL), 20, 12)
-			pressed = pad(flat(Palette.ACCENT_SOFT, RADIUS_CONTROL), 20, 12)
+			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), px(20), px(12))
+			hover = pad(flat(Palette.ACCENT_FAINT, RADIUS_CONTROL), px(20), px(12))
+			pressed = pad(flat(Palette.ACCENT_SOFT, RADIUS_CONTROL), px(20), px(12))
 			font_color = Palette.BLOOD_GLOW
 		_:
-			normal = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), 22, 12)
-			hover = pad(flat(Palette.SURFACE_4, RADIUS_CONTROL), 22, 12)
-			pressed = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), 22, 12)
+			normal = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), px(22), px(12))
+			hover = pad(flat(Palette.SURFACE_4, RADIUS_CONTROL), px(22), px(12))
+			pressed = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), px(22), px(12))
 			font_color = Palette.BONE
 
 	disabled = normal
@@ -205,7 +245,7 @@ static func button(text: String, kind: String = "secondary") -> Button:
 	node.add_theme_stylebox_override("hover", hover)
 	node.add_theme_stylebox_override("pressed", pressed)
 	node.add_theme_stylebox_override("disabled", disabled)
-	node.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), 20, 12))
+	node.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), px(20), px(12)))
 	node.add_theme_color_override("font_color", font_color)
 	node.add_theme_color_override("font_hover_color", Palette.BONE_HI)
 	node.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
@@ -217,8 +257,8 @@ static func button(text: String, kind: String = "secondary") -> Button:
 
 static func icon_button(text: String) -> Button:
 	var node := button(text, "secondary")
-	node.custom_minimum_size = Vector2(46, 46)
-	node.add_theme_font_size_override("font_size", 15)
+	node.custom_minimum_size = Vector2(px(46), px(46))
+	node.add_theme_font_size_override("font_size", px(15))
 	return node
 
 
@@ -232,21 +272,21 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 	var node := CheckBox.new()
 	node.text = text
 	node.button_pressed = pressed
-	node.custom_minimum_size.y = 44
+	node.custom_minimum_size.y = px(44)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	node.add_theme_font_override("font", font_weight(500))
-	node.add_theme_font_size_override("font_size", 19)
+	node.add_theme_font_size_override("font_size", px(19))
 	node.add_theme_color_override("font_color", Palette.TEXT)
 	node.add_theme_color_override("font_hover_color", Palette.BONE_HI)
 	node.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
 	node.add_theme_color_override("font_focus_color", Palette.TEXT)
 	node.add_theme_color_override("font_disabled_color", Palette.MUTED)
-	node.add_theme_constant_override("h_separation", 14)
+	node.add_theme_constant_override("h_separation", px(14))
 	node.add_theme_icon_override("checked", switch_texture(true, false))
 	node.add_theme_icon_override("unchecked", switch_texture(false, false))
 	node.add_theme_icon_override("checked_disabled", switch_texture(true, true))
 	node.add_theme_icon_override("unchecked_disabled", switch_texture(false, true))
-	node.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), 6, 4))
+	node.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), px(6), px(4)))
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return node
 
@@ -254,14 +294,14 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 static func add_toggle(parent: VBoxContainer, title_text: String, desc: String, pressed: bool, callback: Callable) -> CheckBox:
 	var wrap := VBoxContainer.new()
 	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
-	wrap.add_theme_constant_override("separation", 2)
+	wrap.add_theme_constant_override("separation", SettingsUI.px(2))
 	var check := switch_check(title_text, pressed)
 	check.toggled.connect(callback)
 	wrap.add_child(check)
 	if not desc.is_empty():
 		var indent := MarginContainer.new()
 		indent.mouse_filter = Control.MOUSE_FILTER_PASS
-		indent.add_theme_constant_override("margin_left", int(SWITCH_SIZE.x) + 14)
+		indent.add_theme_constant_override("margin_left", int(switch_size().x) + px(14))
 		indent.add_child(description(desc))
 		wrap.add_child(indent)
 	parent.add_child(wrap)
@@ -278,8 +318,9 @@ static func switch_texture(on: bool, disabled: bool) -> ImageTexture:
 	if not on and not disabled and _switch_off != null:
 		return _switch_off
 
-	var w: int = int(SWITCH_SIZE.x)
-	var h: int = int(SWITCH_SIZE.y)
+	var size := switch_size()
+	var w: int = int(size.x)
+	var h: int = int(size.y)
 	var image := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var radius: float = h * 0.5
 	var track: Color = Palette.ACCENT if on else Color(1, 1, 1, 0.16)
@@ -342,11 +383,11 @@ class Segmented extends PanelContainer:
 	func _init(options: Array) -> void:
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		var track := SettingsUI.flat(Palette.SURFACE_2, 14)
-		SettingsUI.pad(track, 4, 4)
+		SettingsUI.pad(track, SettingsUI.px(4), SettingsUI.px(4))
 		add_theme_stylebox_override("panel", track)
 		var row := HBoxContainer.new()
 		row.mouse_filter = Control.MOUSE_FILTER_PASS
-		row.add_theme_constant_override("separation", 4)
+		row.add_theme_constant_override("separation", SettingsUI.px(4))
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		add_child(row)
 		for option in options:
@@ -358,10 +399,10 @@ class Segmented extends PanelContainer:
 		var node := CheckBox.new()
 		node.text = text
 		node.alignment = HORIZONTAL_ALIGNMENT_CENTER
-		node.custom_minimum_size.y = 44
+		node.custom_minimum_size.y = SettingsUI.px(44)
 		node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		node.add_theme_font_override("font", SettingsUI.font_weight(500))
-		node.add_theme_font_size_override("font_size", 16)
+		node.add_theme_font_size_override("font_size", SettingsUI.px(16))
 		node.add_theme_color_override("font_color", Palette.CHROME)
 		node.add_theme_color_override("font_hover_color", Palette.BONE_HI)
 		node.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
@@ -397,11 +438,11 @@ static func slider(min_value: float, max_value: float, step: float, value: float
 	node.max_value = max_value
 	node.step = step
 	node.value = value
-	node.custom_minimum_size.y = 44
+	node.custom_minimum_size.y = px(44)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	node.add_theme_stylebox_override("slider", pad(flat(Color(1, 1, 1, 0.10), 4), 0, 3))
-	node.add_theme_stylebox_override("grabber_area", pad(flat(Palette.ACCENT, 4), 0, 3))
-	node.add_theme_stylebox_override("grabber_area_highlight", pad(flat(Palette.ACCENT_BRIGHT, 4), 0, 3))
+	node.add_theme_stylebox_override("slider", pad(flat(Color(1, 1, 1, 0.10), 4), 0, px(3)))
+	node.add_theme_stylebox_override("grabber_area", pad(flat(Palette.ACCENT, 4), 0, px(3)))
+	node.add_theme_stylebox_override("grabber_area_highlight", pad(flat(Palette.ACCENT_BRIGHT, 4), 0, px(3)))
 	node.add_theme_icon_override("grabber", grabber_texture())
 	node.add_theme_icon_override("grabber_highlight", grabber_texture())
 	node.add_theme_stylebox_override("focus", flat(Color.TRANSPARENT, 4))
@@ -412,17 +453,17 @@ static func slider(min_value: float, max_value: float, step: float, value: float
 static func grabber_texture() -> ImageTexture:
 	if _grabber != null:
 		return _grabber
-	var size: int = 30
+	var size: int = px(30)
 	var image := Image.create(size, size, false, Image.FORMAT_RGBA8)
 	var center := Vector2(size * 0.5, size * 0.5)
 	for y in size:
 		for x in size:
 			var p := Vector2(x + 0.5, y + 0.5)
-			var shadow := _coverage(p.distance_to(center + Vector2(0, 1.5)) - 10.5)
+			var shadow := _coverage(p.distance_to(center + Vector2(0, 1.5 * ui_scale)) - 10.5 * ui_scale)
 			_blend(image, x, y, Color(0, 0, 0, 0.35 * shadow))
-			var body := _coverage(p.distance_to(center) - 10.0)
+			var body := _coverage(p.distance_to(center) - 10.0 * ui_scale)
 			_blend(image, x, y, Color(Palette.BONE_HI.r, Palette.BONE_HI.g, Palette.BONE_HI.b, body))
-			var ring := _coverage(absf(p.distance_to(center) - 6.2) - 1.0)
+			var ring := _coverage(absf(p.distance_to(center) - 6.2 * ui_scale) - 1.0 * ui_scale)
 			_blend(image, x, y, Color(Palette.ACCENT.r, Palette.ACCENT.g, Palette.ACCENT.b, 0.85 * ring))
 	_grabber = ImageTexture.create_from_image(image)
 	return _grabber
@@ -432,11 +473,11 @@ static func value_badge(text: String) -> PanelContainer:
 	var panel := PanelContainer.new()
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var sb := flat(Palette.SURFACE_2, 9)
-	pad(sb, 10, 4)
+	pad(sb, px(10), px(4))
 	panel.add_theme_stylebox_override("panel", sb)
 	var node := label(text, 14, Palette.BONE, 500)
 	node.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	node.custom_minimum_size.x = 58
+	node.custom_minimum_size.x = px(58)
 	panel.add_child(node)
 	panel.set_meta("value_label", node)
 	return panel
@@ -444,12 +485,12 @@ static func value_badge(text: String) -> PanelContainer:
 
 static func add_slider_row(parent: VBoxContainer, title_text: String, desc: String, min_value: float, max_value: float, step: float, value: float, formatter: Callable, on_change: Callable, on_drag_ended: Callable = Callable()) -> HSlider:
 	var wrap := VBoxContainer.new()
-	wrap.add_theme_constant_override("separation", 6)
+	wrap.add_theme_constant_override("separation", SettingsUI.px(6))
 	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 
 	var head := HBoxContainer.new()
-	head.add_theme_constant_override("separation", 12)
+	head.add_theme_constant_override("separation", SettingsUI.px(12))
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	head.mouse_filter = Control.MOUSE_FILTER_PASS
 	var name_label := label(title_text, 17, Palette.TEXT, 500)
@@ -481,42 +522,42 @@ static func add_slider_row(parent: VBoxContainer, title_text: String, desc: Stri
 
 static func style_progress(bar: ProgressBar) -> void:
 	bar.mouse_filter = Control.MOUSE_FILTER_PASS
-	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 5), 0, 4))
-	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 5), 0, 4))
-	bar.custom_minimum_size.y = 10
+	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 5), 0, px(4)))
+	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 5), 0, px(4)))
+	bar.custom_minimum_size.y = px(10)
 
 
 # --- Inputs -----------------------------------------------------------------
 
 static func style_line_edit(edit: LineEdit) -> void:
-	edit.custom_minimum_size.y = 46
+	edit.custom_minimum_size.y = px(46)
 	edit.add_theme_font_override("font", font_weight(450))
-	edit.add_theme_font_size_override("font_size", 16)
+	edit.add_theme_font_size_override("font_size", px(16))
 	edit.add_theme_color_override("font_color", Palette.TEXT)
 	edit.add_theme_color_override("font_placeholder_color", Palette.MUTED)
 	edit.add_theme_color_override("caret_color", Palette.ACCENT)
 	edit.add_theme_color_override("selection_color", Palette.ACCENT_SOFT)
-	var normal := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), 14, 10)
-	var focus := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), 14, 10)
-	var read_only := pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), 14, 10)
+	var normal := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), px(14), px(10))
+	var focus := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), px(14), px(10))
+	var read_only := pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), px(14), px(10))
 	edit.add_theme_stylebox_override("normal", normal)
 	edit.add_theme_stylebox_override("focus", focus)
 	edit.add_theme_stylebox_override("read_only", read_only)
 
 
 static func style_option(option: OptionButton) -> void:
-	option.custom_minimum_size.y = 44
+	option.custom_minimum_size.y = px(44)
 	option.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	option.add_theme_font_override("font", font_weight(500))
-	option.add_theme_font_size_override("font_size", 16)
+	option.add_theme_font_size_override("font_size", px(16))
 	option.add_theme_color_override("font_color", Palette.BONE)
 	option.add_theme_color_override("font_hover_color", Palette.BONE_HI)
 	option.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
 	option.add_theme_color_override("font_focus_color", Palette.BONE)
-	option.add_theme_stylebox_override("normal", pad(flat(Palette.SURFACE_2, 10), 14, 9))
-	option.add_theme_stylebox_override("hover", pad(flat(Palette.SURFACE_3, 10), 14, 9))
-	option.add_theme_stylebox_override("pressed", pad(flat(Palette.SURFACE_3, 10), 14, 9))
-	option.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, 10, 1, Palette.ACCENT_EDGE), 14, 9))
+	option.add_theme_stylebox_override("normal", pad(flat(Palette.SURFACE_2, 10), px(14), px(9)))
+	option.add_theme_stylebox_override("hover", pad(flat(Palette.SURFACE_3, 10), px(14), px(9)))
+	option.add_theme_stylebox_override("pressed", pad(flat(Palette.SURFACE_3, 10), px(14), px(9)))
+	option.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, 10, 1, Palette.ACCENT_EDGE), px(14), px(9)))
 	option.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 
@@ -533,28 +574,28 @@ class NavButton extends Button:
 		focus_mode = Control.FOCUS_ALL
 		alignment = HORIZONTAL_ALIGNMENT_CENTER if compact else HORIZONTAL_ALIGNMENT_LEFT
 		draw_icon = not compact
-		custom_minimum_size.y = 50
+		custom_minimum_size.y = SettingsUI.px(50)
 		size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		add_theme_font_override("font", SettingsUI.font_weight(500))
-		add_theme_font_size_override("font_size", 16 if compact else 17)
+		add_theme_font_size_override("font_size", SettingsUI.px(16 if compact else 17))
 		add_theme_color_override("font_color", Palette.ASH)
 		add_theme_color_override("font_hover_color", Palette.BONE_HI)
 		add_theme_color_override("font_pressed_color", Palette.BONE_HI)
 		add_theme_color_override("font_focus_color", Palette.BONE_HI)
 
-		var side_pad: int = 14 if compact else 54
-		var normal := SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12), side_pad, 8)
-		var hover := SettingsUI.pad(SettingsUI.flat(Palette.SURFACE_2, 12), side_pad, 8)
+		var side_pad: int = SettingsUI.px(14 if compact else 54)
+		var normal := SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12), side_pad, SettingsUI.px(8))
+		var hover := SettingsUI.pad(SettingsUI.flat(Palette.SURFACE_2, 12), side_pad, SettingsUI.px(8))
 		var active := SettingsUI.flat(Palette.ACCENT_SOFT, 12)
 		active.content_margin_left = side_pad
 		active.content_margin_right = side_pad
-		active.content_margin_top = 8
-		active.content_margin_bottom = 8
+		active.content_margin_top = SettingsUI.px(8)
+		active.content_margin_bottom = SettingsUI.px(8)
 		add_theme_stylebox_override("normal", normal)
 		add_theme_stylebox_override("hover", hover)
 		add_theme_stylebox_override("pressed", active)
 		add_theme_stylebox_override("hover_pressed", active)
-		add_theme_stylebox_override("focus", SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12, 1, Palette.ACCENT_EDGE), side_pad, 8))
+		add_theme_stylebox_override("focus", SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12, 1, Palette.ACCENT_EDGE), side_pad, SettingsUI.px(8)))
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		toggled.connect(func(_on: bool) -> void: queue_redraw())
 		mouse_entered.connect(queue_redraw)
@@ -564,7 +605,7 @@ class NavButton extends Button:
 		if not draw_icon:
 			return
 		var color: Color = Palette.ACCENT if button_pressed else (Palette.BONE if is_hovered() else Palette.ASH)
-		var origin := Vector2(24.0, size.y * 0.5)
+		var origin := Vector2(float(SettingsUI.px(24)), size.y * 0.5)
 		match icon_kind:
 			SettingsUI.ICON_CONTROLS:
 				for i in 3:

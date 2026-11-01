@@ -107,7 +107,9 @@ short description always visible next to the navigation:
 - **Advanced** — guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
 
 The version and credits live behind **About Drum Hero** in the sidebar (or the
-**About** button in the compact layout).
+**About** button in the compact layout). On Android the panel always uses the
+compact top navigation, scales type and touch targets up, and centers the
+content column instead of stretching it across the screen.
 
 Settings are stored in `user://settings.cfg`; best scores are stored separately in `user://scores.cfg`.
 
