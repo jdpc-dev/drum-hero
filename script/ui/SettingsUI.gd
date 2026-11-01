@@ -292,20 +292,75 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 
 
 static func add_toggle(parent: VBoxContainer, title_text: String, desc: String, pressed: bool, callback: Callable) -> CheckBox:
-	var wrap := VBoxContainer.new()
-	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
-	wrap.add_theme_constant_override("separation", SettingsUI.px(2))
 	var check := switch_check(title_text, pressed)
 	check.toggled.connect(callback)
-	wrap.add_child(check)
-	if not desc.is_empty():
-		var indent := MarginContainer.new()
-		indent.mouse_filter = Control.MOUSE_FILTER_PASS
-		indent.add_theme_constant_override("margin_left", int(switch_size().x) + px(14))
-		indent.add_child(description(desc))
-		wrap.add_child(indent)
-	parent.add_child(wrap)
+	parent.add_child(ToggleRow.new(check, desc))
 	return check
+
+
+# The CheckBox is kept for its state and toggled signal, but it does not
+# receive pointer input: the whole row tracks the gesture instead. A tap
+# toggles the switch, while a vertical swipe bubbles to the ScrollContainer so
+# the row does not carve a non-scrollable band out of the card.
+class ToggleRow extends VBoxContainer:
+	var check: CheckBox
+	var _tracking: bool = false
+	var _dragged: bool = false
+	var _press_position: Vector2 = Vector2.ZERO
+
+	func _init(check_node: CheckBox, desc: String) -> void:
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		add_theme_constant_override("separation", SettingsUI.px(2))
+		check = check_node
+		check.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(check)
+		if not desc.is_empty():
+			var indent := MarginContainer.new()
+			indent.mouse_filter = Control.MOUSE_FILTER_PASS
+			indent.add_theme_constant_override("margin_left", int(SettingsUI.switch_size().x) + SettingsUI.px(14))
+			indent.add_child(SettingsUI.description(desc))
+			add_child(indent)
+
+	func _gui_input(event: InputEvent) -> void:
+		if DisplayServer.is_touchscreen_available():
+			if event is InputEventScreenTouch:
+				if event.pressed:
+					_begin(event.position)
+				else:
+					_end()
+			elif event is InputEventScreenDrag:
+				_track(event.position)
+		else:
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+				if event.pressed:
+					_begin(event.position)
+				else:
+					_end()
+			elif event is InputEventMouseMotion and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+				_track(event.position)
+
+	func _begin(position: Vector2) -> void:
+		_tracking = true
+		_dragged = false
+		_press_position = position
+
+	func _track(position: Vector2) -> void:
+		if not _tracking:
+			return
+		if not _dragged and absf(position.y - _press_position.y) > SettingsUI.px(8):
+			_dragged = true
+
+	func _end() -> void:
+		if not _tracking:
+			return
+		_tracking = false
+		if not _dragged:
+			check.button_pressed = not check.button_pressed
+			if not DisplayServer.is_touchscreen_available():
+				check.grab_focus()
+			accept_event()
+		_dragged = false
 
 
 static func switch_texture(on: bool, disabled: bool) -> ImageTexture:
