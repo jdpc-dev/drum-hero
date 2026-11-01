@@ -809,7 +809,7 @@ func _add_disclosure(parent: VBoxContainer, title_text: String, subtitle_text: S
 	var toggle := SettingsUI.button(title_text + "   +", "quiet")
 	toggle.toggle_mode = true
 	toggle.alignment = HORIZONTAL_ALIGNMENT_LEFT
-	toggle.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	toggle.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	toggle.custom_minimum_size.y = SettingsUI.px(44)
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", SettingsUI.px(16))
@@ -819,9 +819,7 @@ func _add_disclosure(parent: VBoxContainer, title_text: String, subtitle_text: S
 		body.visible = on
 		toggle.text = title_text + ("   -" if on else "   +")
 	)
-	parent.add_child(toggle)
-	if not subtitle_text.is_empty():
-		parent.add_child(SettingsUI.description(subtitle_text))
+	parent.add_child(SettingsUI.TapRow.new(toggle, subtitle_text, 0))
 	parent.add_child(body)
 	return body
 

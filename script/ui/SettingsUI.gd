@@ -294,31 +294,37 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 static func add_toggle(parent: VBoxContainer, title_text: String, desc: String, pressed: bool, callback: Callable) -> CheckBox:
 	var check := switch_check(title_text, pressed)
 	check.toggled.connect(callback)
-	parent.add_child(ToggleRow.new(check, desc))
+	parent.add_child(TapRow.new(check, desc))
 	return check
 
 
-# The CheckBox is kept for its state and toggled signal, but it does not
-# receive pointer input: the whole row tracks the gesture instead. A tap
-# toggles the switch, while a vertical swipe bubbles to the ScrollContainer so
-# the row does not carve a non-scrollable band out of the card.
-class ToggleRow extends VBoxContainer:
-	var check: CheckBox
+# A pressable row that can contain a CheckBox or a disclosure button. The
+# target is kept for its state and signals, but it does not receive pointer
+# input: the row tracks the gesture instead. A tap activates the target, while
+# a vertical swipe bubbles to the ScrollContainer so the whole row stays
+# scrollable, including the label and the switch.
+class TapRow extends VBoxContainer:
+	var target: BaseButton
 	var _tracking: bool = false
 	var _dragged: bool = false
 	var _press_position: Vector2 = Vector2.ZERO
 
-	func _init(check_node: CheckBox, desc: String) -> void:
+	func _init(target_node: BaseButton, desc: String, desc_indent: int = -1) -> void:
 		mouse_filter = Control.MOUSE_FILTER_PASS
 		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		add_theme_constant_override("separation", SettingsUI.px(2))
-		check = check_node
-		check.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(check)
+		target = target_node
+		target.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(target)
 		if not desc.is_empty():
+			var indent_px: int = desc_indent
+			if indent_px < 0:
+				indent_px = int(SettingsUI.switch_size().x) + SettingsUI.px(14)
+			else:
+				indent_px = SettingsUI.px(indent_px)
 			var indent := MarginContainer.new()
 			indent.mouse_filter = Control.MOUSE_FILTER_PASS
-			indent.add_theme_constant_override("margin_left", int(SettingsUI.switch_size().x) + SettingsUI.px(14))
+			indent.add_theme_constant_override("margin_left", indent_px)
 			indent.add_child(SettingsUI.description(desc))
 			add_child(indent)
 
@@ -356,9 +362,9 @@ class ToggleRow extends VBoxContainer:
 			return
 		_tracking = false
 		if not _dragged:
-			check.button_pressed = not check.button_pressed
+			target.button_pressed = not target.button_pressed
 			if not DisplayServer.is_touchscreen_available():
-				check.grab_focus()
+				target.grab_focus()
 			accept_event()
 		_dragged = false
 

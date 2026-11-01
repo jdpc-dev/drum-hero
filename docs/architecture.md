@@ -1480,8 +1480,9 @@ Inside that content, every non-interactive node (cards, rows, labels, chips)
 uses `MOUSE_FILTER_PASS`; Godot's built-in drag scrolling only receives the
 drag after it bubbles through the child controls, so a `STOP` filter would leave
 only the gaps between cards swipeable. Sliders keep `STOP` so they own their own
-gesture. Toggle rows use a `PASS` wrapper with a non-interactive `CheckBox`: a
-tap toggles it, while a vertical swipe bubbles to the scroll container.
+gesture. Toggle and disclosure rows use a `PASS` wrapper with a non-interactive
+`BaseButton`: a tap activates it, while a vertical swipe bubbles to the scroll
+container.
 `OptionButton`s pass drags through (a tap still opens the popup), and
 `SettingsRoot._handle_field_scroll()` gives the folder `LineEdit` explicit
 vertical-swipe arbitration: a vertical drag scrolls the page and drops focus,
