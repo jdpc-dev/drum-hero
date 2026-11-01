@@ -724,9 +724,9 @@ static func style_option(option: OptionButton) -> void:
 	popup.add_theme_color_override("font_disabled_color", Palette.MUTED)
 	popup.add_theme_color_override("font_separator_color", Palette.ASH)
 	popup.add_theme_constant_override("v_separation", px(4))
-	popup.add_theme_constant_override("h_separation", px(10))
-	popup.add_theme_constant_override("item_start_padding", px(14))
-	popup.add_theme_constant_override("item_end_padding", px(14))
+	popup.add_theme_constant_override("h_separation", 0)
+	popup.add_theme_constant_override("item_start_padding", px(8))
+	popup.add_theme_constant_override("item_end_padding", px(10))
 	popup.add_theme_constant_override("indent", 0)
 	popup.add_theme_stylebox_override("panel", pad(flat(Palette.SURFACE_2, 14), px(6), px(6)))
 	popup.add_theme_stylebox_override("hover", flat(Palette.ACCENT_SURFACE, 10))
@@ -736,16 +736,11 @@ static func style_option(option: OptionButton) -> void:
 	popup.add_theme_stylebox_override("separator", separator)
 	popup.add_theme_stylebox_override("labeled_separator_left", separator)
 	popup.add_theme_stylebox_override("labeled_separator_right", separator)
-	# The selected value is shown by highlighting its row, not by a radio
-	# marker: hide the check icons and focus that row when the list opens.
-	popup.add_theme_icon_override("radio_checked", _empty())
-	popup.add_theme_icon_override("radio_unchecked", _empty())
-	popup.add_theme_icon_override("radio_checked_disabled", _empty())
-	popup.add_theme_icon_override("radio_unchecked_disabled", _empty())
-	popup.add_theme_icon_override("checked", _empty())
-	popup.add_theme_icon_override("unchecked", _empty())
-	popup.add_theme_icon_override("checked_disabled", _empty())
-	popup.add_theme_icon_override("unchecked_disabled", _empty())
+	# OptionButton creates radio-checkable items, which reserves a marker column
+	# even though the selected state is shown by the row highlight. Drop the
+	# checkable type so the text can use that space.
+	for i in popup.item_count:
+		popup.set_item_as_radio_checkable(i, false)
 	popup.about_to_popup.connect(func() -> void:
 		if option.selected >= 0:
 			popup.set_focused_item(option.selected)
