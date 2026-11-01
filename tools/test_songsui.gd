@@ -129,6 +129,11 @@ func _ready() -> void:
 	_check("hay check Scan Download", _find_check(root, "Scan Download") != null)
 	_check("hay check Search subfolders", _find_check(root, "Search subfolders") != null)
 	_check("hay campo de ruta", root.find_child("*", true, false) != null and dump.contains("absolute path"))
+	_check("hay selector de ubicacion", is_instance_valid(root._root_location_option))
+	_check("selector ofrece almacenamiento interno y externo",
+		root._root_location_option.item_count == 2
+		and root._root_location_option.get_item_text(0).contains("Internal storage")
+		and root._root_location_option.get_item_text(1).contains("External storage"))
 	_check("hay boton Add", _find_button(root, "Add") != null)
 	_check("hay boton Rescan now", _find_button(root, "Rescan now") != null)
 	_check("hay boton Reset SONGS", _find_button(root, "Reset SONGS to Defaults") != null)
@@ -193,6 +198,22 @@ func _ready() -> void:
 	_check("una ruta relativa se convierte en absoluta", SettingsManager.library_roots.has("/relative/path"))
 	root._on_remove_root(0)
 	_check("raiz eliminada", not SettingsManager.library_roots.has("/tmp/opencode/libtest/rootA"))
+
+	print("=== 5b. el formulario antepone la ubicacion elegida ===")
+	SettingsManager.library_roots = PackedStringArray()
+	root._root_location_option.select(0)
+	root._root_path_edit.text = "Download/RockBand"
+	root._on_add_extra_folder()
+	_check("almacenamiento interno antepuesto", SettingsManager.library_roots.has("/storage/emulated/0/Download/RockBand"))
+	_check("el campo se limpia tras anadir", root._root_path_edit.text.is_empty())
+	root._root_location_option.select(1)
+	root._root_path_edit.text = "Music/RockBand"
+	root._on_add_extra_folder()
+	_check("almacenamiento externo antepuesto", SettingsManager.library_roots.has("/sdcard/Music/RockBand"))
+	root._root_path_edit.text = "/tmp/opencode/pasted"
+	root._on_add_extra_folder()
+	_check("una ruta absoluta no se antepone", SettingsManager.library_roots.has("/tmp/opencode/pasted"))
+	SettingsManager.library_roots = PackedStringArray()
 
 	print("=== 6. toggles escriben en SettingsManager ===")
 	_find_check(root, "Search subfolders").set_pressed_no_signal(false)

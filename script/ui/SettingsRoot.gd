@@ -49,6 +49,7 @@ var _scan_pump_active: bool = false
 var _songs_link_status: Label
 var _library_section: VBoxContainer
 var _root_path_edit: LineEdit
+var _root_location_option: OptionButton
 var _keyboard_spacer: Control
 var _keyboard_base_viewport_h: float = 0.0
 var _keyboard_last_height: int = 0
@@ -82,6 +83,15 @@ const LANE_LABELS: PackedStringArray = [
 const SONGS_TAB: int = 2
 const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
+
+# Bases offered by the extra-folder form. Picking one keeps the player from
+# typing the Android mount point every time; the folder field only takes the
+# path inside it. An absolute path typed in the field still wins, so pasted
+# paths from a file manager keep working.
+const STORAGE_LOCATIONS: Array[Dictionary] = [
+	{"label": "Internal storage", "path": "/storage/emulated/0"},
+	{"label": "External storage", "path": "/sdcard"},
+]
 
 const LANE_COLORS: Array[Color] = [
 	Color(0.9, 0.8, 0.2),
@@ -341,6 +351,7 @@ func _build_tab_content() -> void:
 	# The songs widgets are destroyed with the content. Clearing the references
 	# here keeps the keyboard follow-up from touching a node queued for free.
 	_root_path_edit = null
+	_root_location_option = null
 	_keyboard_spacer = null
 	_library_section = null
 	_keyboard_settle_frames = 0
@@ -955,8 +966,18 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 
 	var add_hbox := HBoxContainer.new()
 	add_hbox.add_theme_constant_override("separation", 10)
+	var location_option := OptionButton.new()
+	location_option.name = "StorageLocationOption"
+	location_option.add_theme_font_size_override("font_size", 18)
+	location_option.custom_minimum_size = Vector2(250, 40)
+	for location in STORAGE_LOCATIONS:
+		location_option.add_item("%s (%s)" % [location["label"], location["path"]])
+	location_option.select(0)
+	add_hbox.add_child(location_option)
+	_root_location_option = location_option
 	var path_edit := LineEdit.new()
-	path_edit.placeholder_text = "/storage/emulated/0/Download/RockBand"
+	path_edit.name = "ExtraFolderPathEdit"
+	path_edit.placeholder_text = "Download/RockBand"
 	path_edit.add_theme_font_size_override("font_size", 18)
 	path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	path_edit.text_submitted.connect(_on_root_path_submitted)
@@ -967,14 +988,15 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	var add_btn := Button.new()
 	add_btn.text = "Add"
 	add_btn.custom_minimum_size = Vector2(110, 40)
-	add_btn.pressed.connect(func() -> void: _on_add_root(path_edit.text))
+	add_btn.pressed.connect(_on_add_extra_folder)
 	add_hbox.add_child(add_btn)
 	parent.add_child(add_hbox)
 
 	var add_hint := Label.new()
-	add_hint.text = "Type the absolute path, or paste a folder path copied from a file manager."
+	add_hint.text = "Pick a storage location, then type the folder inside it (for example Download/RockBand). An absolute path is still accepted."
 	add_hint.add_theme_font_size_override("font_size", 14)
 	add_hint.add_theme_color_override("font_color", Palette.ASH_DIM)
+	add_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	parent.add_child(add_hint)
 
 	parent.add_child(_spacer(20))
@@ -1209,23 +1231,56 @@ func _format_last_scan() -> String:
 	return str(age / 86400) + " day(s) ago"
 
 
-func _on_add_root(raw_path: String) -> void:
-	var path: String = raw_path.strip_edges()
+func _selected_storage_base() -> String:
+	if is_instance_valid(_root_location_option) and _root_location_option.selected >= 0:
+		var index: int = clampi(_root_location_option.selected, 0, STORAGE_LOCATIONS.size() - 1)
+		return str(STORAGE_LOCATIONS[index]["path"])
+	return str(STORAGE_LOCATIONS[0]["path"])
+
+
+func _compose_root_path(folder: String) -> String:
+	var typed: String = folder.strip_edges()
+	if typed.is_empty():
+		return ""
+	# Pasted absolute paths keep working, so the form is not limited to the two
+	# presets (a file manager may hand out any mount point).
+	if typed.begins_with("/"):
+		return typed
+	# A missing leading slash before a well-known mount point is treated as an
+	# absolute path instead of nesting it under the selected location.
+	if typed == "sdcard" or typed.begins_with("sdcard/") or typed.begins_with("storage/emulated/"):
+		return "/" + typed
+	return _selected_storage_base().path_join(typed)
+
+
+func _on_add_extra_folder() -> void:
+	if not is_instance_valid(_root_path_edit):
+		return
+	var path: String = _compose_root_path(_root_path_edit.text)
 	if path.is_empty():
 		return
+	if _on_add_root(path):
+		_root_path_edit.text = ""
+
+
+func _on_add_root(raw_path: String) -> bool:
+	var path: String = raw_path.strip_edges()
+	if path.is_empty():
+		return false
 	if not path.begins_with("/"):
 		path = "/" + path
 	path = path.simplify_path()
 	if SettingsManager.library_roots.has(path):
-		return
+		return false
 	SettingsManager.library_roots.append(path)
 	SettingsManager.save_settings()
 	_rebuild_roots_list()
 	_update_scan_summary()
+	return true
 
 
-func _on_root_path_submitted(text: String) -> void:
-	_on_add_root(text)
+func _on_root_path_submitted(_text: String) -> void:
+	_on_add_extra_folder()
 
 
 func _on_root_path_focus_entered(edit: LineEdit) -> void:
