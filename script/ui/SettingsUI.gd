@@ -66,6 +66,7 @@ static func font_weight(weight: int) -> Font:
 static func label(text: String, font_size: int, color: Color, weight: int = 400) -> Label:
 	var node := Label.new()
 	node.text = text
+	node.mouse_filter = Control.MOUSE_FILTER_PASS
 	node.add_theme_font_override("font", font_weight(weight))
 	node.add_theme_font_size_override("font_size", font_size)
 	node.add_theme_color_override("font_color", color)
@@ -99,7 +100,7 @@ static func divider() -> Control:
 	var line := ColorRect.new()
 	line.color = Palette.BORDER_SOFT
 	line.custom_minimum_size.y = 1
-	line.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	line.mouse_filter = Control.MOUSE_FILTER_PASS
 	return line
 
 
@@ -108,14 +109,13 @@ class Section extends PanelContainer:
 	var body: VBoxContainer
 
 	func _init(title_text: String = "", subtitle_text: String = "") -> void:
-		var sb := SettingsUI.flat(Palette.SURFACE_0, SettingsUI.RADIUS_CARD, 1, Palette.BORDER_SOFT)
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		var sb := SettingsUI.flat(Palette.SURFACE_1, SettingsUI.RADIUS_CARD)
 		SettingsUI.pad(sb, 22, 20)
-		sb.shadow_color = Color(0, 0, 0, 0.22)
-		sb.shadow_size = 10
-		sb.shadow_offset = Vector2(0, 4)
 		add_theme_stylebox_override("panel", sb)
 
 		var column := VBoxContainer.new()
+		column.mouse_filter = Control.MOUSE_FILTER_PASS
 		column.add_theme_constant_override("separation", 12)
 		add_child(column)
 
@@ -125,6 +125,7 @@ class Section extends PanelContainer:
 			column.add_child(SettingsUI.description(subtitle_text))
 
 		body = VBoxContainer.new()
+		body.mouse_filter = Control.MOUSE_FILTER_PASS
 		body.add_theme_constant_override("separation", 16)
 		column.add_child(body)
 
@@ -137,10 +138,12 @@ static func section(title_text: String = "", subtitle_text: String = "") -> Sect
 
 static func row(title_text: String, desc: String = "", control: Control = null) -> HBoxContainer:
 	var node := HBoxContainer.new()
+	node.mouse_filter = Control.MOUSE_FILTER_PASS
 	node.add_theme_constant_override("separation", 18)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 
 	var text_column := VBoxContainer.new()
+	text_column.mouse_filter = Control.MOUSE_FILTER_PASS
 	text_column.add_theme_constant_override("separation", 3)
 	text_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	text_column.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -177,9 +180,9 @@ static func button(text: String, kind: String = "secondary") -> Button:
 			pressed = pad(flat(Palette.BLOOD_BRIGHT, RADIUS_CONTROL), 22, 12)
 			font_color = Palette.BONE_HI
 		"ghost":
-			normal = pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Palette.BORDER_SOFT), 20, 12)
-			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL, 1, Palette.BORDER), 20, 12)
-			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL, 1, Palette.BORDER_STRONG), 20, 12)
+			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), 20, 12)
+			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), 20, 12)
+			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), 20, 12)
 			font_color = Palette.CHROME
 		"quiet":
 			normal = pad(flat(Color.TRANSPARENT, RADIUS_CONTROL), 16, 12)
@@ -187,9 +190,9 @@ static func button(text: String, kind: String = "secondary") -> Button:
 			pressed = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), 16, 12)
 			font_color = Palette.CHROME
 		"danger":
-			normal = pad(flat(Color.TRANSPARENT, RADIUS_CONTROL, 1, Color(Palette.BLOOD_GLOW, 0.30)), 20, 12)
-			hover = pad(flat(Palette.ACCENT_FAINT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), 20, 12)
-			pressed = pad(flat(Palette.ACCENT_SOFT, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), 20, 12)
+			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), 20, 12)
+			hover = pad(flat(Palette.ACCENT_FAINT, RADIUS_CONTROL), 20, 12)
+			pressed = pad(flat(Palette.ACCENT_SOFT, RADIUS_CONTROL), 20, 12)
 			font_color = Palette.BLOOD_GLOW
 		_:
 			normal = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), 22, 12)
@@ -250,12 +253,14 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 
 static func add_toggle(parent: VBoxContainer, title_text: String, desc: String, pressed: bool, callback: Callable) -> CheckBox:
 	var wrap := VBoxContainer.new()
+	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 	wrap.add_theme_constant_override("separation", 2)
 	var check := switch_check(title_text, pressed)
 	check.toggled.connect(callback)
 	wrap.add_child(check)
 	if not desc.is_empty():
 		var indent := MarginContainer.new()
+		indent.mouse_filter = Control.MOUSE_FILTER_PASS
 		indent.add_theme_constant_override("margin_left", int(SWITCH_SIZE.x) + 14)
 		indent.add_child(description(desc))
 		wrap.add_child(indent)
@@ -335,10 +340,12 @@ class Segmented extends PanelContainer:
 	var buttons: Array[CheckBox] = []
 
 	func _init(options: Array) -> void:
-		var track := SettingsUI.flat(Palette.SURFACE_2, 14, 1, Palette.BORDER_SOFT)
+		mouse_filter = Control.MOUSE_FILTER_PASS
+		var track := SettingsUI.flat(Palette.SURFACE_2, 14)
 		SettingsUI.pad(track, 4, 4)
 		add_theme_stylebox_override("panel", track)
 		var row := HBoxContainer.new()
+		row.mouse_filter = Control.MOUSE_FILTER_PASS
 		row.add_theme_constant_override("separation", 4)
 		row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		add_child(row)
@@ -365,9 +372,9 @@ class Segmented extends PanelContainer:
 		node.add_theme_icon_override("unchecked_disabled", SettingsUI._empty())
 		node.add_theme_stylebox_override("normal", SettingsUI.flat(Color.TRANSPARENT, 10))
 		node.add_theme_stylebox_override("hover", SettingsUI.flat(Palette.SURFACE_3, 10))
-		node.add_theme_stylebox_override("pressed", SettingsUI.flat(Palette.ACCENT_SOFT, 10, 1, Palette.ACCENT_EDGE))
-		node.add_theme_stylebox_override("hover_pressed", SettingsUI.flat(Palette.ACCENT_SOFT, 10, 1, Palette.ACCENT_EDGE))
-		node.add_theme_stylebox_override("focus", SettingsUI.flat(Color.TRANSPARENT, 10, 1, Palette.ACCENT_EDGE))
+		node.add_theme_stylebox_override("pressed", SettingsUI.flat(Palette.ACCENT_SOFT, 10))
+		node.add_theme_stylebox_override("hover_pressed", SettingsUI.flat(Palette.ACCENT_SOFT, 10))
+		node.add_theme_stylebox_override("focus", SettingsUI.flat(Palette.ACCENT_SOFT, 10))
 		node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 		return node
 
@@ -423,7 +430,8 @@ static func grabber_texture() -> ImageTexture:
 
 static func value_badge(text: String) -> PanelContainer:
 	var panel := PanelContainer.new()
-	var sb := flat(Palette.SURFACE_2, 9, 1, Palette.BORDER_SOFT)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	var sb := flat(Palette.SURFACE_2, 9)
 	pad(sb, 10, 4)
 	panel.add_theme_stylebox_override("panel", sb)
 	var node := label(text, 14, Palette.BONE, 500)
@@ -438,10 +446,12 @@ static func add_slider_row(parent: VBoxContainer, title_text: String, desc: Stri
 	var wrap := VBoxContainer.new()
 	wrap.add_theme_constant_override("separation", 6)
 	wrap.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrap.mouse_filter = Control.MOUSE_FILTER_PASS
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
 	head.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	head.mouse_filter = Control.MOUSE_FILTER_PASS
 	var name_label := label(title_text, 17, Palette.TEXT, 500)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	name_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -470,6 +480,7 @@ static func add_slider_row(parent: VBoxContainer, title_text: String, desc: Stri
 # --- Progress ---------------------------------------------------------------
 
 static func style_progress(bar: ProgressBar) -> void:
+	bar.mouse_filter = Control.MOUSE_FILTER_PASS
 	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 5), 0, 4))
 	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 5), 0, 4))
 	bar.custom_minimum_size.y = 10
@@ -485,9 +496,9 @@ static func style_line_edit(edit: LineEdit) -> void:
 	edit.add_theme_color_override("font_placeholder_color", Palette.MUTED)
 	edit.add_theme_color_override("caret_color", Palette.ACCENT)
 	edit.add_theme_color_override("selection_color", Palette.ACCENT_SOFT)
-	var normal := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL, 1, Palette.BORDER_SOFT), 14, 10)
+	var normal := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), 14, 10)
 	var focus := pad(flat(Palette.SURFACE_2, RADIUS_CONTROL, 1, Palette.ACCENT_EDGE), 14, 10)
-	var read_only := pad(flat(Palette.SURFACE_1, RADIUS_CONTROL, 1, Palette.BORDER_SOFT), 14, 10)
+	var read_only := pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), 14, 10)
 	edit.add_theme_stylebox_override("normal", normal)
 	edit.add_theme_stylebox_override("focus", focus)
 	edit.add_theme_stylebox_override("read_only", read_only)
@@ -502,9 +513,9 @@ static func style_option(option: OptionButton) -> void:
 	option.add_theme_color_override("font_hover_color", Palette.BONE_HI)
 	option.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
 	option.add_theme_color_override("font_focus_color", Palette.BONE)
-	option.add_theme_stylebox_override("normal", pad(flat(Palette.SURFACE_2, 10, 1, Palette.BORDER_SOFT), 14, 9))
-	option.add_theme_stylebox_override("hover", pad(flat(Palette.SURFACE_3, 10, 1, Palette.BORDER), 14, 9))
-	option.add_theme_stylebox_override("pressed", pad(flat(Palette.SURFACE_3, 10, 1, Palette.BORDER), 14, 9))
+	option.add_theme_stylebox_override("normal", pad(flat(Palette.SURFACE_2, 10), 14, 9))
+	option.add_theme_stylebox_override("hover", pad(flat(Palette.SURFACE_3, 10), 14, 9))
+	option.add_theme_stylebox_override("pressed", pad(flat(Palette.SURFACE_3, 10), 14, 9))
 	option.add_theme_stylebox_override("focus", pad(flat(Color.TRANSPARENT, 10, 1, Palette.ACCENT_EDGE), 14, 9))
 	option.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
@@ -535,8 +546,6 @@ class NavButton extends Button:
 		var normal := SettingsUI.pad(SettingsUI.flat(Color.TRANSPARENT, 12), side_pad, 8)
 		var hover := SettingsUI.pad(SettingsUI.flat(Palette.SURFACE_2, 12), side_pad, 8)
 		var active := SettingsUI.flat(Palette.ACCENT_SOFT, 12)
-		active.border_width_left = 3
-		active.border_color = Palette.ACCENT
 		active.content_margin_left = side_pad
 		active.content_margin_right = side_pad
 		active.content_margin_top = 8

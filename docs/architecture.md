@@ -32,7 +32,7 @@ Main (CanvasLayer)                      ← MenuRoot.gd
 │       └── [5 buttons]                — disabled if unavailable
 
 Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
-├── Background (ColorRect) + soft radial accent glow
+├── Background (ColorRect)
 ├── MarginContainer (26px wide / 16px compact)
 │   └── HBoxContainer (wide) or VBoxContainer (compact)
 │       ├── SidebarScroll (ScrollContainer, fixed 258px, wide only)
@@ -1467,6 +1467,11 @@ their defaults and rebuilds the active tab's UI.
 `CanvasLayer` and not inside a `ScrollContainer` do not render correctly. To fix
 this, the sidebar, page header and navigation strip all use fixed
 `ScrollContainer`s (scroll disabled) while the content uses a scrollable one.
+Inside that content, every non-interactive node (cards, rows, labels, chips)
+uses `MOUSE_FILTER_PASS`; Godot's built-in drag scrolling only receives the
+drag after it bubbles through the child controls, so a `STOP` filter would leave
+only the gaps between cards swipeable. Interactive controls keep `STOP` so a
+slider or switch owns its own gesture.
 
 ---
 

@@ -128,6 +128,7 @@ func _ready() -> void:
 	_preview_player.name = "PreviewPlayer"
 	_preview_player.bus = "Music"
 	add_child(_preview_player)
+	SettingsManager.preview_volume_changed.connect(_on_preview_volume_changed)
 	SongLoader.scan_progress.connect(_on_scan_progress)
 	_build_ui()
 	_rebuild_filtered_list()
@@ -1011,6 +1012,23 @@ func _play_preview(original_index: int) -> void:
 	_preview_fade_tween = create_tween()
 	_preview_fade_tween.tween_property(_preview_player, "volume_db", linear_to_db(SettingsManager.preview_volume), PREVIEW_FADE_IN_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 	_preview_status_label.text = "♫  " + song.artist + " - " + song.name
+
+
+func _on_preview_volume_changed(volume: float) -> void:
+	# The slider is in Settings, which is opened over this menu: an already
+	# playing preview has to follow the new level instead of waiting for the
+	# next selected song.
+	if not is_instance_valid(_preview_player) or _preview_fading_out:
+		return
+	if _preview_fade_tween != null:
+		_preview_fade_tween.kill()
+		_preview_fade_tween = null
+	var target_db: float = linear_to_db(maxf(volume, 0.0001))
+	if _preview_player.playing:
+		_preview_player.volume_db = target_db
+	for player in _preview_stem_players:
+		if is_instance_valid(player) and player.playing:
+			player.volume_db = target_db
 
 
 func _stop_preview() -> void:

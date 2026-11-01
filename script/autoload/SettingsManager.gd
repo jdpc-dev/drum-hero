@@ -1,5 +1,7 @@
 extends Node
 
+signal preview_volume_changed(volume: float)
+
 const SETTINGS_PATH: String = "user://settings.cfg"
 
 var note_speed: float = 1.0
@@ -167,6 +169,7 @@ func reset_audio_to_defaults() -> void:
 	preview_volume = 0.8
 	default_sample_velocity = 100
 	save_settings()
+	preview_volume_changed.emit(preview_volume)
 
 
 func reset_library_to_defaults() -> void:
@@ -188,6 +191,11 @@ func reset_experimental_to_defaults() -> void:
 	gameplay_padding_top = 0.0
 	gameplay_padding_bottom = 0.0
 	save_settings()
+
+
+func update_preview_volume(value: float) -> void:
+	preview_volume = clampf(value, 0.0, 1.0)
+	preview_volume_changed.emit(preview_volume)
 
 
 func save_settings() -> void:

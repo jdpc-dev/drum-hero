@@ -14,6 +14,7 @@ const FOLDER_MAX_CHARS: int = 46
 
 static func make_status_label() -> Label:
 	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	label.add_theme_font_size_override("font_size", 18)
 	label.add_theme_color_override("font_color", Palette.CHROME)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -22,6 +23,7 @@ static func make_status_label() -> Label:
 
 static func make_folder_label() -> Label:
 	var label := Label.new()
+	label.mouse_filter = Control.MOUSE_FILTER_PASS
 	label.add_theme_font_size_override("font_size", 14)
 	label.add_theme_color_override("font_color", Palette.ASH_DIM)
 	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER

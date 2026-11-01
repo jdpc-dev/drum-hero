@@ -290,7 +290,6 @@ func _build_ui() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
-	_add_background_glow()
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -319,26 +318,6 @@ func _build_ui() -> void:
 	_build_tab_content()
 
 
-func _add_background_glow() -> void:
-	var gradient := Gradient.new()
-	gradient.set_color(0, Color(Palette.ACCENT, 0.075))
-	gradient.set_color(1, Color(Palette.ACCENT, 0.0))
-	var texture := GradientTexture2D.new()
-	texture.gradient = gradient
-	texture.fill = GradientTexture2D.FILL_RADIAL
-	texture.fill_from = Vector2(0.10, -0.05)
-	texture.fill_to = Vector2(0.78, 0.72)
-	texture.width = 512
-	texture.height = 512
-	var glow := TextureRect.new()
-	glow.texture = texture
-	glow.set_anchors_preset(Control.PRESET_FULL_RECT)
-	glow.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	glow.stretch_mode = TextureRect.STRETCH_SCALE
-	glow.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(glow)
-
-
 func _build_sidebar() -> Control:
 	var scroll := ScrollContainer.new()
 	scroll.custom_minimum_size.x = 258
@@ -350,7 +329,8 @@ func _build_sidebar() -> Control:
 	var panel := PanelContainer.new()
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	var sb := SettingsUI.flat(Palette.SURFACE_0, 20, 1, Palette.BORDER_SOFT)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	var sb := SettingsUI.flat(Palette.SURFACE_0, 20)
 	SettingsUI.pad(sb, 14, 18)
 	panel.add_theme_stylebox_override("panel", sb)
 	scroll.add_child(panel)
@@ -358,16 +338,18 @@ func _build_sidebar() -> Control:
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.mouse_filter = Control.MOUSE_FILTER_PASS
 	column.add_theme_constant_override("separation", 6)
 	panel.add_child(column)
 
 	var brand := VBoxContainer.new()
+	brand.mouse_filter = Control.MOUSE_FILTER_PASS
 	brand.add_theme_constant_override("separation", 0)
 	var wordmark := SettingsUI.label("DRUM HERO", 11, Palette.ACCENT, 600)
-	wordmark.add_theme_constant_override("outline_size", 0)
 	brand.add_child(wordmark)
 	brand.add_child(SettingsUI.label("Settings", 30, Palette.BONE_HI, 600))
 	var brand_pad := MarginContainer.new()
+	brand_pad.mouse_filter = Control.MOUSE_FILTER_PASS
 	brand_pad.add_theme_constant_override("margin_left", 8)
 	brand_pad.add_theme_constant_override("margin_bottom", 12)
 	brand_pad.add_child(brand)
@@ -376,6 +358,7 @@ func _build_sidebar() -> Control:
 	var nav := VBoxContainer.new()
 	nav.add_theme_constant_override("separation", 4)
 	nav.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	nav.mouse_filter = Control.MOUSE_FILTER_PASS
 	column.add_child(nav)
 	for i in TAB_COUNT:
 		var button := _build_nav_button(i, false)
@@ -384,6 +367,7 @@ func _build_sidebar() -> Control:
 	var spacer := Control.new()
 	spacer.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	spacer.custom_minimum_size.y = 16
+	spacer.mouse_filter = Control.MOUSE_FILTER_PASS
 	column.add_child(spacer)
 
 	column.add_child(SettingsUI.divider())
@@ -396,6 +380,7 @@ func _build_sidebar() -> Control:
 	var version: String = str(ProjectSettings.get_setting("application/config/version", "1.0.0"))
 	var version_label := SettingsUI.label("Version " + version, 11, Palette.MUTED)
 	var version_pad := MarginContainer.new()
+	version_pad.mouse_filter = Control.MOUSE_FILTER_PASS
 	version_pad.add_theme_constant_override("margin_left", 16)
 	version_pad.add_child(version_label)
 	column.add_child(version_pad)
@@ -406,6 +391,7 @@ func _build_main_column(compact_nav: bool) -> Control:
 	var column := VBoxContainer.new()
 	column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	column.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.mouse_filter = Control.MOUSE_FILTER_PASS
 	column.add_theme_constant_override("separation", 12)
 	column.add_child(_build_page_header())
 	if compact_nav:
@@ -424,12 +410,14 @@ func _build_page_header() -> Control:
 
 	var header := HBoxContainer.new()
 	header.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.mouse_filter = Control.MOUSE_FILTER_PASS
 	header.add_theme_constant_override("separation", 18)
 	header_scroll.add_child(header)
 
 	var titles := VBoxContainer.new()
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	titles.mouse_filter = Control.MOUSE_FILTER_PASS
 	titles.add_theme_constant_override("separation", 2)
 	_page_title_label = SettingsUI.title("Controls")
 	_page_title_label.add_theme_font_size_override("font_size", 34 if _wide_layout else 28)
@@ -464,6 +452,7 @@ func _build_nav_strip() -> Control:
 
 	var row := HBoxContainer.new()
 	row.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	row.add_theme_constant_override("separation", 4)
 	nav_scroll.add_child(row)
 	for i in TAB_COUNT:
@@ -491,6 +480,7 @@ func _build_content_scroll() -> Control:
 
 	var wrapper := MarginContainer.new()
 	wrapper.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	wrapper.mouse_filter = Control.MOUSE_FILTER_PASS
 	wrapper.add_theme_constant_override("margin_left", 4)
 	wrapper.add_theme_constant_override("margin_right", 4)
 	wrapper.add_theme_constant_override("margin_top", 2)
@@ -499,6 +489,7 @@ func _build_content_scroll() -> Control:
 
 	_content_container = VBoxContainer.new()
 	_content_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_content_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	_content_container.add_theme_constant_override("separation", 16)
 	wrapper.add_child(_content_container)
 	return content_scroll
@@ -608,6 +599,7 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	parent.add_child(lane_card)
 	_custom_lane_container = VBoxContainer.new()
 	_custom_lane_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_custom_lane_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	_custom_lane_container.add_theme_constant_override("separation", 8)
 	lane_card.body.add_child(_custom_lane_container)
 	_rebuild_custom_lane_ui(SettingsManager.custom_lanes)
@@ -666,6 +658,7 @@ func _build_gameplay_content(parent: VBoxContainer) -> void:
 	var windows := _add_disclosure(timing.body, "Judgement windows", "The timing windows used to score every hit.")
 	var grid := GridContainer.new()
 	grid.columns = 3
+	grid.mouse_filter = Control.MOUSE_FILTER_PASS
 	grid.add_theme_constant_override("h_separation", 8)
 	grid.add_theme_constant_override("v_separation", 8)
 	var judgement_data: Array[Dictionary] = [
@@ -737,6 +730,7 @@ func _add_disclosure(parent: VBoxContainer, title_text: String, subtitle_text: S
 	toggle.custom_minimum_size.y = 44
 	var body := VBoxContainer.new()
 	body.add_theme_constant_override("separation", 16)
+	body.mouse_filter = Control.MOUSE_FILTER_PASS
 	body.visible = false
 	toggle.toggled.connect(func(on: bool) -> void:
 		body.visible = on
@@ -751,11 +745,13 @@ func _add_disclosure(parent: VBoxContainer, title_text: String, subtitle_text: S
 
 func _add_stat_chip(parent: GridContainer, name_text: String, value_text: String) -> void:
 	var chip := PanelContainer.new()
-	var sb := SettingsUI.flat(Palette.SURFACE_1, 10, 1, Palette.BORDER_SOFT)
+	chip.mouse_filter = Control.MOUSE_FILTER_PASS
+	var sb := SettingsUI.flat(Palette.SURFACE_2, 10)
 	SettingsUI.pad(sb, 12, 7)
 	chip.add_theme_stylebox_override("panel", sb)
 	chip.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	var row_box := HBoxContainer.new()
+	row_box.mouse_filter = Control.MOUSE_FILTER_PASS
 	row_box.add_theme_constant_override("separation", 8)
 	var name_label := SettingsUI.label(name_text, 13, Palette.ASH, 400)
 	name_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -823,6 +819,7 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	_library_section = VBoxContainer.new()
 	_library_section.name = "LibrarySection"
 	_library_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_library_section.mouse_filter = Control.MOUSE_FILTER_PASS
 	_library_section.add_theme_constant_override("separation", 16)
 	parent.add_child(_library_section)
 	_apply_library_access()
@@ -847,6 +844,7 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	_library_section.add_child(folders_card)
 	_roots_container = VBoxContainer.new()
 	_roots_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_roots_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	_roots_container.add_theme_constant_override("separation", 8)
 	folders_card.body.add_child(_roots_container)
 	_rebuild_roots_list()
@@ -854,6 +852,7 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	var add_hbox := HBoxContainer.new()
 	add_hbox.add_theme_constant_override("separation", 8)
 	add_hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	add_hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	var location_option := OptionButton.new()
 	location_option.name = "StorageLocationOption"
 	for location in STORAGE_LOCATIONS:
@@ -884,6 +883,7 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	_library_section.add_child(scan_card)
 	var scan_buttons := HBoxContainer.new()
 	scan_buttons.add_theme_constant_override("separation", 10)
+	scan_buttons.mouse_filter = Control.MOUSE_FILTER_PASS
 	_rescan_button = SettingsUI.button("Rescan now", "primary")
 	_rescan_button.name = "RescanButton"
 	_rescan_button.pressed.connect(_on_rescan_pressed)
@@ -1012,12 +1012,14 @@ func _rebuild_roots_list() -> void:
 	for i in SettingsManager.library_roots.size():
 		var path: String = SettingsManager.library_roots[i]
 		var item := PanelContainer.new()
-		var sb := SettingsUI.flat(Palette.SURFACE_1, 12, 1, Palette.BORDER_SOFT)
+		item.mouse_filter = Control.MOUSE_FILTER_PASS
+		var sb := SettingsUI.flat(Palette.SURFACE_2, 12)
 		SettingsUI.pad(sb, 14, 8)
 		item.add_theme_stylebox_override("panel", sb)
 		item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var hbox := HBoxContainer.new()
 		hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 		hbox.add_theme_constant_override("separation", 12)
 		item.add_child(hbox)
 
@@ -1320,15 +1322,13 @@ func _show_about() -> void:
 
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(520, 0)
-	var sb := SettingsUI.flat(Palette.SURFACE_0, 22, 1, Palette.BORDER)
+	var sb := SettingsUI.flat(Palette.SURFACE_1, 22)
 	SettingsUI.pad(sb, 30, 26)
-	sb.shadow_color = Color(0, 0, 0, 0.45)
-	sb.shadow_size = 24
-	sb.shadow_offset = Vector2(0, 10)
 	panel.add_theme_stylebox_override("panel", sb)
 	center.add_child(panel)
 
 	var column := VBoxContainer.new()
+	column.mouse_filter = Control.MOUSE_FILTER_PASS
 	column.add_theme_constant_override("separation", 10)
 	panel.add_child(column)
 
@@ -1467,16 +1467,19 @@ func _rebuild_custom_lane_ui(lanes: Array) -> void:
 	for i in count:
 		var lane_idx: int = lanes[i]
 		var item := PanelContainer.new()
-		var sb := SettingsUI.flat(Palette.SURFACE_1, 12, 1, Palette.BORDER_SOFT)
+		item.mouse_filter = Control.MOUSE_FILTER_PASS
+		var sb := SettingsUI.flat(Palette.SURFACE_2, 12)
 		SettingsUI.pad(sb, 10, 6)
 		item.add_theme_stylebox_override("panel", sb)
 		item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		var hbox := HBoxContainer.new()
 		hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 		hbox.add_theme_constant_override("separation", 10)
 		item.add_child(hbox)
 
 		var color_chip := PanelContainer.new()
+		color_chip.mouse_filter = Control.MOUSE_FILTER_PASS
 		color_chip.custom_minimum_size = Vector2(6, 28)
 		var chip_style := SettingsUI.flat(LANE_COLORS[lane_idx] if lane_idx < LANE_COLORS.size() else Color.WHITE, 3)
 		color_chip.add_theme_stylebox_override("panel", chip_style)
@@ -1689,7 +1692,7 @@ func _on_sfx_volume_changed(value: float) -> void:
 
 
 func _on_preview_volume_changed(value: float) -> void:
-	SettingsManager.preview_volume = value
+	SettingsManager.update_preview_volume(value)
 
 
 func _on_audio_offset_changed(value: float) -> void:
