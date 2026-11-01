@@ -29,6 +29,7 @@ var _is_result_shown: bool = false
 var _loading_overlay: CanvasLayer
 var _loading_bar: ProgressBar
 var _loading_status: Label
+var _is_loading: bool = false
 
 # Countdown
 var _countdown_label: CountdownLabel
@@ -114,6 +115,7 @@ func _update_loading(progress: float, status: String) -> void:
 
 
 func _hide_loading_screen() -> void:
+	_is_loading = false
 	if _loading_overlay:
 		_loading_overlay.queue_free()
 		_loading_overlay = null
@@ -152,6 +154,7 @@ func _setup_input() -> void:
 
 
 func _start_loading() -> void:
+	_is_loading = true
 	_show_loading_screen()
 	await get_tree().create_timer(0.0).timeout
 
@@ -202,20 +205,29 @@ func _start_loading() -> void:
 		_update_loading(0.95, str(ChartParser.get_note_count()) + " notes loaded")
 		await get_tree().create_timer(0.0).timeout
 
+	_begin_run(duration)
+
+	_update_loading(1.0, "Ready!")
+	await get_tree().create_timer(0.0).timeout
+	_hide_loading_screen()
+
+
+# Starts a run from the data already in memory. It is shared by the first load
+# and by restart (rewind): both need the same clock, state and haptic setup.
+func _begin_run(duration: float) -> void:
 	GameManager.set_state(GameManager.GameState.PLAYING)
 	TimingEngine.start(duration, GameManager.current_song_delay / 1000.0)
 
 	if SettingsManager.haptic_enabled or GameManager.mode == GameManager.GameMode.HAPTIC:
 		InputManager.haptic_kick_enabled = true
 		InputManager.start_calibration()
-		InputManager.calibration_completed.connect(_on_haptic_calibration_completed, CONNECT_ONE_SHOT)
+		# A restart may happen while the previous calibration is still pending:
+		# connecting the one-shot again would be an error.
+		if not InputManager.calibration_completed.is_connected(_on_haptic_calibration_completed):
+			InputManager.calibration_completed.connect(_on_haptic_calibration_completed, CONNECT_ONE_SHOT)
 		_show_calibration_label()
 	else:
 		InputManager.haptic_kick_enabled = false
-
-	_update_loading(1.0, "Ready!")
-	await get_tree().create_timer(0.0).timeout
-	_hide_loading_screen()
 
 
 func _show_calibration_label() -> void:
@@ -348,6 +360,9 @@ func _show_result_overlay() -> void:
 
 func _hide_result_overlay() -> void:
 	if _result_overlay:
+		# Restart is synchronous now: hide it before queue_free() so the result
+		# panel is not drawn over the first frame of the new run.
+		_result_overlay.visible = false
 		_result_overlay.queue_free()
 		_result_overlay = null
 	_is_result_shown = false
@@ -445,6 +460,10 @@ func _resume_game() -> void:
 
 
 func _restart_song() -> void:
+	# The initial load is already replacing everything: restarting on top of it
+	# would start two runs.
+	if _is_loading:
+		return
 	_is_paused = false
 	_hide_pause_overlay()
 	_hide_countdown()
@@ -452,7 +471,15 @@ func _restart_song() -> void:
 	TimingEngine.stop()
 	highway.restart()
 	ScoreManager.reset()
-	_start_loading()
+
+	# The audio stems and the parsed chart are still in memory, so a retry only
+	# needs to rewind the run instead of reading the song from disk again.
+	# TimingEngine.start() resets the clock and AudioManager.play() starts every
+	# stem from position 0. Fall back to a full load only if the chart is missing.
+	if ChartParser.has_data():
+		_begin_run(ChartParser.get_duration_seconds())
+	else:
+		_start_loading()
 
 
 func _exit_to_menu() -> void:
@@ -539,6 +566,9 @@ func _show_pause_overlay() -> void:
 
 func _hide_pause_overlay() -> void:
 	if _pause_overlay:
+		# Restart is synchronous now: avoid drawing the pause menu over the
+		# first frame of the new run.
+		_pause_overlay.visible = false
 		_pause_overlay.queue_free()
 		_pause_overlay = null
 

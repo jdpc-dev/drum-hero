@@ -205,7 +205,9 @@ func play() -> void:
 	_stream_finished = false
 	for stem_name in _stems:
 		var info: StemInfo = _stems[stem_name]
-		info.player.play()
+		# Always from the beginning: restart reuses the loaded stems and only
+		# rewinds the run.
+		info.player.play(0.0)
 
 
 func pause() -> void:
