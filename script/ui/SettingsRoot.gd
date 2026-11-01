@@ -394,7 +394,7 @@ func _build_ui() -> void:
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
-	var edge: int = SettingsUI.px(26 if _wide_layout else 16)
+	var edge: int = SettingsUI.px(16 if _wide_layout else 10)
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, edge)
 	_outer_margin = margin
