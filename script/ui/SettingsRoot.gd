@@ -10,6 +10,7 @@ var _label_settings: LabelSettings = preload("res://asset/fonts/label_settings.t
 var _current_tab: int = 0
 var _tab_buttons: Array[Button] = []
 var _content_container: VBoxContainer
+var _content_scroll: ScrollContainer
 
 # CONTROLS tab elements
 var _mode_buttons: Array[CheckBox] = []
@@ -47,6 +48,13 @@ var _scan_folder: Label
 var _scan_summary: Label
 var _scan_pump_active: bool = false
 var _songs_link_status: Label
+var _root_path_edit: LineEdit
+var _keyboard_spacer: Control
+var _keyboard_base_viewport_h: float = 0.0
+var _keyboard_last_height: int = 0
+var _keyboard_last_viewport: Vector2 = Vector2.ZERO
+var _keyboard_poll_accum: float = 0.0
+var _keyboard_settle_frames: int = 0
 
 
 # Experimental tab elements
@@ -101,13 +109,76 @@ func _exit_tree() -> void:
 	_abort_scan()
 
 
-func _process(_delta: float) -> void:
+func _process(delta: float) -> void:
+	_follow_path_edit_keyboard(delta)
 	# The walk advances from _process and not from an await: this way the panel
 	# can be closed in the middle of a batch without leaving anything hanging.
 	if not _scan_pump_active:
 		return
 	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
 		_finish_scan()
+
+
+func _follow_path_edit_keyboard(delta: float) -> void:
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		return
+	if not is_instance_valid(_root_path_edit) or not _root_path_edit.has_focus():
+		return
+	# Polling slowly is enough: the keyboard animation lasts a few frames and
+	# querying the OS height every frame spends JNI calls for nothing.
+	_keyboard_poll_accum += delta
+	if _keyboard_poll_accum >= 0.1:
+		_keyboard_poll_accum = 0.0
+		var keyboard_height: int = DisplayServer.virtual_keyboard_get_height()
+		var viewport_size: Vector2 = get_viewport().get_visible_rect().size
+		if keyboard_height != _keyboard_last_height or viewport_size != _keyboard_last_viewport:
+			_keyboard_last_height = keyboard_height
+			_keyboard_last_viewport = viewport_size
+			# The scrollbar maximum is updated in a deferred layout pass. Keep
+			# applying the position for a few frames so the field ends at the
+			# final offset instead of the old maximum.
+			_keyboard_settle_frames = 8
+	if _keyboard_settle_frames <= 0:
+		return
+	_keyboard_settle_frames -= 1
+	_keep_path_edit_above_keyboard()
+
+
+func _keep_path_edit_above_keyboard() -> void:
+	if not is_instance_valid(_root_path_edit) or not is_instance_valid(_content_scroll):
+		return
+	var edit := _root_path_edit
+	var scroll := _content_scroll
+	# The OS reports the keyboard in physical pixels. The screen transform
+	# converts it to the units used by the scroll container and the spacer.
+	var screen_scale_y: float = maxf(scroll.get_screen_transform().get_scale().y, 0.001)
+	var keyboard_h: float = float(DisplayServer.virtual_keyboard_get_height()) / screen_scale_y
+	# With adjustResize the window may already have shrunk by the keyboard, so
+	# only the part of the keyboard that still covers the window is inset.
+	var covered_h: float = maxf(0.0, _keyboard_base_viewport_h - get_viewport().get_visible_rect().size.y)
+	var inset: float = maxf(0.0, keyboard_h - covered_h)
+
+	if inset <= 0.0:
+		if is_instance_valid(_keyboard_spacer):
+			_keyboard_spacer.custom_minimum_size.y = 0.0
+		scroll.ensure_control_visible(edit)
+		return
+
+	# The tab may end right below the input (scan controls, reset button), so
+	# without extra room the ScrollContainer cannot lift the field above the
+	# keyboard. The spacer is only bottom padding: the field does not move.
+	if is_instance_valid(_keyboard_spacer):
+		_keyboard_spacer.custom_minimum_size.y = inset + 24.0
+
+	scroll.ensure_control_visible(edit)
+	# ensure_control_visible() only guarantees the field is inside the scroll
+	# viewport, which can still sit behind an overlaying keyboard. Scroll the
+	# remaining distance explicitly.
+	var row_top: float = edit.get_global_rect().position.y - scroll.get_global_rect().position.y + scroll.scroll_vertical
+	var row_bottom: float = row_top + edit.size.y
+	var usable_bottom: float = scroll.scroll_vertical + scroll.size.y - inset - 16.0
+	if row_bottom > usable_bottom:
+		scroll.scroll_vertical += int(ceil(row_bottom - usable_bottom))
 
 
 func _notification(what: int) -> void:
@@ -176,7 +247,9 @@ func _build_ui() -> void:
 	content_scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	content_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	content_scroll.follow_focus = true
 	root.add_child(content_scroll)
+	_content_scroll = content_scroll
 
 	_content_container = VBoxContainer.new()
 	_content_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -258,6 +331,11 @@ func _on_tab_selected(tab_index: int) -> void:
 
 
 func _build_tab_content() -> void:
+	# The songs widgets are destroyed with the content. Clearing the references
+	# here keeps the keyboard follow-up from touching a node queued for free.
+	_root_path_edit = null
+	_keyboard_spacer = null
+	_keyboard_settle_frames = 0
 	for child in _content_container.get_children():
 		child.queue_free()
 
@@ -865,7 +943,10 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	path_edit.add_theme_font_size_override("font_size", 18)
 	path_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	path_edit.text_submitted.connect(_on_root_path_submitted)
+	path_edit.focus_entered.connect(_on_root_path_focus_entered.bind(path_edit))
+	path_edit.focus_exited.connect(_on_root_path_focus_exited.bind(path_edit))
 	add_hbox.add_child(path_edit)
+	_root_path_edit = path_edit
 	var add_btn := Button.new()
 	add_btn.text = "Add"
 	add_btn.custom_minimum_size = Vector2(110, 40)
@@ -925,6 +1006,14 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 
 	parent.add_child(_spacer(30))
 	_add_reset_section_button(parent, "SONGS", _on_reset_songs)
+
+	# Extra bottom room while the keyboard is open. The input itself keeps its
+	# place in the tab; this only lets the ScrollContainer move it into view.
+	_keyboard_spacer = Control.new()
+	_keyboard_spacer.name = "KeyboardSpacer"
+	_keyboard_spacer.custom_minimum_size.y = 0.0
+	_keyboard_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	parent.add_child(_keyboard_spacer)
 
 
 func _build_permission_section(parent: VBoxContainer) -> void:
@@ -1105,6 +1194,32 @@ func _on_add_root(raw_path: String) -> void:
 
 func _on_root_path_submitted(text: String) -> void:
 	_on_add_root(text)
+
+
+func _on_root_path_focus_entered(edit: LineEdit) -> void:
+	if edit != _root_path_edit:
+		return
+	if not DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD):
+		return
+	# The baseline is taken before the keyboard appears: the difference with the
+	# current viewport tells how much of the keyboard Android already made room
+	# for through adjustResize.
+	_keyboard_base_viewport_h = get_viewport().get_visible_rect().size.y
+	_keyboard_last_height = DisplayServer.virtual_keyboard_get_height()
+	_keyboard_last_viewport = get_viewport().get_visible_rect().size
+	_keyboard_poll_accum = 0.0
+	_keyboard_settle_frames = 8
+	_keep_path_edit_above_keyboard.call_deferred()
+
+
+func _on_root_path_focus_exited(edit: LineEdit) -> void:
+	if edit != _root_path_edit:
+		return
+	_keyboard_settle_frames = 0
+	if is_instance_valid(_keyboard_spacer):
+		_keyboard_spacer.custom_minimum_size.y = 0.0
+	_keyboard_last_height = DisplayServer.virtual_keyboard_get_height()
+	_keyboard_last_viewport = get_viewport().get_visible_rect().size
 
 
 func _on_remove_root(index: int) -> void:

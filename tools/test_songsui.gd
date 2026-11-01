@@ -157,6 +157,17 @@ func _ready() -> void:
 		st.queue_free()
 		bt.queue_free()
 
+	print("=== 2c. el campo de carpeta extra se aparta del teclado ===")
+	_check("el scroll de contenido esta disponible", is_instance_valid(root._content_scroll))
+	_check("el scroll sigue al control con foco", root._content_scroll.follow_focus)
+	_check("el campo de rutas se recuerda", is_instance_valid(root._root_path_edit))
+	_check("el espaciador del teclado nace a cero", is_instance_valid(root._keyboard_spacer) and root._keyboard_spacer.custom_minimum_size.y == 0)
+	root._keyboard_spacer.custom_minimum_size.y = 300
+	root._on_root_path_focus_exited(root._root_path_edit)
+	_check("al perder el foco se libera el espacio del teclado", root._keyboard_spacer.custom_minimum_size.y == 0)
+	root._keep_path_edit_above_keyboard()
+	_check("sin teclado no queda espacio reservado", root._keyboard_spacer.custom_minimum_size.y == 0)
+
 	print("=== 3. controles reflejan el estado persistido ===")
 	SettingsManager.library_preset_documents = false
 	SettingsManager.library_preset_downloads = true
