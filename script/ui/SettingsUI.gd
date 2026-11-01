@@ -493,6 +493,94 @@ static func _empty() -> ImageTexture:
 
 # --- Sliders ----------------------------------------------------------------
 
+# The track does not accept pointer input: only this transparent handle over
+# the drawn grabber does. A swipe over the rest of the slider then reaches the
+# content ScrollContainer instead of changing a value by accident.
+class SliderKnob extends Control:
+	var slider: HSlider
+	var _dragging: bool = false
+	var _changed: bool = false
+
+	func _init(owner_slider: HSlider) -> void:
+		name = "SliderKnob"
+		slider = owner_slider
+		mouse_filter = Control.MOUSE_FILTER_STOP
+		focus_mode = Control.FOCUS_NONE
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+
+	func _ready() -> void:
+		slider.value_changed.connect(_on_value_changed)
+		slider.resized.connect(_update_position)
+		_update_position.call_deferred()
+
+	func _update_position() -> void:
+		if not is_instance_valid(slider):
+			return
+		var hit: float = SettingsUI.px(44)
+		size = Vector2(hit, hit)
+		var half_grabber: float = SettingsUI.px(30) * 0.5
+		var span: float = maxf(slider.size.x - half_grabber * 2.0, 1.0)
+		var ratio: float = 0.0
+		if not is_equal_approx(slider.max_value, slider.min_value):
+			ratio = (slider.value - slider.min_value) / (slider.max_value - slider.min_value)
+		var center_x: float = half_grabber + clampf(ratio, 0.0, 1.0) * span
+		position = Vector2(
+			clampf(center_x - hit * 0.5, 0.0, maxf(slider.size.x - hit, 0.0)),
+			maxf((slider.size.y - hit) * 0.5, 0.0)
+		)
+
+	func _on_value_changed(_value: float) -> void:
+		_update_position()
+
+	func _gui_input(event: InputEvent) -> void:
+		if not slider.editable:
+			return
+		if DisplayServer.is_touchscreen_available():
+			if event is InputEventScreenTouch:
+				if event.pressed:
+					_begin_drag()
+				else:
+					_end_drag()
+				accept_event()
+			elif event is InputEventScreenDrag and _dragging:
+				_apply_value(event.position.x + position.x)
+				accept_event()
+		else:
+			if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+				if event.pressed:
+					_begin_drag()
+				else:
+					_end_drag()
+				accept_event()
+			elif event is InputEventMouseMotion and _dragging and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+				_apply_value(event.position.x + position.x)
+				accept_event()
+
+	func _begin_drag() -> void:
+		_dragging = true
+		_changed = false
+		slider.grab_focus()
+
+	func _end_drag() -> void:
+		if not _dragging:
+			return
+		_dragging = false
+		if _changed:
+			slider.emit_signal("drag_ended", true)
+		_changed = false
+
+	func _apply_value(x_position: float) -> void:
+		var half_grabber: float = SettingsUI.px(30) * 0.5
+		var span: float = maxf(slider.size.x - half_grabber * 2.0, 1.0)
+		var ratio: float = clampf((x_position - half_grabber) / span, 0.0, 1.0)
+		var raw: float = lerpf(slider.min_value, slider.max_value, ratio)
+		if slider.step > 0.0:
+			raw = clampf(snappedf(raw, slider.step), slider.min_value, slider.max_value)
+		if not is_equal_approx(raw, slider.value):
+			slider.value = raw
+			_changed = true
+
+
 static func slider(min_value: float, max_value: float, step: float, value: float) -> HSlider:
 	var node := HSlider.new()
 	node.min_value = min_value
@@ -501,6 +589,7 @@ static func slider(min_value: float, max_value: float, step: float, value: float
 	node.value = value
 	node.custom_minimum_size.y = px(44)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	node.add_theme_stylebox_override("slider", pad(flat(Color(1, 1, 1, 0.10), 3), 0, px(3)))
 	node.add_theme_stylebox_override("grabber_area", pad(flat(Palette.ACCENT, 3), 0, px(3)))
 	node.add_theme_stylebox_override("grabber_area_highlight", pad(flat(Palette.ACCENT_BRIGHT, 3), 0, px(3)))
@@ -508,6 +597,7 @@ static func slider(min_value: float, max_value: float, step: float, value: float
 	node.add_theme_icon_override("grabber_highlight", grabber_texture())
 	node.add_theme_stylebox_override("focus", flat(Color.TRANSPARENT, 4))
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	node.add_child(SliderKnob.new(node))
 	return node
 
 

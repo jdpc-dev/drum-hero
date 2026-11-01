@@ -797,10 +797,7 @@ func _build_advanced_content(parent: VBoxContainer) -> void:
 	if OS.get_name() != "Android":
 		_padding_check.disabled = true
 		padding_card.body.add_child(SettingsUI.description("Padding is only applied on Android."))
-		for s in [_padding_left_slider, _padding_right_slider, _padding_top_slider, _padding_bottom_slider]:
-			if is_instance_valid(s):
-				s.editable = false
-				s.modulate = Color(1, 1, 1, 0.42)
+		_apply_padding_sliders_editable(false)
 
 	_add_reset_section_button(parent, "ADVANCED", _on_reset_experimental)
 
@@ -1489,6 +1486,9 @@ func _apply_padding_sliders_editable(enabled: bool) -> void:
 		if is_instance_valid(s):
 			s.editable = enabled
 			s.modulate = Color(1, 1, 1, 1) if enabled else Color(1, 1, 1, 0.42)
+			var knob: Node = s.get_node_or_null("SliderKnob")
+			if knob is Control:
+				knob.mouse_filter = Control.MOUSE_FILTER_STOP if enabled else Control.MOUSE_FILTER_IGNORE
 
 
 func _add_reset_section_button(parent: VBoxContainer, section_name: String, callback: Callable) -> void:
