@@ -48,6 +48,7 @@ var _scan_folder: Label
 var _scan_summary: Label
 var _scan_pump_active: bool = false
 var _songs_link_status: Label
+var _library_section: VBoxContainer
 var _root_path_edit: LineEdit
 var _keyboard_spacer: Control
 var _keyboard_base_viewport_h: float = 0.0
@@ -198,11 +199,18 @@ func _refresh_permission_state() -> void:
 	var has_access: bool = AndroidBridge.has_all_files_access()
 	_permission_was_granted = has_access
 	_update_permission_section()
-	if has_access and not had_access:
+	if has_access == had_access:
+		return
+	_apply_library_access()
+	if has_access:
 		# A grant changes which songs a scan could find, but walking the disks
 		# is the player's call now: the summary reports the change and points at
 		# the Rescan button instead of starting a scan behind their back.
 		_update_scan_summary()
+	else:
+		# The library controls just disappeared: a walk started while they were
+		# visible would keep running with no way to cancel it from this tab.
+		_abort_scan()
 
 
 func _input(event: InputEvent) -> void:
@@ -335,6 +343,7 @@ func _build_tab_content() -> void:
 	# here keeps the keyboard follow-up from touching a node queued for free.
 	_root_path_edit = null
 	_keyboard_spacer = null
+	_library_section = null
 	_keyboard_settle_frames = 0
 	for child in _content_container.get_children():
 		child.queue_free()
@@ -891,6 +900,17 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	parent.add_child(_spacer(10))
 	_build_permission_section(parent)
 
+	# Everything below only makes sense once the app can actually read external
+	# folders. On Android before the grant, the tab keeps the two ways out
+	# (Get songs and Grant access) and nothing else.
+	var library_parent := parent
+	_library_section = VBoxContainer.new()
+	_library_section.name = "LibrarySection"
+	_library_section.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	library_parent.add_child(_library_section)
+	parent = _library_section
+	_apply_library_access()
+
 	parent.add_child(_spacer(20))
 	_add_section_title(parent, "LIBRARY LOCATIONS")
 	parent.add_child(_spacer(5))
@@ -1016,6 +1036,21 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	parent.add_child(_keyboard_spacer)
 
 
+func _library_access_granted() -> bool:
+	if OS.get_name() != "Android":
+		return true
+	# A build without the plugin has nothing to grant; hiding the controls would
+	# leave the tab with no way forward at all.
+	if not AndroidBridge.is_storage_plugin_available():
+		return true
+	return AndroidBridge.has_all_files_access()
+
+
+func _apply_library_access() -> void:
+	if is_instance_valid(_library_section):
+		_library_section.visible = _library_access_granted()
+
+
 func _build_permission_section(parent: VBoxContainer) -> void:
 	if OS.get_name() != "Android":
 		var desktop_note := Label.new()
@@ -1055,7 +1090,7 @@ func _update_permission_section() -> void:
 		_permission_status.add_theme_color_override("font_color", Palette.CHROME)
 		_permission_button.text = "Open Android settings"
 		return
-	_permission_status.text = "Not granted. Without it, only folders inside the app sandbox are visible."
+	_permission_status.text = "Not granted. Grant access to choose the folders where songs are read from."
 	_permission_status.add_theme_color_override("font_color", Palette.BLOOD)
 	_permission_button.text = "Grant access"
 

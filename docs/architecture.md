@@ -1042,6 +1042,8 @@ every song during the scan, in exchange for purely decorative data.
 - A summary of the last scan reporting when it ran, the number of songs, how many of the configured locations were actually visited (`visited of total`), the active `recursive`/`depth` values, and roots that were unreadable, truncated by depth, cancelled halfway or never reached. When `library_rescan_reason()` is not empty, a line explains what changed and asks the player to press **Rescan now**.
 - **Reset SONGS to Defaults**.
 
+On Android, until **All Files Access** is granted, the tab only shows *Get songs* and *STORAGE ACCESS* (*Grant access* / *Open Android settings*). The library controls (locations, depth, extra folders, rescan, summary and reset) live under a `LibrarySection` container that stays hidden while access is missing, so the first screen offers only the two actions that can actually help. Returning from the system permission screen re-evaluates access and reveals or hides that container; losing access also aborts a scan owned by the panel. Builds without the storage plugin keep the controls visible, because there is no grant to wait for.
+
 Library changes persist instantly (`SettingsManager.save_settings()`) and only
 mark the library as stale; they never start a scan. `MenuRoot._library_changed()`
 still compares the snapshot when Settings closes, but its result is only used to
