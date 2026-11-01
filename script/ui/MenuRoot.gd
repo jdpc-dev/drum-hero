@@ -2,11 +2,12 @@ class_name MenuRoot
 extends CanvasLayer
 
 const BG_COLOR: Color = Palette.NIGHT_BG
-const PADDING := 40.0
+const OUTER_PADDING_WIDE := 16.0
+const OUTER_PADDING_COMPACT := 10.0
+const CONTENT_MAX_WIDTH := 1180.0
 const BAR_HEIGHT := 70.0
 const STATUS_HEIGHT := 45.0
 const DIFF_HEIGHT := 55.0
-const SONG_ROW_HEIGHT := 40.0
 const DRAG_THRESHOLD := 8.0
 const DIFFICULTY_OFFSETS := [60, 72, 84, 96, 120]
 const DIFFICULTY_NAMES := {60: "Easy", 72: "Medium", 84: "Hard", 96: "Expert", 120: "Expert+"}
@@ -23,6 +24,7 @@ var _header_bar: PanelContainer
 var _search_input: LineEdit
 var _song_list_scroll: ScrollContainer
 var _song_list_container: VBoxContainer
+var _status_panel: PanelContainer
 var _status_label: Label
 var _diff_container: HBoxContainer
 var _settings_button: Button
@@ -55,6 +57,7 @@ var _row_dragging: bool = false
 var _row_drag_start: Vector2 = Vector2.ZERO
 
 var _album_art: TextureRect
+var _album_placeholder: Label
 var _preview_player: AudioStreamPlayer
 var _preview_song_path: String = ""
 var _preview_loaded_stream: AudioStream = null
@@ -113,6 +116,7 @@ var _preview_fading_out: bool = false
 
 
 func _ready() -> void:
+	SettingsUI.setup_ui_scale(get_viewport().get_visible_rect().size.y)
 	GameManager.set_state(GameManager.GameState.MENU)
 	get_tree().auto_accept_quit = false
 	# A cached library is already in memory: the menu opens without a scan.
@@ -355,14 +359,25 @@ func _build_ui() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
 
+	var edge: int = SettingsUI.px(OUTER_PADDING_COMPACT if OS.has_feature("mobile") else OUTER_PADDING_WIDE)
+	var limit := SettingsUI.ContentLimit.new()
+	limit.name = "ContentLimit"
+	limit.max_width = float(SettingsUI.px(CONTENT_MAX_WIDTH))
+	limit.set_anchors_preset(Control.PRESET_FULL_RECT)
+	add_child(limit)
+
+	var margin := MarginContainer.new()
+	margin.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		margin.add_theme_constant_override("margin_" + side, edge)
+	limit.add_child(margin)
+
 	_root = VBoxContainer.new()
 	_root.name = "Root"
-	_root.set_anchors_preset(Control.PRESET_FULL_RECT)
-	_root.offset_left = PADDING
-	_root.offset_right = -PADDING
-	_root.offset_top = PADDING
-	_root.offset_bottom = 0.0
-	add_child(_root)
+	_root.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_root.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_root.add_theme_constant_override("separation", SettingsUI.px(8))
+	margin.add_child(_root)
 
 	_build_header_bar()
 	_build_song_list()
@@ -375,51 +390,66 @@ func _build_ui() -> void:
 func _build_header_bar() -> void:
 	_header_bar = PanelContainer.new()
 	_header_bar.name = "HeaderBar"
-	_header_bar.custom_minimum_size.y = BAR_HEIGHT
+	_header_bar.custom_minimum_size.y = SettingsUI.px(BAR_HEIGHT)
 	_header_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	var sb := StyleBoxFlat.new()
-	sb.bg_color = Palette.NIGHT_PANEL
-	sb.set_content_margin_all(0)
+	var sb := SettingsUI.flat(Palette.SURFACE_1, 16)
+	SettingsUI.pad(sb, SettingsUI.px(10), SettingsUI.px(8))
 	_header_bar.add_theme_stylebox_override("panel", sb)
 	_root.add_child(_header_bar)
 
 	var hbox := HBoxContainer.new()
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	hbox.add_theme_constant_override("separation", 0)
+	hbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	hbox.add_theme_constant_override("separation", SettingsUI.px(10))
 	_header_bar.add_child(hbox)
+
+	var art_frame := PanelContainer.new()
+	art_frame.custom_minimum_size = Vector2(SettingsUI.px(64), SettingsUI.px(64))
+	art_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var art_style := SettingsUI.flat(Palette.SURFACE_2, 14)
+	SettingsUI.pad(art_style, SettingsUI.px(4), SettingsUI.px(4))
+	art_frame.add_theme_stylebox_override("panel", art_style)
+	art_frame.mouse_filter = Control.MOUSE_FILTER_PASS
+	hbox.add_child(art_frame)
 
 	_album_art = TextureRect.new()
 	_album_art.name = "AlbumArt"
-	_album_art.custom_minimum_size = Vector2(70, 70)
-	_album_art.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	_album_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 	_album_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 	_album_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	hbox.add_child(_album_art)
+	_album_art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_album_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_album_art.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	art_frame.add_child(_album_art)
+
+	_album_placeholder = SettingsUI.label("♪", 22, Palette.MUTED, 500)
+	_album_placeholder.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_album_placeholder.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_album_placeholder.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_album_placeholder.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	art_frame.add_child(_album_placeholder)
 
 	var search_input := LineEdit.new()
-	search_input.placeholder_text = "Search: "
+	search_input.placeholder_text = "Search songs"
+	SettingsUI.style_line_edit(search_input)
+	search_input.add_theme_font_size_override("font_size", SettingsUI.px(18))
+	search_input.custom_minimum_size.y = SettingsUI.px(46)
 	search_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	search_input.size_flags_vertical = Control.SIZE_EXPAND_FILL
-	search_input.add_theme_font_size_override("font_size", 20)
+	search_input.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	search_input.clear_button_enabled = true
 	search_input.text = _search_text
 	search_input.caret_column = search_input.text.length()
 	search_input.text_changed.connect(_on_search_changed)
-	var search_sb := StyleBoxFlat.new()
-	search_sb.bg_color = Palette.NIGHT_ROW
-	search_sb.set_content_margin_all(0)
-	search_sb.content_margin_left = 16
-	search_input.add_theme_stylebox_override("normal", search_sb)
-	search_input.add_theme_stylebox_override("focus", search_sb)
 	hbox.add_child(search_input)
 	_search_input = search_input
 
-	_settings_button = Button.new()
-	_settings_button.text = "Settings"
-	_settings_button.custom_minimum_size = Vector2(120, 0)
-	_settings_button.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	_settings_button = SettingsUI.button("Settings", "secondary")
+	_settings_button.custom_minimum_size = Vector2(SettingsUI.px(110), SettingsUI.px(46))
+	_settings_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_settings_button.pressed.connect(_on_settings_pressed)
 	hbox.add_child(_settings_button)
+
 
 func _build_song_list() -> void:
 	_song_list_scroll = ScrollContainer.new()
@@ -429,36 +459,45 @@ func _build_song_list() -> void:
 	_song_list_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	_song_list_scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
 	_song_list_scroll.follow_focus = true
+	SettingsUI.style_scroll(_song_list_scroll)
 	_root.add_child(_song_list_scroll)
 
 	_song_list_container = VBoxContainer.new()
 	_song_list_container.name = "SongListContainer"
 	_song_list_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_song_list_container.mouse_filter = Control.MOUSE_FILTER_PASS
+	_song_list_container.add_theme_constant_override("separation", SettingsUI.px(8))
 	_song_list_scroll.add_child(_song_list_container)
 
 
 func _build_status_bar() -> void:
-	_status_label = Label.new()
+	_status_panel = PanelContainer.new()
+	_status_panel.name = "StatusPanel"
+	_status_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_status_panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	var status_style := SettingsUI.flat(Palette.SURFACE_1, 10)
+	SettingsUI.pad(status_style, SettingsUI.px(12), SettingsUI.px(4))
+	_status_panel.add_theme_stylebox_override("panel", status_style)
+	_root.add_child(_status_panel)
+
+	_status_label = SettingsUI.label("Select a song", 14, Palette.ASH, 400)
 	_status_label.name = "StatusLabel"
-	_status_label.custom_minimum_size.y = STATUS_HEIGHT
+	_status_label.custom_minimum_size.y = SettingsUI.px(STATUS_HEIGHT)
 	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_status_label.add_theme_font_size_override("font_size", 18)
-	_status_label.add_theme_color_override("font_color", Palette.ASH)
-	_status_label.text = "Select a song"
-	_root.add_child(_status_label)
+	_status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+	_status_panel.add_child(_status_label)
 
 
 func _apply_status_visibility() -> void:
 	if not is_instance_valid(_status_label):
 		return
-	if SettingsManager.show_menu_status:
-		_status_label.visible = true
-		_status_label.custom_minimum_size.y = STATUS_HEIGHT
-	else:
-		_status_label.visible = false
-		_status_label.custom_minimum_size.y = 0
+	var shown: bool = SettingsManager.show_menu_status
+	if is_instance_valid(_status_panel):
+		_status_panel.visible = shown
+	_status_label.visible = shown
+	_status_label.custom_minimum_size.y = SettingsUI.px(STATUS_HEIGHT) if shown else 0
 
 
 func _show_transient_status(text: String) -> void:
@@ -466,18 +505,19 @@ func _show_transient_status(text: String) -> void:
 		return
 	_status_label.text = text
 	_status_label.visible = true
-	_status_label.custom_minimum_size.y = STATUS_HEIGHT
+	_status_label.custom_minimum_size.y = SettingsUI.px(STATUS_HEIGHT)
+	if is_instance_valid(_status_panel):
+		_status_panel.visible = true
 
 
 func _build_preview_status() -> void:
-	_preview_status_label = Label.new()
+	_preview_status_label = SettingsUI.label("", 14, Palette.BLOOD_BRIGHT, 400)
 	_preview_status_label.name = "PreviewStatusLabel"
-	_preview_status_label.custom_minimum_size.y = 28
+	_preview_status_label.custom_minimum_size.y = SettingsUI.px(28)
 	_preview_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_preview_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_preview_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_preview_status_label.add_theme_font_size_override("font_size", 16)
-	_preview_status_label.add_theme_color_override("font_color", Palette.BLOOD_BRIGHT)
+	_preview_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	_root.add_child(_preview_status_label)
 	_update_preview_idle_text()
 
@@ -496,16 +536,15 @@ func _update_preview_idle_text() -> void:
 func _build_difficulty_bar() -> void:
 	_diff_container = HBoxContainer.new()
 	_diff_container.name = "DiffContainer"
-	_diff_container.custom_minimum_size.y = DIFF_HEIGHT
+	_diff_container.custom_minimum_size.y = SettingsUI.px(DIFF_HEIGHT)
 	_diff_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_diff_container.alignment = BoxContainer.ALIGNMENT_CENTER
-	_diff_container.add_theme_constant_override("separation", 20)
+	_diff_container.add_theme_constant_override("separation", SettingsUI.px(10))
 	_root.add_child(_diff_container)
 
 	for off in DIFFICULTY_OFFSETS:
-		var btn := Button.new()
-		btn.text = DIFFICULTY_NAMES[off]
-		btn.custom_minimum_size = Vector2(140, 40)
+		var btn := SettingsUI.button(DIFFICULTY_NAMES[off], "secondary")
+		btn.custom_minimum_size = Vector2(SettingsUI.px(120), SettingsUI.px(46))
 		btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		btn.disabled = true
 		btn.pressed.connect(_on_difficulty_pressed.bind(off))
@@ -531,19 +570,27 @@ func _rebuild_song_rows() -> void:
 		child.queue_free()
 
 	if _filtered_indices.is_empty():
-		var empty_label := Label.new()
+		var text: String = ""
 		if not _search_text.is_empty():
-			empty_label.text = "No songs found"
+			text = "No songs found"
 		elif not SongLoader.library_rescan_reason().is_empty():
 			# Cached-empty or stale library: the player must ask for a rescan.
-			empty_label.text = "No songs yet. Open Settings > Songs and press Rescan now."
+			text = "No songs yet. Open Settings > Songs and press Rescan now."
 		else:
-			empty_label.text = "Put songs in: " + SongLoader.get_user_song_dir()
+			text = "Put songs in: " + SongLoader.get_user_song_dir()
+		var empty_card := PanelContainer.new()
+		empty_card.name = "EmptyState"
+		empty_card.mouse_filter = Control.MOUSE_FILTER_PASS
+		var empty_style := SettingsUI.flat(Palette.SURFACE_1, 14)
+		SettingsUI.pad(empty_style, SettingsUI.px(24), SettingsUI.px(20))
+		empty_card.add_theme_stylebox_override("panel", empty_style)
+		var empty_label := SettingsUI.label(text, 16, Palette.MUTED, 400)
 		empty_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		empty_label.add_theme_font_size_override("font_size", 20)
-		empty_label.add_theme_color_override("font_color", Palette.MUTED)
-		empty_label.custom_minimum_size = Vector2(0, 60)
-		_song_list_container.add_child(empty_label)
+		empty_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		empty_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		empty_label.custom_minimum_size.y = SettingsUI.px(48)
+		empty_card.add_child(empty_label)
+		_song_list_container.add_child(empty_card)
 		return
 
 	for fi in _filtered_indices:
@@ -563,57 +610,59 @@ func _format_duration(ms: int) -> String:
 
 func _create_song_row(original_index: int, song: Dictionary) -> PanelContainer:
 	var panel := PanelContainer.new()
-	panel.custom_minimum_size = Vector2(0, SONG_ROW_HEIGHT)
+	panel.custom_minimum_size = Vector2(0, SettingsUI.px(56))
 	panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	panel.name = "SongRow_" + str(original_index)
-
-	var sb_normal := StyleBoxFlat.new()
-	sb_normal.bg_color = Palette.NIGHT_ROW
-	sb_normal.set_content_margin_all(10)
-	panel.add_theme_stylebox_override("panel", sb_normal)
-
-	var sb_hover := StyleBoxFlat.new()
-	sb_hover.bg_color = Palette.NIGHT_ROW_HOVER
-	sb_hover.set_content_margin_all(10)
-	panel.add_theme_stylebox_override("hover", sb_hover)
-
-	var sb_pressed := StyleBoxFlat.new()
-	sb_pressed.bg_color = Palette.NIGHT_ROW_PRESSED
-	sb_pressed.set_content_margin_all(10)
-	panel.add_theme_stylebox_override("pressed", sb_pressed)
+	panel.add_theme_stylebox_override("panel", _song_row_style(false, false))
+	panel.set_meta("selected", false)
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
+	panel.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 
 	var hbox := HBoxContainer.new()
 	hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	hbox.add_theme_constant_override("separation", 10)
+	hbox.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	hbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	hbox.add_theme_constant_override("separation", SettingsUI.px(10))
 	panel.add_child(hbox)
 
-	var selector_label := Label.new()
-	selector_label.text = "  "
-	selector_label.add_theme_font_size_override("font_size", 20)
-	selector_label.add_theme_color_override("font_color", Palette.BLOOD_BRIGHT)
+	var selector_label := SettingsUI.label("", 14, Palette.ACCENT, 600)
+	selector_label.custom_minimum_size.x = SettingsUI.px(12)
+	selector_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	selector_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hbox.add_child(selector_label)
 
 	var song_length: int = int(song.get("song_length", 0))
-	var prefix: String = (_format_duration(song_length) + " ") if song_length > 0 else ""
-	var song_label := Label.new()
-	song_label.text = prefix + song.artist + " - " + song.name
+	var prefix: String = (_format_duration(song_length) + "  ") if song_length > 0 else ""
+	var song_label := SettingsUI.label(prefix + song.artist + " - " + song.name, 18, Palette.BONE, 500)
 	song_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	song_label.add_theme_font_size_override("font_size", 20)
-	song_label.add_theme_color_override("font_color", Palette.BONE)
+	song_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	song_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	hbox.add_child(song_label)
 
 	# Best score for the song across the difficulties its chart offers; the
 	# placeholder "--,---pts" is kept if there is no record yet.
 	var best: int = HighScoreStore.get_best_for_song(song.path, song.get("difficulties", []).map(func(d: Dictionary) -> int: return d.offset))
-	var score_label := Label.new()
-	score_label.text = (ScoreData.format_score(best) + "pts") if best > 0 else "--,---pts"
-	score_label.add_theme_font_size_override("font_size", 18)
-	score_label.add_theme_color_override("font_color", Palette.ASH)
+	var score_label := SettingsUI.label((ScoreData.format_score(best) + " pts") if best > 0 else "--,---pts", 14, Palette.ASH, 500)
+	score_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	hbox.add_child(score_label)
 
-	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.gui_input.connect(_on_song_row_input.bind(original_index))
+	panel.mouse_entered.connect(_on_song_row_hover.bind(panel, true))
+	panel.mouse_exited.connect(_on_song_row_hover.bind(panel, false))
 	return panel
+
+
+func _song_row_style(selected: bool, hovered: bool) -> StyleBoxFlat:
+	var color: Color = Palette.ACCENT_SURFACE if selected else (Palette.SURFACE_2 if hovered else Palette.SURFACE_1)
+	var sb := SettingsUI.flat(color, 12)
+	SettingsUI.pad(sb, SettingsUI.px(14), SettingsUI.px(10))
+	return sb
+
+
+func _on_song_row_hover(panel: PanelContainer, entered: bool) -> void:
+	if not is_instance_valid(panel) or bool(panel.get_meta("selected", false)):
+		return
+	panel.add_theme_stylebox_override("panel", _song_row_style(false, entered))
 
 
 func _on_song_row_input(event: InputEvent, original_index: int) -> void:
@@ -650,17 +699,24 @@ func _select_song(original_index: int) -> void:
 
 func _load_album_art(index: int) -> void:
 	if index < 0 or index >= SongLoader.song_list.size():
-		_album_art.texture = null
+		_set_album_texture(null)
 		return
 	var song: Dictionary = SongLoader.song_list[index]
 	var album_path: String = song.get("album_path", "")
 	if album_path.is_empty():
-		_album_art.texture = null
+		_set_album_texture(null)
 		return
 	var tex: Texture2D = ResourceLoader.load(album_path)
 	if tex == null:
 		tex = _load_external_texture(album_path)
-	_album_art.texture = tex
+	_set_album_texture(tex)
+
+
+func _set_album_texture(tex: Texture2D) -> void:
+	if is_instance_valid(_album_art):
+		_album_art.texture = tex
+	if is_instance_valid(_album_placeholder):
+		_album_placeholder.visible = tex == null
 
 
 func _load_external_texture(path: String) -> Texture2D:
@@ -684,10 +740,10 @@ func _update_selection_ui() -> void:
 		if not selector is Label:
 			continue
 		var original_index: int = int(row.name.replace("SongRow_", ""))
-		if original_index == _selected_song_index:
-			selector.text = "► "
-		else:
-			selector.text = "  "
+		var selected: bool = original_index == _selected_song_index
+		row.set_meta("selected", selected)
+		row.add_theme_stylebox_override("panel", _song_row_style(selected, false))
+		selector.text = "●" if selected else ""
 
 
 func _update_status_for_song(original_index: int) -> void:
@@ -863,33 +919,32 @@ func _show_loading_screen(allow_cancel: bool = false) -> void:
 	var bg := ColorRect.new()
 	bg.color = Palette.SCRIM_STRONG
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_loading_overlay.add_child(bg)
 
-	var vbox := VBoxContainer.new()
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.offset_left = -160
-	vbox.offset_top = -100
-	vbox.offset_right = 160
-	vbox.offset_bottom = 100
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	_loading_overlay.add_child(vbox)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_loading_overlay.add_child(center)
 
-	var title := Label.new()
-	title.text = "LOADING"
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = Vector2(SettingsUI.px(420), 0)
+	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
+	SettingsUI.pad(panel_style, SettingsUI.px(28), SettingsUI.px(24))
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", SettingsUI.px(10))
+	panel.add_child(vbox)
+
+	var title := SettingsUI.label("LOADING", 26, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_color", Palette.BONE)
 	vbox.add_child(title)
 
-	var spacer := Control.new()
-	spacer.custom_minimum_size = Vector2(0, 30)
-	vbox.add_child(spacer)
-
-	_loading_status = Label.new()
-	_loading_status.text = ""
+	_loading_status = SettingsUI.label("", 14, Palette.CHROME, 400)
 	_loading_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_loading_status.add_theme_font_size_override("font_size", 18)
-	_loading_status.add_theme_color_override("font_color", Palette.CHROME)
+	_loading_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(_loading_status)
 
 	if allow_cancel:
@@ -897,15 +952,13 @@ func _show_loading_screen(allow_cancel: bool = false) -> void:
 		# thing that tells whether it is still advancing or has got stuck in a
 		# slow tree.
 		_loading_folder = ScanFeedback.make_folder_label()
-		_loading_folder.custom_minimum_size = Vector2(300, 20)
+		_loading_folder.custom_minimum_size = Vector2(SettingsUI.px(300), SettingsUI.px(18))
+		_loading_folder.add_theme_font_size_override("font_size", SettingsUI.px(12))
 		vbox.add_child(_loading_folder)
 
-	var spacer2 := Control.new()
-	spacer2.custom_minimum_size = Vector2(0, 15)
-	vbox.add_child(spacer2)
-
 	_loading_bar = ProgressBar.new()
-	_loading_bar.custom_minimum_size = Vector2(300, 25)
+	_loading_bar.custom_minimum_size = Vector2(SettingsUI.px(320), 0)
+	SettingsUI.style_progress(_loading_bar)
 	# The scan cannot promise a percentage, but loading a song does have real
 	# stages.
 	_loading_bar.show_percentage = not allow_cancel
@@ -913,9 +966,8 @@ func _show_loading_screen(allow_cancel: bool = false) -> void:
 	vbox.add_child(_loading_bar)
 
 	if allow_cancel:
-		_loading_cancel_button = Button.new()
-		_loading_cancel_button.text = "Cancel"
-		_loading_cancel_button.custom_minimum_size = Vector2(140, 40)
+		_loading_cancel_button = SettingsUI.button("Cancel", "secondary")
+		_loading_cancel_button.custom_minimum_size = Vector2(SettingsUI.px(140), SettingsUI.px(46))
 		_loading_cancel_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 		_loading_cancel_button.pressed.connect(_on_cancel_scan_pressed)
 		vbox.add_child(_loading_cancel_button)
@@ -1158,54 +1210,45 @@ func _show_quit_confirm() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_quit_confirm_overlay.add_child(bg)
 
-	var panel: VBoxContainer = VBoxContainer.new()
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_quit_confirm_overlay.add_child(center)
+
+	var panel: PanelContainer = PanelContainer.new()
 	panel.name = "QuitConfirmPanel"
-	panel.set_anchors_preset(Control.PRESET_CENTER)
-	panel.offset_left = -200
-	panel.offset_top = -140
-	panel.offset_right = 200
-	panel.offset_bottom = 140
-	panel.alignment = BoxContainer.ALIGNMENT_CENTER
-	panel.add_theme_constant_override("separation", 12)
-	_quit_confirm_overlay.add_child(panel)
+	panel.custom_minimum_size = Vector2(SettingsUI.px(440), 0)
+	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
+	SettingsUI.pad(panel_style, SettingsUI.px(28), SettingsUI.px(24))
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
 
-	var title: Label = Label.new()
-	title.text = "EXIT GAME?"
+	var content: VBoxContainer = VBoxContainer.new()
+	content.add_theme_constant_override("separation", SettingsUI.px(10))
+	panel.add_child(content)
+
+	var title: Label = SettingsUI.label("EXIT GAME?", 26, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 40)
-	title.add_theme_color_override("font_color", Palette.BONE)
-	title.add_theme_color_override("font_shadow_color", Palette.INK)
-	title.add_theme_constant_override("shadow_offset_x", 2)
-	title.add_theme_constant_override("shadow_offset_y", 2)
-	panel.add_child(title)
+	content.add_child(title)
 
-	var message: Label = Label.new()
-	message.text = "Are you sure you want to close the game?"
+	var message: Label = SettingsUI.label("Are you sure you want to close the game?", 15, Palette.ASH, 400)
 	message.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	message.add_theme_font_size_override("font_size", 20)
-	message.add_theme_color_override("font_color", Palette.TEXT)
-	panel.add_child(message)
+	content.add_child(message)
 
-	var spacing: Control = Control.new()
-	spacing.custom_minimum_size = Vector2(0, 16)
-	panel.add_child(spacing)
-
-	var cancel_btn: Button = Button.new()
+	var cancel_btn: Button = SettingsUI.button("CANCEL", "secondary")
 	cancel_btn.name = "CancelButton"
-	cancel_btn.text = "CANCEL"
-	cancel_btn.custom_minimum_size = Vector2(240, 50)
-	cancel_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	cancel_btn.custom_minimum_size = Vector2(0, SettingsUI.px(48))
+	cancel_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cancel_btn.pressed.connect(_hide_quit_confirm)
-	panel.add_child(cancel_btn)
+	content.add_child(cancel_btn)
 
-	var exit_btn: Button = Button.new()
+	var exit_btn: Button = SettingsUI.button("EXIT", "primary")
 	exit_btn.name = "ExitButton"
-	exit_btn.text = "EXIT"
-	exit_btn.custom_minimum_size = Vector2(240, 50)
-	exit_btn.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	exit_btn.custom_minimum_size = Vector2(0, SettingsUI.px(48))
+	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	exit_btn.pressed.connect(_confirm_quit)
-	panel.add_child(exit_btn)
+	content.add_child(exit_btn)
 
 	add_child(_quit_confirm_overlay)
 

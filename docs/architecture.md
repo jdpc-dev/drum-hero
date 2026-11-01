@@ -15,21 +15,24 @@
 ```
 Main (CanvasLayer)                      ← MenuRoot.gd
 ├── Background (ColorRect)
-├── Root (VBoxContainer)               — with 40px PADDING
-│   ├── HeaderBar (PanelContainer)     — AlbumArt + Search + Settings
-│   │   └── hbox (HBoxContainer)
-│   │       ├── AlbumArt (TextureRect) — 70×70, visible when a song is selected
-│   │       ├── SearchInput (LineEdit) — placeholder "Search: "
-│   │       ├── SettingsButton
-│   │       └── Spacer
-│   ├── SongListScroll (ScrollContainer) — scrollable list
-│   │   └── SongListContainer (VBoxContainer)
-│   │       ├── SongRow_N (PanelContainer)  — ► + artist + --,---pts
-│   │       └── ...
-│   ├── StatusLabel                    — "STATUS: chart OK - ..." (hidden by default; Show Menu Status in Settings > Advanced)
-├── PreviewStatusLabel             — "♫ Artist - Song" (while the preview plays, hidden otherwise) | idle: "♫ Tap a song to preview"
-│   └── DiffContainer (HBoxContainer)  — Easy/Medium/Hard/Expert/Expert+
-│       └── [5 buttons]                — disabled if unavailable
+├── ContentLimit (max width 1180 design units, scaled)
+│   └── MarginContainer (16 wide / 10 compact)
+│       └── Root (VBoxContainer, 8px separation)
+│           ├── HeaderBar (PanelContainer, rounded surface)
+│           │   └── hbox (HBoxContainer)
+│           │       ├── AlbumArtFrame (PanelContainer) → AlbumArt (TextureRect)
+│           │       ├── SearchInput (LineEdit) — "Search songs"
+│           │       └── SettingsButton (styled secondary)
+│           ├── SongListScroll (ScrollContainer, styled) — scrollable list
+│           │   └── SongListContainer (VBoxContainer, 8px gap)
+│           │       ├── SongRow_N (PanelContainer card) — selected highlight + dot,
+│           │       │   duration, artist - title      --,---pts
+│           │       └── ...
+│           ├── DiffContainer (HBoxContainer) — Easy/Medium/Hard/Expert/Expert+
+│           │   └── [5 styled buttons]       — disabled if unavailable
+│           ├── StatusPanel (PanelContainer) → StatusLabel
+│           │   — "STATUS: chart OK - ..." (hidden by default; Show Menu Status in Settings > Advanced)
+│           └── PreviewStatusLabel — "♫ Artist - Song" | idle "♫ Tap a song to preview"
 
 Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 ├── Background (ColorRect)
@@ -1430,13 +1433,24 @@ values:
 | `gameplay_padding_top` | 0.0 | Top padding in dp (0-100, Android only) |
 | `gameplay_padding_bottom` | 0.0 | Bottom padding in dp (0-100, Android only) |
 
+### Main menu layout
+
+`MenuRoot` reuses the same visual kit and outer-margin/cap rules as Settings.
+Its single column keeps the original order: header (album art, search, Settings),
+song list, difficulty buttons, optional status line, preview line. Rows are
+rounded cards with an opaque accent surface for the current song, difficulty
+buttons are scaled action pills, and the loading/quit overlays use the same card
+and button styles. Search, scroll position, selection and playlist behavior are
+unchanged.
+
 ### Settings menu layout
 
 The settings menu (`SettingsRoot.gd`) is a **navigation rail** on wide windows
 and a **horizontal navigation strip** on compact windows (breakpoint on the
 physical window width). Mobile builds always use the compact layout, even on a
-wide screen, and apply a DPI-aware `SettingsUI.ui_scale` multiplier (1.2–1.9,
-targeting ~19dp row titles and ~46dp touch targets) to type sizes, paddings,
+wide screen, and both `MenuRoot` and `SettingsRoot` call
+`SettingsUI.setup_ui_scale()` for a DPI-aware multiplier (1.2–1.9, targeting
+~19dp row titles and ~46dp touch targets) applied to type sizes, paddings,
 radii and control heights. The main column is capped at `CONTENT_MAX_WIDTH`
 (1180 design units, scaled with `ui_scale`) and centered in the remaining space,
 so an ultrawide desktop window does not stretch rows edge to edge while a phone

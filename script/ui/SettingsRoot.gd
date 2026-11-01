@@ -72,11 +72,6 @@ const SONGS_TAB: int = 3
 const TAB_COUNT: int = 5
 const WIDE_BREAKPOINT: float = 1000.0
 const CONTENT_MAX_WIDTH: float = 1180.0
-const MOBILE_ROW_TARGET_DP: float = 19.0
-const MOBILE_BASE_ROW_UNITS: float = 19.0
-const MOBILE_UI_SCALE_MIN: float = 1.2
-const MOBILE_UI_SCALE_MAX: float = 1.9
-const MOBILE_UI_SCALE_FALLBACK: float = 1.5
 const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
 
@@ -140,7 +135,7 @@ const LANE_COLORS: Array[Color] = [
 
 func _ready() -> void:
 	layer = 10
-	SettingsUI.ui_scale = _mobile_ui_scale()
+	SettingsUI.setup_ui_scale(get_viewport().get_visible_rect().size.y)
 	_wide_layout = _is_wide_layout()
 	SongLoader.scan_progress.connect(_on_scan_progress)
 	_build_ui()
@@ -344,24 +339,6 @@ func _is_wide_layout() -> bool:
 	if window_width <= 0.0:
 		window_width = get_viewport().get_visible_rect().size.x
 	return window_width >= WIDE_BREAKPOINT
-
-
-func _mobile_ui_scale() -> float:
-	# The canvas is 720 units tall on a landscape phone, so on a dense screen
-	# the default text ends up physically tiny. Bring the 19-unit row titles up
-	# to roughly 19dp, independent of resolution, while keeping the scale inside
-	# sane bounds. Mobile always uses the compact top navigation.
-	if not OS.has_feature("mobile"):
-		return 1.0
-	var dpi: float = float(DisplayServer.screen_get_dpi())
-	var window_height: float = float(DisplayServer.window_get_size().y)
-	var viewport_height: float = get_viewport().get_visible_rect().size.y
-	if dpi <= 0.0 or window_height <= 0.0 or viewport_height <= 0.0:
-		return MOBILE_UI_SCALE_FALLBACK
-	var canvas_scale: float = window_height / viewport_height
-	var units_per_dp: float = (dpi / 160.0) / maxf(canvas_scale, 0.01)
-	var target_units: float = MOBILE_ROW_TARGET_DP * units_per_dp
-	return clampf(target_units / MOBILE_BASE_ROW_UNITS, MOBILE_UI_SCALE_MIN, MOBILE_UI_SCALE_MAX)
 
 
 func _on_viewport_resized() -> void:
@@ -604,20 +581,7 @@ func _build_content_scroll() -> Control:
 
 
 func _style_scroll(scroll: ScrollContainer) -> void:
-	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	_style_scroll_bar(scroll.get_v_scroll_bar())
-	_style_scroll_bar(scroll.get_h_scroll_bar())
-
-
-func _style_scroll_bar(bar: ScrollBar) -> void:
-	if bar is VScrollBar:
-		bar.custom_minimum_size.x = SettingsUI.px(10)
-	else:
-		bar.custom_minimum_size.y = SettingsUI.px(10)
-	bar.add_theme_stylebox_override("scroll", SettingsUI.flat(Color.TRANSPARENT, 4))
-	bar.add_theme_stylebox_override("grabber", SettingsUI.flat(Color(1, 1, 1, 0.14), 4))
-	bar.add_theme_stylebox_override("grabber_highlight", SettingsUI.flat(Color(1, 1, 1, 0.26), 4))
-	bar.add_theme_stylebox_override("grabber_pressed", SettingsUI.flat(Color(1, 1, 1, 0.34), 4))
+	SettingsUI.style_scroll(scroll)
 
 
 func _update_page_header() -> void:

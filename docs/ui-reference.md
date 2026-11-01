@@ -28,28 +28,24 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 ## ASCII MAIN MENU REFERENCE
 ```
 +-----------------------------------------------------------------------------+
-|                                DRUM HERO                           Settings |
+| [ ♪ ]  Search songs                                             [ Settings ]|
 +-----------------------------------------------------------------------------+
-| Search: ________________________________________________________________ 🔍 |
-+-----------------------------------------------------------------------------+
-|                                                                             | s
-| ► Through the Fire and Flames - DragonForce                     12,000pts  | c
-|   Everlong - Foo Fighters                                        8,000pts   | r
-|   Battery - Metallica                                           --,---pts   | o
-|   Chop Suey! - System of a Down                                 60,000pts   | l
-|   Welcome Home - Coheed and Cambria                             --,---pts   | l 
-|   The Pretender - Foo Fighters                                  --,---pts   | a
-|   Panic Attack - Dream Theater                                  12,000pts   | b
-|   Painkiller - Judas Priest                                    200,000pts   | l
-|   Free Bird - Lynyrd Skynyrd                                    30,000pts   | e
+| ● 03:35  Through the Fire and Flames - DragonForce              12,000 pts  |
+|   02:51  Everlong - Foo Fighters                                 8,000 pts  |
+|   05:12  Battery - Metallica                                   --,---pts    |
+|   03:30  Chop Suey! - System of a Down                         60,000 pts   |
+|   07:23  Welcome Home - Coheed and Cambria                     --,---pts    |
+|   04:01  The Pretender - Foo Fighters                          --,---pts    |
+|   06:19  Panic Attack - Dream Theater                          12,000 pts   |
+|   05:58  Painkiller - Judas Priest                            200,000 pts   |
 |                                                                             |
 +-----------------------------------------------------------------------------+
-|                      STATUS: chart OK - missing audio                       |
+|  Easy        Medium        Hard        Expert        Expert+                 |
 +-----------------------------------------------------------------------------+
-| (status row hidden by default; enabled with "Show Menu Status" in           |
-|  Settings > Advanced)                                                       |
+|  STATUS: chart OK - missing audio                                           |
+|  (hidden by default; enabled with "Show Menu Status" in Settings > Advanced) |
 +-----------------------------------------------------------------------------+
-| Easy            Medium            Hard            Expert            Expert+ |
+|                       ♫  Tap a song to preview                              |
 +-----------------------------------------------------------------------------+
 ```
 

@@ -14,9 +14,31 @@ const RADIUS_CARD: int = 18
 const RADIUS_CONTROL: int = 12
 const SWITCH_SIZE: Vector2 = Vector2(54, 30)
 
-# Multiplier applied to type sizes and touch targets. SettingsRoot raises it
-# on mobile before building, so the same design reads comfortably on a phone.
+# Multiplier applied to type sizes and touch targets. MenuRoot and SettingsRoot
+# raise it on mobile before building, so the same design reads comfortably on a
+# phone.
 static var ui_scale: float = 1.0
+
+const MOBILE_ROW_TARGET_DP: float = 19.0
+const MOBILE_BASE_ROW_UNITS: float = 19.0
+const MOBILE_UI_SCALE_MIN: float = 1.2
+const MOBILE_UI_SCALE_MAX: float = 1.9
+const MOBILE_UI_SCALE_FALLBACK: float = 1.5
+
+
+static func setup_ui_scale(viewport_height: float) -> void:
+	if not OS.has_feature("mobile"):
+		ui_scale = 1.0
+		return
+	var dpi: float = float(DisplayServer.screen_get_dpi())
+	var window_height: float = float(DisplayServer.window_get_size().y)
+	if dpi <= 0.0 or window_height <= 0.0 or viewport_height <= 0.0:
+		ui_scale = MOBILE_UI_SCALE_FALLBACK
+		return
+	var canvas_scale: float = window_height / viewport_height
+	var units_per_dp: float = (dpi / 160.0) / maxf(canvas_scale, 0.01)
+	var target_units: float = MOBILE_ROW_TARGET_DP * units_per_dp
+	ui_scale = clampf(target_units / MOBILE_BASE_ROW_UNITS, MOBILE_UI_SCALE_MIN, MOBILE_UI_SCALE_MAX)
 
 
 static func px(value: float) -> int:
@@ -676,6 +698,23 @@ static func style_progress(bar: ProgressBar) -> void:
 	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 4), 0, px(4)))
 	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 4), 0, px(4)))
 	bar.custom_minimum_size.y = px(10)
+
+
+static func style_scroll(scroll: ScrollContainer) -> void:
+	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
+	_style_scroll_bar(scroll.get_v_scroll_bar())
+	_style_scroll_bar(scroll.get_h_scroll_bar())
+
+
+static func _style_scroll_bar(bar: ScrollBar) -> void:
+	if bar is VScrollBar:
+		bar.custom_minimum_size.x = px(10)
+	else:
+		bar.custom_minimum_size.y = px(10)
+	bar.add_theme_stylebox_override("scroll", flat(Color.TRANSPARENT, 4))
+	bar.add_theme_stylebox_override("grabber", flat(Color(1, 1, 1, 0.14), 4))
+	bar.add_theme_stylebox_override("grabber_highlight", flat(Color(1, 1, 1, 0.26), 4))
+	bar.add_theme_stylebox_override("grabber_pressed", flat(Color(1, 1, 1, 0.34), 4))
 
 
 # --- Inputs -----------------------------------------------------------------
