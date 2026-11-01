@@ -40,6 +40,7 @@ var _songs_link_status: Label
 var _library_section: VBoxContainer
 var _root_path_edit: LineEdit
 var _root_location_option: OptionButton
+var _storage_locations: Array[Dictionary] = []
 var _keyboard_spacer: Control
 var _keyboard_base_viewport_h: float = 0.0
 var _keyboard_last_height: int = 0
@@ -111,10 +112,11 @@ const MODE_DESCRIPTIONS: Array[String] = [
 	"Reorders the highway by hand. Arrange the lanes below, kick included.",
 ]
 
-# Bases offered by the extra-folder form. Picking one keeps the player from
-# typing the Android mount point every time; the folder field only takes the
-# path inside it. An absolute path typed in the field still wins, so pasted
-# paths from a file manager keep working.
+# Bases offered by the extra-folder form on Android. Picking one keeps the
+# player from typing the mount point every time; the folder field only takes the
+# path inside it. Desktop builds use $HOME instead (see _resolve_storage_locations).
+# An absolute path typed in the field still wins, so pasted paths from a file
+# manager keep working.
 const STORAGE_LOCATIONS: Array[Dictionary] = [
 	{"label": "Internal storage", "path": "/storage/emulated/0"},
 	{"label": "External storage", "path": "/sdcard"},
@@ -933,7 +935,8 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	add_hbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	var location_option := OptionButton.new()
 	location_option.name = "StorageLocationOption"
-	for location in STORAGE_LOCATIONS:
+	_storage_locations = _resolve_storage_locations()
+	for location in _storage_locations:
 		location_option.add_item("%s (%s)" % [location["label"], location["path"]])
 	location_option.select(0)
 	location_option.custom_minimum_size.x = SettingsUI.px(210)
@@ -1173,11 +1176,24 @@ func _format_last_scan() -> String:
 	return str(age / 86400) + " day(s) ago"
 
 
+func _resolve_storage_locations() -> Array[Dictionary]:
+	# Android has fixed public mount points. On desktop $HOME is the useful
+	# base: it always exists and the common Music/Downloads folders live
+	# directly below it, so the player only types the part after it.
+	if OS.get_name() == "Android":
+		return STORAGE_LOCATIONS
+	var home: String = OS.get_environment("HOME").strip_edges()
+	if home.is_empty():
+		return STORAGE_LOCATIONS
+	return [{"label": "Home", "path": home.simplify_path()}]
+
+
 func _selected_storage_base() -> String:
+	var locations: Array[Dictionary] = _storage_locations if not _storage_locations.is_empty() else STORAGE_LOCATIONS
 	if is_instance_valid(_root_location_option) and _root_location_option.selected >= 0:
-		var index: int = clampi(_root_location_option.selected, 0, STORAGE_LOCATIONS.size() - 1)
-		return str(STORAGE_LOCATIONS[index]["path"])
-	return str(STORAGE_LOCATIONS[0]["path"])
+		var index: int = clampi(_root_location_option.selected, 0, locations.size() - 1)
+		return str(locations[index]["path"])
+	return str(locations[0]["path"])
 
 
 func _compose_root_path(folder: String) -> String:

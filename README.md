@@ -50,7 +50,7 @@ Install [Godot 4.7](https://godotengine.org/download), open `project.godot`, and
 godot --path .
 ```
 
-On desktop, song folders can be placed in `user://DrumHero` or added through the Songs settings tab.
+On desktop, song folders can be placed in `user://DrumHero` or added through the Songs settings tab. The extra-folder selector offers `$HOME` as a base, so a folder such as `Music/RockBand` can be added directly.
 
 ## How to play
 

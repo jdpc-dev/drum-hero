@@ -91,6 +91,10 @@ func _text_dump(node: Node) -> String:
 	return out
 
 
+func _home_path() -> String:
+	return OS.get_environment("HOME").strip_edges().simplify_path()
+
+
 func _ready() -> void:
 	_backup_settings()
 	_backup_cache()
@@ -130,10 +134,17 @@ func _ready() -> void:
 	_check("hay check Search subfolders", _find_check(root, "Search subfolders") != null)
 	_check("hay campo de ruta", root.find_child("*", true, false) != null and dump.contains("absolute path"))
 	_check("hay selector de ubicacion", is_instance_valid(root._root_location_option))
-	_check("selector ofrece almacenamiento interno y externo",
-		root._root_location_option.item_count == 2
-		and root._root_location_option.get_item_text(0).contains("Internal storage")
-		and root._root_location_option.get_item_text(1).contains("External storage"))
+	if OS.get_name() == "Android":
+		_check("selector ofrece almacenamiento interno y externo",
+			root._root_location_option.item_count == 2
+			and root._root_location_option.get_item_text(0).contains("Internal storage")
+			and root._root_location_option.get_item_text(1).contains("External storage"))
+	else:
+		_check("selector ofrece la carpeta home",
+			root._root_location_option.item_count == 1
+			and root._root_location_option.get_item_text(0).contains("Home")
+			and root._root_location_option.get_item_text(0).contains(_home_path()))
+		_check("la base elegida es $HOME", root._selected_storage_base() == _home_path())
 	_check("hay boton Add", _find_button(root, "Add") != null)
 	_check("hay boton Rescan now", _find_button(root, "Rescan now") != null)
 	_check("hay boton Reset SONGS", _find_button(root, "Reset SONGS to Defaults") != null)
@@ -204,12 +215,16 @@ func _ready() -> void:
 	root._root_location_option.select(0)
 	root._root_path_edit.text = "Download/RockBand"
 	root._on_add_extra_folder()
-	_check("almacenamiento interno antepuesto", SettingsManager.library_roots.has("/storage/emulated/0/Download/RockBand"))
+	if OS.get_name() == "Android":
+		_check("almacenamiento interno antepuesto", SettingsManager.library_roots.has("/storage/emulated/0/Download/RockBand"))
+	else:
+		_check("carpeta home antepuesta", SettingsManager.library_roots.has(_home_path().path_join("Download/RockBand")))
 	_check("el campo se limpia tras anadir", root._root_path_edit.text.is_empty())
-	root._root_location_option.select(1)
-	root._root_path_edit.text = "Music/RockBand"
-	root._on_add_extra_folder()
-	_check("almacenamiento externo antepuesto", SettingsManager.library_roots.has("/sdcard/Music/RockBand"))
+	if OS.get_name() == "Android":
+		root._root_location_option.select(1)
+		root._root_path_edit.text = "Music/RockBand"
+		root._on_add_extra_folder()
+		_check("almacenamiento externo antepuesto", SettingsManager.library_roots.has("/sdcard/Music/RockBand"))
 	root._root_path_edit.text = "/tmp/opencode/pasted"
 	root._on_add_extra_folder()
 	_check("una ruta absoluta no se antepone", SettingsManager.library_roots.has("/tmp/opencode/pasted"))
