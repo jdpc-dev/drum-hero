@@ -41,6 +41,13 @@ func _apply_master_volume() -> void:
 		AudioServer.set_bus_volume_db(idx, linear_to_db(SettingsManager.master_volume))
 
 
+# Public entry point for the Settings panel: values may change while the song
+# is playing, so the buses have to be refreshed without reloading the stems.
+func apply_volume_settings() -> void:
+	_apply_master_volume()
+	_apply_music_volume()
+
+
 func _apply_music_volume() -> void:
 	var idx: int = AudioServer.get_bus_index("Music")
 	if idx < 0:

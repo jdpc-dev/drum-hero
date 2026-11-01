@@ -47,7 +47,7 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 |                      STATUS: chart OK - missing audio                       |
 +-----------------------------------------------------------------------------+
 | (status row hidden by default; enabled with "Show Menu Status" in           |
-|  Settings > Experimental)                                                   |
+|  Settings > Advanced)                                                       |
 +-----------------------------------------------------------------------------+
 | Easy            Medium            Hard            Expert            Expert+ |
 +-----------------------------------------------------------------------------+
@@ -56,64 +56,54 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 ## ASCII SETTINGS MENU REFERENCE
 ```
 +-----------------------------------------------------------------------------+
-|                                SETTINGS                                Back |
+| +---------------+  Controls                                   [ Back ]      |
+| | DRUM HERO     |  How the pads play, how the lanes are arranged...        |
+| | Settings      |                                                          |
+| |               |  +-----------------------------------------------------+ |
+| | > CONTROLS    |  | CONTROL MODE                                        | |
+| |   GAMEPLAY    |  | [ Default ] [ Haptic ] [ Custom ]                   | |
+| |   AUDIO       |  | 8 lanes - every drum part is visible...             | |
+| |   SONGS       |  +-----------------------------------------------------+ |
+| |   ADVANCED    |  +-----------------------------------------------------+ |
+| |               |  | LAYOUT                                              | |
+| |               |  | (o) Mirrored layout                                 | |
+| |               |  |      Flip the highway from left to right.           | |
+| |               |  | ( ) Left-handed mode                                | |
+| |               |  +-----------------------------------------------------+ |
+| | About Drum    |  +-----------------------------------------------------+ |
+| | Hero          |  | HAPTIC KICK                                         | |
+| | Version 7.0.0 |  | (o) Enable haptic kick                              | |
+| +---------------+  | Sensitivity                            [ 1.0 ]      | |
+|                    | [==========o=====================]                   | |
+|                    | Advanced tuning  +                                  | |
+|                    +-----------------------------------------------------+ |
+|                    +-----------------------------------------------------+ |
+|                    | FREE MODE                                           | |
+|                    | [ Open Free Mode ]                                  | |
+|                    +-----------------------------------------------------+ |
 +-----------------------------------------------------------------------------+
-| CONTROLS | HUD | Experimental                                               |
+```
+```
+Compact layout (< 1000 px physical width):
 +-----------------------------------------------------------------------------+
-| CONTROLS TAB                                                                |
-|                                                                             |
-| CONTROL MODE                                                                |
-| Default    8 lanes — all drum parts visible                                 |
-| Haptic     7 lanes — KICK via device motion sensor (two-phase detection: lift → zero-cross → fire) |
-| Custom     Reorder lanes manually                                           |
-|                                                                             |
-| LANE ORDER (CUSTOM MODE)                                                    |
-| ▲ ▼ [color] HH                                                             |
-| ▲ ▼ [color] CRASH                                                          |
-| ...                                                                         |
-|                                                                             |
-| HAPTIC                                                                      |
-| Enable Haptic Kick                                                          |
-| Sensitivity        [====o====================] 1.0                          |
-| ADVANCED HAPTIC TUNING                                                      |
-| Activation          [====o====================] 1.5                         |
-| Release             [====o====================] 0.3                         |
-| Cooldown (s)        [====o====================] 0.15                        |
-| Min Interval (s)    [====o====================] 0.08                        |
-| Smoothing           [====o====================] 0.4                         |
-| Show Haptic Debug   [ ]                                                     |
-|                                                                             |
-| LAYOUT                                                                      |
-| Mirrored Layout                                                             |
-| Left Handed Mode                                                            |
-+-----------------------------------------------------------------------------+
-| HUD TAB                                                                     |
-+-----------------------------------------------------------------------------+
-| VISUAL                                                                      |
-| Show FPS                                                                    |
-| Screen Shake                                                                |
-|                                                                             |
-| GAMEPLAY                                                                    |
-| Note Speed           [========o=============] x1.0                          |
-| Silence Countdown    [===o==================] 5.0s                          |
-|                                                                             |
-| JUDGEMENT WINDOWS                                                           |
-| Perfect      ±22.5 ms                                                       |
-| Excellent    ±45.0 ms                                                       |
-| Good         ±75.0 ms                                                       |
-| Late         ±100.0 ms                                                      |
-| Early        ±100.0 ms                                                      |
-| Miss         ±135.0 ms                                                      |
-+-----------------------------------------------------------------------------+
-| EXPERIMENTAL TAB                                                            |
-+-----------------------------------------------------------------------------+
-| FREE MODE                                                                   |
-| [ Open Free Mode ]                                                          |
-| Drum testing without a song: empty highway, tap any pad to hear it.         |
-|                                                                             |
-| Use PART GUITAR as fallback                                                 |
-| For songs without PART DRUMS, use PART GUITAR notes as a drum chart         |
-+-----------------------------------------------------------------------------+
+| Controls                                             [ About ] [ Back ]     |
+| How the pads play...                                                        |
+| +------------------+------------------+------------------+-----------------+ |
+| | CONTROLS         | GAMEPLAY         | AUDIO            | SONGS ...       | |
+| +------------------+------------------+------------------+-----------------+ |
+| +-------------------------------------------------------------------------+ |
+| | CONTROL MODE                                                            | |
+| | [ Default ] [ Haptic ] [ Custom ]                                       | |
+| +-------------------------------------------------------------------------+ |
+```
+```
+Tabs and content:
+- CONTROLS: mode, lane order (Custom), layout, haptic kick, Free Mode, reset.
+- GAMEPLAY: speed & pacing, feedback, performance, timing & calibration, reset.
+- AUDIO: master/music/drums/previews, drum samples, reset.
+- SONGS: need songs, storage access, library locations, extra folders, scan, reset.
+- ADVANCED: compatibility, debug, screen padding, reset.
+- About: modal with version and credits (opened from the sidebar/header).
 ```
 
 ## ASCII FREE MODE REFERENCE

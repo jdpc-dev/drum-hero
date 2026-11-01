@@ -52,6 +52,11 @@ func _apply_sfx_volume() -> void:
 	AudioServer.set_bus_volume_db(idx, linear_to_db(SettingsManager.sfx_volume))
 
 
+# Public entry point for the Settings panel.
+func apply_volume_settings() -> void:
+	_apply_sfx_volume()
+
+
 func _load_all_samples() -> void:
 	for pad in range(9):
 		_samples[pad] = {}

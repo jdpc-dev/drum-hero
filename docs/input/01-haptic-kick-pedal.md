@@ -238,7 +238,7 @@ All detection parameters are externally configurable through the settings UI and
 
 # Debug Overlay
 
-Toggleable via **Settings → Haptic → Show Haptic Debug** or `haptic_show_debug = true`.
+Toggleable via **Settings → Advanced → Show Haptic Debug** or `haptic_show_debug = true`.
 
 Displays on screen:
 

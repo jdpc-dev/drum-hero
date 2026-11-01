@@ -32,6 +32,28 @@ const CHROME: Color = Color(0.682, 0.710, 0.753)
 const BONE: Color = Color(0.847, 0.863, 0.890)
 const BONE_HI: Color = Color(0.933, 0.941, 0.957)
 
+# --- Settings chrome: layered surfaces for cards, rows and controls ---
+# They sit between NIGHT_PANEL and NIGHT_ROW so a card can hold a control
+# without either one disappearing into the other.
+const SURFACE_0: Color = Color(0.055, 0.055, 0.082)
+const SURFACE_1: Color = Color(0.071, 0.071, 0.102)
+const SURFACE_2: Color = Color(0.094, 0.094, 0.129)
+const SURFACE_3: Color = Color(0.122, 0.122, 0.165)
+const SURFACE_4: Color = Color(0.157, 0.157, 0.204)
+
+# Hairlines for cards and controls. Alpha keeps them readable on any surface.
+const BORDER_SOFT: Color = Color(1.0, 1.0, 1.0, 0.055)
+const BORDER: Color = Color(1.0, 1.0, 1.0, 0.10)
+const BORDER_STRONG: Color = Color(1.0, 1.0, 1.0, 0.16)
+
+# Interaction accent. Derived from the blood ramp so the chrome keeps the
+# game's red identity without using the lane colors.
+const ACCENT: Color = Color(0.902, 0.224, 0.275)
+const ACCENT_BRIGHT: Color = Color(0.960, 0.310, 0.353)
+const ACCENT_SOFT: Color = Color(0.902, 0.224, 0.275, 0.14)
+const ACCENT_FAINT: Color = Color(0.902, 0.224, 0.275, 0.07)
+const ACCENT_EDGE: Color = Color(0.902, 0.224, 0.275, 0.42)
+
 # --- Text ---
 const INK: Color = Color(0.020, 0.020, 0.031)
 const INK_SOFT: Color = Color(0.020, 0.020, 0.031, 0.8)

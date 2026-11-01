@@ -1,6 +1,6 @@
 extends Node
 
-# Free mode test (Settings > Experimental > Open Free Mode).
+# Free mode test (Settings > Controls > Open Free Mode).
 # Checks that the scene sets up the real Highway, that ChartParser is cleared,
 # that each hit plays/lights up without a chart, and that the Settings button
 # is wired to the menu.
@@ -257,7 +257,7 @@ func _ready() -> void:
 	_check("sin velocidad explicita usa el ajuste (capa 1)", DrumSfxManager._layer_cursor.has("8:1"))
 	SettingsManager.default_sample_velocity = previous_velocity
 
-	print("=== 8. Ajustes > Experimental ofrece la entrada ===")
+	print("=== 8. Ajustes > Controls ofrece la entrada al modo libre ===")
 	await _check_settings_entry()
 
 	print("=== 9. el menu conecta Ajustes con el cambio de escena ===")
@@ -297,8 +297,8 @@ func _check_settings_entry() -> void:
 
 	_check("el panel de Ajustes expone free_mode_requested", settings.has_signal("free_mode_requested"))
 
-	var tab: Button = _find_button(settings, "Experimental")
-	_check("hay pestana Experimental", tab != null)
+	var tab: Button = _find_button(settings, "CONTROLS")
+	_check("hay pestana CONTROLS", tab != null)
 	if tab == null:
 		settings.queue_free()
 		await get_tree().process_frame
@@ -310,12 +310,18 @@ func _check_settings_entry() -> void:
 	_check("hay boton Open Free Mode", open_btn != null)
 	_check("hay seccion FREE MODE", _find_label(settings, "FREE MODE") != null)
 	_check("el boton explica para que sirve", _find_label(settings, "Drum testing without a song") != null)
-	_check("hay ajuste de Default Velocity", _find_label(settings, "Default Velocity") != null)
 	if open_btn != null:
 		var seen: Array = []
 		settings.free_mode_requested.connect(func() -> void: seen.append(true), CONNECT_ONE_SHOT)
 		open_btn.pressed.emit()
 		_check("el boton pide abrir el modo libre", seen.size() == 1)
+
+	var audio_tab: Button = _find_button(settings, "AUDIO")
+	_check("hay pestana AUDIO", audio_tab != null)
+	if audio_tab != null:
+		audio_tab.pressed.emit()
+		await get_tree().process_frame
+		_check("hay ajuste de Default Velocity", _find_label(settings, "Default Velocity") != null)
 	settings.queue_free()
 	await get_tree().process_frame
 

@@ -26,38 +26,60 @@ Main (CanvasLayer)                      ← MenuRoot.gd
 │   │   └── SongListContainer (VBoxContainer)
 │   │       ├── SongRow_N (PanelContainer)  — ► + artist + --,---pts
 │   │       └── ...
-│   ├── StatusLabel                    — "STATUS: chart OK - ..." (hidden by default; Show Menu Status in Settings > Experimental)
+│   ├── StatusLabel                    — "STATUS: chart OK - ..." (hidden by default; Show Menu Status in Settings > Advanced)
 ├── PreviewStatusLabel             — "♫ Artist - Song" (while the preview plays, hidden otherwise) | idle: "♫ Tap a song to preview"
 │   └── DiffContainer (HBoxContainer)  — Easy/Medium/Hard/Expert/Expert+
 │       └── [5 buttons]                — disabled if unavailable
 
 Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
-├── Background (ColorRect)
-├── MarginContainer (margins 40px)
-│   └── VBoxContainer (root)
-│       ├── HeaderScroll (ScrollContainer, no scroll, 110px)
-│       │   └── VBoxContainer
-│       │       ├── HeaderBar (HBoxContainer) — "SETTINGS" + Back
-│       │       └── TabBar (PanelContainer)   — CONTROLS | HUD | Experimental
-│       └── ContentScroll (ScrollContainer, scrollable)
-│           └── ContentContainer (VBoxContainer) — active tab content
+├── Background (ColorRect) + soft radial accent glow
+├── MarginContainer (26px wide / 16px compact)
+│   └── HBoxContainer (wide) or VBoxContainer (compact)
+│       ├── SidebarScroll (ScrollContainer, fixed 258px, wide only)
+│       │   └── SidebarPanel: DRUM HERO wordmark, nav buttons, About, version
+│       └── Main column
+│           ├── PageHeaderScroll (title, subtitle, Back; compact also About)
+│           ├── NavStrip (compact only): horizontal, scrollable nav
+│           └── ContentScroll (ScrollContainer, scrollable)
+│               └── ContentContainer (VBoxContainer) — cards for the active tab
 │
+│   Each card is a SettingsUI.Section (rounded surface, kicker, body rows).
 │   CONTROLS tab:
-│       ├── CONTROL MODE (Default / Haptic / Custom)
-│       ├── LANE ORDER (Custom only)
-│       ├── HAPTIC (enable + sensitivity slider)
-│       └── LAYOUT (Mirrored / Left Handed)
-│
-│   HUD tab:
-│       ├── VISUAL (Show FPS / Screen Shake)
-│       ├── GAMEPLAY (Note Speed / Silence Countdown sliders)
-│       └── JUDGEMENT WINDOWS (read-only ±ms)
-│
-│   Experimental tab:
+│       ├── CONTROL MODE (segmented Default / Haptic / Custom)
+│       ├── LANE ORDER (Custom only; colour chip + up/down buttons)
+│       ├── LAYOUT (Mirrored / Left Handed)
+│       ├── HAPTIC KICK (enable, sensitivity, advanced tuning disclosure)
 │       ├── FREE MODE (Open Free Mode)   — shortcut to the empty track
-│       ├── CHART FALLBACK (Use PART GUITAR)
-│       ├── DEBUG (Show Judgment Areas)
-│       └── GAMEPLAY PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-200px)
+│       └── Reset CONTROLS to Defaults
+│
+│   GAMEPLAY tab:
+│       ├── SPEED & PACING (Note Speed / Silence Countdown)
+│       ├── FEEDBACK (Hit Feedback / Screen Shake)
+│       ├── PERFORMANCE (Show FPS / Max FPS)
+│       ├── TIMING & CALIBRATION (Note offset, Judgement windows disclosure)
+│       └── Reset GAMEPLAY to Defaults
+│
+│   AUDIO tab:
+│       ├── VOLUME (Master / Music / Drums & effects / Menu previews)
+│       ├── DRUM SAMPLES (Default Velocity 0-127)
+│       └── Reset AUDIO to Defaults
+│
+│   SONGS tab:
+│       ├── NEED SONGS? (Get songs)
+│       ├── STORAGE ACCESS (Android permission / desktop note)
+│       ├── LIBRARY LOCATIONS (Scan Download, subfolder depth, recursive)
+│       ├── EXTRA FOLDERS (saved roots + storage location form)
+│       ├── LIBRARY SCAN (Rescan now / Cancel, progress and summary)
+│       └── Reset SONGS to Defaults
+│
+│   ADVANCED tab:
+│       ├── COMPATIBILITY (Use PART GUITAR)
+│       ├── DEBUG (Judgment Areas / Haptic Debug / Menu Status)
+│       ├── SCREEN PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-100dp)
+│       └── Reset ADVANCED to Defaults
+│
+│   About (sidebar footer or compact header) opens a modal with the version
+│   and credits. Escape / Android back closes the modal before the panel.
 
 Gameplay (Node2D)                       ← GameplayRoot.gd
 ├── Highway (Node2D)                    ← Highway.gd
@@ -117,7 +139,7 @@ Test: `godot --headless --path . res://tools/test_menu_state.tscn`
 
 ### Free mode (drum testing)
 
-Entered from **Settings → Experimental → Open Free Mode**. It is its own scene,
+Entered from **Settings → Controls → Free Mode → Open Free Mode**. It is its own scene,
 not a synthetic song: there is no chart, score, combo or results screen, so it
 cannot pollute the records in `user://scores.cfg`.
 
@@ -1033,7 +1055,7 @@ every song during the scan, in exchange for purely decorative data.
 
 ### SONGS tab (Settings)
 
-`SettingsRoot` has a **SONGS** tab between HUD and Experimental. It contains:
+`SettingsRoot` has a **SONGS** page between Audio and Advanced. It contains:
 
 - **STORAGE ACCESS** — All Files Access status. On Android it shows *Grant access* while it has not been granted and *Open Android settings* once granted. On other platforms it shows that access is automatic.
 - **LIBRARY LOCATIONS** — `Download` check, maximum depth (0 = only that folder) and *Search subfolders*.
@@ -1408,25 +1430,43 @@ values:
 
 ### Settings menu layout
 
-The settings menu (`SettingsRoot.gd`) uses a **tabbed** layout to organize the
-options:
+The settings menu (`SettingsRoot.gd`) is a **navigation rail** on wide windows
+and a **horizontal navigation strip** on compact windows (breakpoint on the
+physical window width). The active page name and a one-line description stay
+pinned above the scroll area, so the context never scrolls away. Content is a
+stack of cards (`SettingsUI.Section`) with full-width, touch-sized rows.
 
-- **CONTROLS** — Control mode (Default/Haptic/Custom), lane order, haptic settings, layout (mirrored/left handed). Includes a "Reset CONTROLS to Defaults" button.
-- **HUD** — Visual options (FPS, screen shake, hit feedback), gameplay (note speed, countdown), judgement windows (read-only). Includes a "Reset HUD to Defaults" button.
-- **Experimental** — Chart fallback (PART GUITAR), judgement areas (debug), haptic overlay (Show Haptic Debug), main menu status (Show Menu Status), gameplay padding. Includes a "Reset EXPERIMENTAL to Defaults" button.
+The visual kit lives in `SettingsUI.gd`: palette-backed surfaces, the type
+scale, sidebar items with procedure-drawn icons, switches (a `CheckBox` whose
+icon is a generated switch texture), segmented choices, sliders with generated
+grabber textures, value badges, buttons (primary/secondary/ghost/quiet/danger),
+styled `LineEdit`/`OptionButton`/`ProgressBar` controls and custom scrollbars.
+No new UI literal colors are written outside `Palette.gd`.
+
+Pages:
+
+- **CONTROLS** — Control mode (Default/Haptic/Custom, segmented), lane order (Custom only), layout (mirrored/left handed), haptic kick with sensitivity and an advanced-tuning disclosure, Free Mode and a "Reset CONTROLS to Defaults" button.
+- **GAMEPLAY** — Speed and pacing, feedback (hit feedback/screen shake), performance (FPS counter/cap), timing and calibration (note offset, judgement windows), and a "Reset GAMEPLAY to Defaults" button.
+- **AUDIO** — Master, music, drums & effects and menu-preview volume (applied to the buses immediately), default sample velocity, and a "Reset AUDIO to Defaults" button.
+- **SONGS** — Need songs/Get songs, storage access, library locations, extra folders, explicit scan with progress and diagnostics, and a "Reset SONGS to Defaults" button.
+- **ADVANCED** — Chart fallback, debug toggles, Android screen padding, and a "Reset ADVANCED to Defaults" button.
+
+**About** is not a tab: the sidebar footer (or the compact header) opens a modal
+with the version and credits. Back/Escape closes this modal first.
 
 Each "Reset [SECTION] to Defaults" button restores all values in that section to
 their defaults and rebuilds the active tab's UI.
 
 **Reset methods in `SettingsManager.gd`:**
 - `reset_controls_to_defaults()` — resets `game_mode`, `custom_lanes`, `haptic_*`, `mirrored`, `left_handed` and syncs `GameManager.mode`.
-- `reset_hud_to_defaults()` — resets `show_fps`, `screen_shake`, `show_hit_feedback`, `note_speed`, `countdown_threshold`.
+- `reset_hud_to_defaults()` — resets `show_fps`, `max_fps`, `screen_shake`, `show_hit_feedback`, `note_speed`, `countdown_threshold`, `audio_offset_ms`.
+- `reset_audio_to_defaults()` — resets `master_volume`, `music_volume`, `sfx_volume`, `preview_volume`, `default_sample_velocity`.
 - `reset_experimental_to_defaults()` — resets `use_guitar_fallback`, `show_judgment_areas`, `show_menu_status`, `haptic_show_debug`, `gameplay_padding_*`.
 
 **Technical note:** on Android, `Control` nodes that are children of a
 `CanvasLayer` and not inside a `ScrollContainer` do not render correctly. To fix
-this, the header and tab bar use a fixed `ScrollContainer` (no scroll) while the
-content uses a scrollable `ScrollContainer`.
+this, the sidebar, page header and navigation strip all use fixed
+`ScrollContainer`s (scroll disabled) while the content uses a scrollable one.
 
 ---
 
@@ -1482,7 +1522,7 @@ eliminating per-frame allocations.
 
 - **Combo counter** — "pop" animation (scale 1.3→1.0) when the combo changes (`ComboCounter.gd`).
 - **Hit feedback** — judgement text ("PERFECT"/"EXCELLENT"/"GOOD"/"LATE"/"EARLY"/"MISS") at each hit line via `JudgementPopup` (configurable with `show_hit_feedback`). Miss is shown when the note passes the hit line without being hit.
-- **Judgment areas** — asymmetric color bands on the hit line showing the timing windows (configurable with `show_judgment_areas` in Experimental). EARLY→GOOD→EXCELLENT→PERFECT→LATE→MISS from top to bottom.
+- **Judgment areas** — asymmetric color bands on the hit line showing the timing windows (configurable with `show_judgment_areas` in Advanced). EARLY→GOOD→EXCELLENT→PERFECT→LATE→MISS from top to bottom.
 - **Touch zone highlight** — touch zones at the base of each lane light up when pressed (`TouchInput.gd`).
 
 ---

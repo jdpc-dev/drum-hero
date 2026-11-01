@@ -254,7 +254,7 @@ func _ready() -> void:
 	print("  hijos en content: ", content.get_child_count())
 
 	print("=== 10. TODAS las pestañas se construyen tras insertar SONGS ===")
-	var names: PackedStringArray = PackedStringArray(["CONTROLS", "HUD", "SONGS", "Experimental", "CREDITS"])
+	var names: PackedStringArray = PackedStringArray(["CONTROLS", "GAMEPLAY", "AUDIO", "SONGS", "ADVANCED"])
 	for i in names.size():
 		for t in tabs:
 			if t.text == names[i]:
@@ -278,9 +278,9 @@ func _ready() -> void:
 	_check("portada inexistente devuelve null sin error", menu._load_external_texture("/tmp/opencode/no_existe.png") == null)
 	DirAccess.remove_absolute("/tmp/opencode/cover.png")
 
-	print("=== 11b. toggle 'Show Menu Status' en Experimental ===")
+	print("=== 11b. toggle 'Show Menu Status' en Advanced ===")
 	for t in tabs:
-		if t.text == "Experimental":
+		if t.text == "ADVANCED":
 			t.set_pressed_no_signal(true)
 			t.pressed.emit()
 			break

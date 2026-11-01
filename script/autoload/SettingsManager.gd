@@ -160,6 +160,15 @@ func reset_hud_to_defaults() -> void:
 	save_settings()
 
 
+func reset_audio_to_defaults() -> void:
+	master_volume = 1.0
+	music_volume = 1.0
+	sfx_volume = 1.0
+	preview_volume = 0.8
+	default_sample_velocity = 100
+	save_settings()
+
+
 func reset_library_to_defaults() -> void:
 	library_roots = PackedStringArray()
 	library_preset_downloads = OS.get_name() == "Android"
@@ -173,7 +182,6 @@ func reset_experimental_to_defaults() -> void:
 	show_judgment_areas = false
 	show_menu_status = false
 	haptic_show_debug = false
-	default_sample_velocity = 100
 	gameplay_padding_enabled = false
 	gameplay_padding_left = 75.0
 	gameplay_padding_right = 75.0

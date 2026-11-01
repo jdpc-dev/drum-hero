@@ -132,7 +132,7 @@ The remaining pads keep their 3 layers and use the same formula with
 
 Drum Hero's inputs (keyboard, touch, haptic kick) do not report a real
 velocity, so they use the **Default Velocity** setting
-(`Settings › Experimental › Drum Samples`, 0–127). The default is `100`, the
+(`Settings › Audio › Drum Samples`, 0–127). The default is `100`, the
 same value Clone Hero uses for `Default Sample Velocity`. If a layer has no
 loaded samples, playback falls back to the nearest lower non-empty layer.
 

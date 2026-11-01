@@ -67,7 +67,7 @@ On desktop, song folders can be placed in `user://DrumHero` or added through the
 
 Tap the touch zone at the bottom of each lane on mobile, or press the matching number key on desktop. In **Haptic** mode the Kick lane is hidden and the kick is triggered by a short forward tilt of the device; **Custom** mode lets you reorder lanes and choose whether the kick is haptic.
 
-Scoring uses six timing judgments: **Perfect** (±22.5 ms), **Excellent** (±45 ms), **Good** (±75 ms), **Late** (±100 ms), **Early** (±100 ms) and **Miss** (±135 ms). The windows can be inspected in **Settings → HUD**.
+Scoring uses six timing judgments: **Perfect** (±22.5 ms), **Excellent** (±45 ms), **Good** (±75 ms), **Late** (±100 ms), **Early** (±100 ms) and **Miss** (±135 ms). The windows can be inspected in **Settings → Gameplay → Judgement windows**.
 
 ## Song library
 
@@ -87,7 +87,7 @@ Songs/<artist> - <song>/
 └── background.jpg     # background art
 ```
 
-`notes.mid` takes priority over `notes.chart`. If a song has no drum track, enable **Settings → Experimental → Use PART GUITAR as fallback** to play the guitar chart as drums.
+`notes.mid` takes priority over `notes.chart`. If a song has no drum track, enable **Settings → Advanced → Use PART GUITAR as fallback** to play the guitar chart as drums.
 
 The scanner also accepts `drums_1.ogg`, `drums_2.ogg`, etc. for multi-file stems. `.opus` audio plays on desktop (via `ffmpeg`), but not on Android — convert it to `.ogg` before loading it on a device:
 
@@ -97,12 +97,17 @@ tools/convert_opus_to_ogg.sh --remove-opus
 
 ## Settings
 
-The in-game settings are split into four tabs:
+The in-game settings are split into five tabs, with the current page name and a
+short description always visible next to the navigation:
 
-- **Controls** — Default/Haptic/Custom mode, lane order, haptic sensitivity and tuning, mirrored and left-handed layouts.
-- **HUD** — FPS counter, screen shake, hit feedback, note speed, countdown threshold and timing windows.
+- **Controls** — Default/Haptic/Custom mode, lane order, mirrored and left-handed layouts, the haptic kick and its advanced tuning, Free Mode and the pad controls.
+- **Gameplay** — Note speed, silence countdown, hit feedback, screen shake, FPS counter and cap, note offset and the timing windows.
+- **Audio** — Master, music, drums & effects and menu preview volume, plus the default sample velocity.
 - **Songs** — storage permission, Downloads preset, extra folders, scan depth, an explicit **Rescan now** (the only thing that walks the disks) and scan diagnostics, including why a rescan is pending.
-- **Experimental** — Free Mode, guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
+- **Advanced** — guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
+
+The version and credits live behind **About Drum Hero** in the sidebar (or the
+**About** button in the compact layout).
 
 Settings are stored in `user://settings.cfg`; best scores are stored separately in `user://scores.cfg`.
 

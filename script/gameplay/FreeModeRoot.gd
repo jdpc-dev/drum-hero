@@ -1,7 +1,7 @@
 class_name FreeModeRoot
 extends Node2D
 
-# Free drum practice mode. Entered from Settings > Experimental and there is no
+# Free drum practice mode. Entered from Settings > Controls > Free Mode and there is no
 # song, chart or score: the track appears empty and each hit plays its sample,
 # flashes the hit line and launches particles.
 #
