@@ -53,7 +53,6 @@ var gameplay_padding_bottom: float = 0.0  # dp
 
 var library_roots: PackedStringArray = PackedStringArray()
 var library_preset_downloads: bool = false
-var library_preset_documents: bool = false
 var library_recursive: bool = true
 var library_max_depth: int = 3
 
@@ -86,7 +85,6 @@ func load_settings() -> void:
 		if OS.get_name() == "Android":
 			gameplay_padding_enabled = true
 			library_preset_downloads = true
-			library_preset_documents = true
 		return
 
 	note_speed = cfg.get_value("gameplay", "note_speed", 1.0)
@@ -130,7 +128,6 @@ func load_settings() -> void:
 	gameplay_padding_bottom = cfg.get_value("experimental", "gameplay_padding_bottom", cfg.get_value("experimental", "gameplay_padding_amount", 0.0))
 	library_roots = cfg.get_value("library", "roots", PackedStringArray())
 	library_preset_downloads = cfg.get_value("library", "preset_downloads", false)
-	library_preset_documents = cfg.get_value("library", "preset_documents", false)
 	library_recursive = cfg.get_value("library", "recursive", true)
 	library_max_depth = cfg.get_value("library", "max_depth", 3)
 
@@ -166,7 +163,6 @@ func reset_hud_to_defaults() -> void:
 func reset_library_to_defaults() -> void:
 	library_roots = PackedStringArray()
 	library_preset_downloads = OS.get_name() == "Android"
-	library_preset_documents = OS.get_name() == "Android"
 	library_recursive = true
 	library_max_depth = 3
 	save_settings()
@@ -230,7 +226,6 @@ func save_settings() -> void:
 	cfg.set_value("experimental", "gameplay_padding_bottom", gameplay_padding_bottom)
 	cfg.set_value("library", "roots", library_roots)
 	cfg.set_value("library", "preset_downloads", library_preset_downloads)
-	cfg.set_value("library", "preset_documents", library_preset_documents)
 	cfg.set_value("library", "recursive", library_recursive)
 	cfg.set_value("library", "max_depth", library_max_depth)
 

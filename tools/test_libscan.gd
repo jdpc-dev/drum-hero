@@ -20,7 +20,6 @@ func _check(label: String, ok: bool) -> void:
 
 func _reset(max_depth: int, recursive: bool, roots: PackedStringArray) -> void:
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_roots = roots
 	SettingsManager.library_recursive = recursive
 	SettingsManager.library_max_depth = max_depth
@@ -185,18 +184,16 @@ func _ready() -> void:
 	print("=== 7b. persistencia de [library] en settings.cfg ===")
 	SettingsManager.library_roots = PackedStringArray(["/tmp/one", "/tmp/dos"])
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = true
 	SettingsManager.library_recursive = false
 	SettingsManager.library_max_depth = 7
 	SettingsManager.save_settings()
 	SettingsManager.library_roots = PackedStringArray()
 	SettingsManager.library_preset_downloads = true
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_recursive = true
 	SettingsManager.library_max_depth = 1
 	SettingsManager.load_settings()
 	print("  roots=", SettingsManager.library_roots, " (esperado /tmp/one,/tmp/dos)")
-	print("  downloads=", SettingsManager.library_preset_downloads, " documents=", SettingsManager.library_preset_documents)
+	print("  downloads=", SettingsManager.library_preset_downloads)
 	print("  recursive=", SettingsManager.library_recursive, " max_depth=", SettingsManager.library_max_depth)
 	print("  roots(tipo)=", typeof(SettingsManager.library_roots))
 

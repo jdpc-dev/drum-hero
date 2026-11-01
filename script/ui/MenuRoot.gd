@@ -1127,7 +1127,6 @@ func _on_settings_pressed() -> void:
 	_old_library_state = [
 		SettingsManager.library_roots,
 		SettingsManager.library_preset_downloads,
-		SettingsManager.library_preset_documents,
 		SettingsManager.library_recursive,
 		SettingsManager.library_max_depth,
 	]
@@ -1194,7 +1193,6 @@ func _library_changed() -> bool:
 	var current := [
 		SettingsManager.library_roots,
 		SettingsManager.library_preset_downloads,
-		SettingsManager.library_preset_documents,
 		SettingsManager.library_recursive,
 		SettingsManager.library_max_depth,
 	]

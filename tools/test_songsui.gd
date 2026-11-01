@@ -127,7 +127,6 @@ func _ready() -> void:
 	_check("muestra seccion LIBRARY LOCATIONS", dump.contains("LIBRARY LOCATIONS"))
 	_check("muestra seccion EXTRA FOLDERS", dump.contains("EXTRA FOLDERS"))
 	_check("hay check Scan Download", _find_check(root, "Scan Download") != null)
-	_check("hay check Scan Documents", _find_check(root, "Scan Documents") != null)
 	_check("hay check Search subfolders", _find_check(root, "Search subfolders") != null)
 	_check("hay campo de ruta", root.find_child("*", true, false) != null and dump.contains("absolute path"))
 	_check("hay boton Add", _find_button(root, "Add") != null)
@@ -169,14 +168,12 @@ func _ready() -> void:
 	_check("sin teclado no queda espacio reservado", root._keyboard_spacer.custom_minimum_size.y == 0)
 
 	print("=== 3. controles reflejan el estado persistido ===")
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_preset_downloads = true
 	SettingsManager.library_recursive = true
 	SettingsManager.library_max_depth = 4
 	songs_tab.pressed.emit()
 	await get_tree().process_frame
 	_check("Scan Download marcado", _find_check(root, "Scan Download").button_pressed)
-	_check("Scan Documents desmarcado", not _find_check(root, "Scan Documents").button_pressed)
 	_check("Search subfolders marcado", _find_check(root, "Search subfolders").button_pressed)
 	_check("profundidad=4 -> indice 4", _find_option(root).selected == 4)
 
@@ -202,15 +199,14 @@ func _ready() -> void:
 	_find_check(root, "Search subfolders").toggled.emit(false)
 	await get_tree().process_frame
 	_check("recursividad propagada", SettingsManager.library_recursive == false)
-	_find_check(root, "Scan Documents").set_pressed_no_signal(true)
-	_find_check(root, "Scan Documents").toggled.emit(true)
+	_find_check(root, "Scan Download").set_pressed_no_signal(true)
+	_find_check(root, "Scan Download").toggled.emit(true)
 	await get_tree().process_frame
-	_check("preset documents propagado", SettingsManager.library_preset_documents == true)
+	_check("preset downloads propagado", SettingsManager.library_preset_downloads == true)
 
 	print("=== 7. resumen del escaneo incluye locations y avisos ===")
 	SettingsManager.library_roots = PackedStringArray(["/tmp/opencode/libtest/noexiste"])
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = false
 	SongLoader.scan_songs()
 	root._update_scan_summary()
 	var summary: String = root._scan_summary.text
@@ -326,12 +322,11 @@ func _ready() -> void:
 	menu._old_library_state = [
 		SettingsManager.library_roots,
 		SettingsManager.library_preset_downloads,
-		SettingsManager.library_preset_documents,
 		SettingsManager.library_recursive,
 		SettingsManager.library_max_depth,
 	]
 	_check("sin cambios -> false", not menu._library_changed())
-	SettingsManager.library_preset_documents = not SettingsManager.library_preset_documents
+	SettingsManager.library_preset_downloads = not SettingsManager.library_preset_downloads
 	_check("cambio de preset -> true", menu._library_changed())
 	_check("y consume el estado (idempotente)", not menu._library_changed())
 	SettingsManager.library_roots = PackedStringArray(["/tmp/x"])
@@ -342,7 +337,6 @@ func _ready() -> void:
 	menu._old_library_state = [
 		SettingsManager.library_roots,
 		SettingsManager.library_preset_downloads,
-		SettingsManager.library_preset_documents,
 		SettingsManager.library_recursive,
 		SettingsManager.library_max_depth,
 	]
@@ -362,12 +356,12 @@ func _ready() -> void:
 	print("=== 12c. cambiar la biblioteca no lanza un escaneo ===")
 	root._on_tab_selected(root.SONGS_TAB)
 	await get_tree().process_frame
-	var previous_documents: bool = SettingsManager.library_preset_documents
-	root._on_preset_documents_toggled(not previous_documents)
-	_check("el cambio se guarda", SettingsManager.library_preset_documents == (not previous_documents))
+	var previous_downloads: bool = SettingsManager.library_preset_downloads
+	root._on_preset_downloads_toggled(not previous_downloads)
+	_check("el cambio se guarda", SettingsManager.library_preset_downloads == (not previous_downloads))
 	_check("no arranca un escaneo", not SongLoader.is_scanning and not root._scan_pump_active)
 	_check("el resumen pide Rescan now", root._scan_summary.text.contains("Press Rescan now"))
-	root._on_preset_documents_toggled(previous_documents)
+	root._on_preset_downloads_toggled(previous_downloads)
 
 	print("=== 12d. cerrar Ajustes o cambiar el fallback no lanza un escaneo ===")
 	var previous_fallback: bool = SettingsManager.use_guitar_fallback
@@ -393,7 +387,6 @@ func _ready() -> void:
 
 	SettingsManager.library_roots = PackedStringArray(["/tmp/opencode/libtest/rootA", "/tmp/opencode/libtest/rootA/a/b/c/d/TooDeep"])
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_recursive = true
 	SettingsManager.library_max_depth = 3
 	# How many songs those roots yield, so it does not have to be hardcoded.

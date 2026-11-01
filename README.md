@@ -27,7 +27,7 @@ The game is built with Godot 4.7 and targets Android, with desktop builds used f
 - **8-lane drum highway** — Hi-Hat (closed/open), Crash, Snare, Kick, Tom 1, Tom 2, Tom 3 and Ride.
 - **Three control modes** — Default (all 8 lanes), Haptic (7 lanes plus a kick played by tilting the device) and Custom (reorder lanes, mirror the layout, left-handed mode).
 - **Clone Hero / YARG song support** — `notes.mid` and `notes.chart`, Rock Band drum mappings, Pro Drum tom markers, audio stems and `song.ini`.
-- **External song libraries** — scan Downloads, Documents or any custom folder in place; songs do not need to be copied into the app. The scanned library is cached, so launches do not walk the disks again until you ask for a rescan.
+- **External song libraries** — scan Downloads or any custom folder in place; songs do not need to be copied into the app. The scanned library is cached, so launches do not walk the disks again until you ask for a rescan.
 - **Menu and progression** — search, album art, song previews, difficulty selection and per-song best scores.
 - **Gameplay feedback** — hit windows, combo and multiplier, beat lines, song timeline, long-rest countdowns and a CRASH shockwave.
 - **Free Mode** — test pads, lane order, layout and the haptic kick without loading a song.
@@ -101,7 +101,7 @@ The in-game settings are split into four tabs:
 
 - **Controls** — Default/Haptic/Custom mode, lane order, haptic sensitivity and tuning, mirrored and left-handed layouts.
 - **HUD** — FPS counter, screen shake, hit feedback, note speed, countdown threshold and timing windows.
-- **Songs** — storage permission, Downloads/Documents presets, extra folders, scan depth, an explicit **Rescan now** (the only thing that walks the disks) and scan diagnostics, including why a rescan is pending.
+- **Songs** — storage permission, Downloads preset, extra folders, scan depth, an explicit **Rescan now** (the only thing that walks the disks) and scan diagnostics, including why a rescan is pending.
 - **Experimental** — Free Mode, guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
 
 Settings are stored in `user://settings.cfg`; best scores are stored separately in `user://scores.cfg`.

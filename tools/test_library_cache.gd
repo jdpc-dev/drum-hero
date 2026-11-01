@@ -98,7 +98,6 @@ func _ready() -> void:
 	_ensure_fixture()
 
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_recursive = true
 	SettingsManager.library_max_depth = 3
 	SettingsManager.library_roots = PackedStringArray([FIXTURE])

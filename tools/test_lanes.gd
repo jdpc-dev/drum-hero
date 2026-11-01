@@ -82,7 +82,6 @@ func _ready() -> void:
 		print("  (omitida: cancion no presente)")
 	else:
 		SettingsManager.library_preset_downloads = false
-		SettingsManager.library_preset_documents = false
 		SettingsManager.library_roots = PackedStringArray()
 		SongLoader.scan_songs()
 		var song: Dictionary = {}
@@ -115,7 +114,6 @@ func _ready() -> void:
 
 	print("=== 4. deteccion de audio .opus bloqueado ===")
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_roots = PackedStringArray(["/tmp/opencode/libtest/opustest"])
 	SongLoader.scan_songs()
 	var by_name: Dictionary = {}

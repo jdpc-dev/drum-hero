@@ -861,18 +861,18 @@ copying the files**: they are referenced in place.
 `SongLoader.get_scan_roots()` builds the root list in this order:
 1. `res://Songs` (always)
 2. `get_user_song_dir()` — the app's own folder (created if it does not exist)
-3. `SYSTEM_DIR_DOWNLOADS` and/or `SYSTEM_DIR_DOCUMENTS`, depending on `library_preset_downloads` / `library_preset_documents`
+3. `SYSTEM_DIR_DOWNLOADS` when `library_preset_downloads` is enabled
 4. `SettingsManager.library_roots` — paths typed by the user
 
 All go through `_append_root()`, which normalizes them with `simplify_path()` and
 discards duplicates. Relative paths are expanded with
 `ProjectSettings.globalize_path()`.
 
-On first run on Android the presets enable themselves (along with
-`gameplay_padding_enabled`); on desktop they start disabled so `~/Downloads` is
+On first run on Android the Downloads preset enables itself (along with
+`gameplay_padding_enabled`); on desktop it starts disabled so `~/Downloads` is
 not scanned without the user asking. Configuration is persisted in the
 `[library]` section of `user://settings.cfg`: `roots`, `preset_downloads`,
-`preset_documents`, `recursive`, `max_depth`.
+`recursive`, `max_depth`.
 
 ### Walk
 
@@ -974,7 +974,7 @@ of the panel's half-walked prefix.
 
 - `SongLoader.last_scan_at` / `last_scan_fingerprint` / `last_scan_cancelled` — when the published list was built, with which roots/settings, and whether it was left incomplete. They survive a relaunch through the cache.
 - `SongLoader.library_rescan_reason()` — human-readable reason the cached list is stale (app updated, permission changed, roots/settings changed, last scan cancelled). Empty when current.
-- `SongLoader.unreadable_roots` — roots that could not be opened. On Android without *All files access* granted this is the typical symptom: `Download/` and `Documents/` are not listable under scoped storage.
+- `SongLoader.unreadable_roots` — roots that could not be opened. On Android without *All files access* granted this is the typical symptom: `Download/` is not listable under scoped storage.
 - `SongLoader.truncated_roots` — roots whose walk was cut by `max_depth` or `MAX_DIRS_PER_ROOT`, meaning there may be deeper songs left undiscovered.
 - `SongLoader.cancelled_roots` — roots halfway through the walk when it was cancelled. They are kept separate from truncated ones because the warning is different: there the player knows they stopped it.
 - `SongLoader.visited_roots` / `unvisited_roots` — what the walk actually reached and what it never got to. The SONGS summary counts visited roots, not configured ones: before, a cancelled scan reported "N songs from 5 locations" even when it had only walked the first two.
@@ -1036,7 +1036,7 @@ every song during the scan, in exchange for purely decorative data.
 `SettingsRoot` has a **SONGS** tab between HUD and Experimental. It contains:
 
 - **STORAGE ACCESS** — All Files Access status. On Android it shows *Grant access* while it has not been granted and *Open Android settings* once granted. On other platforms it shows that access is automatic.
-- **LIBRARY LOCATIONS** — `Download`/`Documents` checks, maximum depth (0 = only that folder) and *Search subfolders*.
+- **LIBRARY LOCATIONS** — `Download` check, maximum depth (0 = only that folder) and *Search subfolders*.
 - **EXTRA FOLDERS** — list of custom roots with a *Remove* button, plus a `LineEdit` to add absolute paths. Paths are normalized with `simplify_path()`, prefixed with `/` if missing and duplicates are discarded. Paths that do not exist are shown in red in the list.
 - **Rescan now** and **Cancel**, with a progress bar, `i/N` locations, songs found and current folder while the scan lasts (see *Progress and cancellation in the UI*).
 - A summary of the last scan reporting when it ran, the number of songs, how many of the configured locations were actually visited (`visited of total`), the active `recursive`/`depth` values, and roots that were unreadable, truncated by depth, cancelled halfway or never reached. When `library_rescan_reason()` is not empty, a line explains what changed and asks the player to press **Rescan now**.
@@ -1194,7 +1194,7 @@ under `Songs/`: the `.opus` files in `asset/drumSfx/` are versioned in git and
 are always kept. Deletion requires the `.ogg` to be non-empty and to start with
 the `OggS` magic bytes, asks for confirmation once before the first deletion
 (`--yes` skips it) and `DRY_RUN=true` deletes nothing. User songs go in
-`user://DrumHero` (desktop) or external storage (Android) with `.opus` or `.ogg`.
+`user://DrumHero` with `.opus` or `.ogg`.
 Custom roots can be added — see [External song libraries](#external-song-libraries).
 
 ```

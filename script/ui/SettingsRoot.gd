@@ -36,7 +36,6 @@ var _permission_status: Label
 var _permission_button: Button
 var _permission_was_granted: bool = false
 var _preset_downloads_check: CheckBox
-var _preset_documents_check: CheckBox
 var _recursive_check: CheckBox
 var _depth_option: OptionButton
 var _roots_container: VBoxContainer
@@ -922,8 +921,6 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	parent.add_child(_spacer(10))
 
 	_preset_downloads_check = _make_library_check(parent, "Scan Download", SettingsManager.library_preset_downloads, _on_preset_downloads_toggled)
-	parent.add_child(_spacer(5))
-	_preset_documents_check = _make_library_check(parent, "Scan Documents", SettingsManager.library_preset_documents, _on_preset_documents_toggled)
 
 	parent.add_child(_spacer(15))
 	var depth_hbox := HBoxContainer.new()
@@ -1268,12 +1265,6 @@ func _on_remove_root(index: int) -> void:
 
 func _on_preset_downloads_toggled(toggled: bool) -> void:
 	SettingsManager.library_preset_downloads = toggled
-	SettingsManager.save_settings()
-	_update_scan_summary()
-
-
-func _on_preset_documents_toggled(toggled: bool) -> void:
-	SettingsManager.library_preset_documents = toggled
 	SettingsManager.save_settings()
 	_update_scan_summary()
 

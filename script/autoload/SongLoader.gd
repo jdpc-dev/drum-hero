@@ -605,8 +605,6 @@ func get_scan_roots() -> PackedStringArray:
 		roots.append(own_dir)
 	if SettingsManager.library_preset_downloads:
 		_append_system_dir(roots, OS.SYSTEM_DIR_DOWNLOADS)
-	if SettingsManager.library_preset_documents:
-		_append_system_dir(roots, OS.SYSTEM_DIR_DOCUMENTS)
 	for custom_root in SettingsManager.library_roots:
 		_append_root(roots, custom_root)
 	return roots
@@ -634,19 +632,9 @@ func _append_root(roots: PackedStringArray, raw_path: String) -> void:
 	roots.append(normalized)
 
 
-func _get_external_path() -> String:
-	var downloads: String = OS.get_system_dir(OS.SYSTEM_DIR_DOWNLOADS)
-	if downloads.is_empty():
-		return ""
-	return downloads.get_base_dir().path_join("Android/data/com.drum.hero/files/DrumHero")
-
-
 func get_user_song_dir() -> String:
-	if OS.has_feature("android"):
-		var p: String = _get_external_path()
-		if not p.is_empty():
-			return p
 	return ProjectSettings.globalize_path("user://DrumHero")
+
 
 func _optional_file(song_path: String, files: Dictionary, lower_name: String) -> String:
 	# The directory listing covers external libraries without extra stat calls.

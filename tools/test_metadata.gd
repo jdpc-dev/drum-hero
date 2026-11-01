@@ -25,7 +25,6 @@ func _restore_settings() -> void:
 
 func _show(root_rel: String) -> void:
 	SettingsManager.library_preset_downloads = false
-	SettingsManager.library_preset_documents = false
 	SettingsManager.library_roots = PackedStringArray(["/tmp/opencode/libtest/" + root_rel])
 	SettingsManager.library_recursive = true
 	SettingsManager.library_max_depth = 4
