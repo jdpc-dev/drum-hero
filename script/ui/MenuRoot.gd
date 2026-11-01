@@ -39,6 +39,11 @@ var _quit_confirm_overlay: CanvasLayer
 
 var _scan_pump_active: bool = false
 
+# Launch-only event: it must not replay when Gameplay returns to the menu.
+# `static` survives the scene change; tests never set it because they do not
+# make this menu the current scene.
+static var _boot_intro_shown: bool = false
+
 var _old_guitar_fallback: bool = false
 var _old_menu_status: bool = false
 var _old_library_state: Array = []
@@ -64,6 +69,22 @@ var _preview_stem_players: Array[AudioStreamPlayer] = []
 var _preview_stem_thread: Thread
 var _preview_stem_load_done: bool = false
 var _preview_stem_load_result: Dictionary = {}
+
+# The engine boot splash can only draw one still image, so its frame is reused
+# as the first frame of this short intro. It is played by the menu itself, right
+# after the engine hands over the window.
+const BOOT_INTRO_FRAMES: Array[String] = [
+	"res://asset/textures/app_secret_frame_0.png",
+	"res://asset/textures/app_secret_frame_1.png",
+	"res://asset/textures/app_secret_frame_2.png",
+	"res://asset/textures/app_secret_frame_3.png",
+	"res://asset/textures/app_secret_frame_4.png",
+	"res://asset/textures/app_secret_frame_5.png",
+]
+const BOOT_INTRO_FRAME_TIME := 0.1
+const BOOT_INTRO_FADE_TIME := 0.35
+const BOOT_INTRO_LAYER := 30
+const BOOT_INTRO_BG: Color = Color(0.141176, 0, 0, 1)
 
 const PREVIEW_ANIM_FRAMES := [".", "..", "..."]
 const PREVIEW_ANIM_INTERVAL := 0.3
@@ -119,6 +140,76 @@ func _ready() -> void:
 		_update_status_text()
 	_update_difficulty_visibility()
 	_update_selection_ui()
+	_maybe_show_boot_intro()
+
+
+# The boot splash is a single still image, so the rest of the sequence is played
+# here, over the menu, when the window is first handed to the game. It only runs
+# when this menu is the app's main scene: tests instantiate Main.tscn under
+# their own scene, so `current_scene` is not this node there. Returns from
+# Gameplay are stopped by the static guard.
+func _maybe_show_boot_intro() -> void:
+	if _boot_intro_shown:
+		return
+	var current := get_tree().current_scene
+	if current != null and current != self:
+		return
+	_boot_intro_shown = true
+
+	var frames: Array[Texture2D] = []
+	for path in BOOT_INTRO_FRAMES:
+		# The sequence is used once: keeping its 1024x1024 textures in the
+		# resource cache for the whole session would waste several MB on a phone.
+		var texture := ResourceLoader.load(path, "", ResourceLoader.CACHE_MODE_IGNORE) as Texture2D
+		if texture:
+			frames.append(texture)
+	if frames.is_empty():
+		return
+
+	var overlay := CanvasLayer.new()
+	overlay.name = "BootIntro"
+	overlay.layer = BOOT_INTRO_LAYER
+
+	var root := Control.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# The menu is already built underneath: a tap aimed at the splash must not
+	# reach a song row or the search field.
+	root.mouse_filter = Control.MOUSE_FILTER_STOP
+	overlay.add_child(root)
+
+	var bg := ColorRect.new()
+	bg.color = BOOT_INTRO_BG
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.add_child(bg)
+
+	var image := TextureRect.new()
+	image.set_anchors_preset(Control.PRESET_FULL_RECT)
+	image.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	image.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	image.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	image.texture = frames[0]
+	root.add_child(image)
+
+	add_child(overlay)
+	_play_boot_intro(overlay, root, image, frames)
+
+
+func _play_boot_intro(overlay: CanvasLayer, root: Control, image: TextureRect,
+		frames: Array[Texture2D]) -> void:
+	# One pass only: the sequence must not jump back to the first frame.
+	for frame in frames:
+		if not is_instance_valid(overlay):
+			return
+		image.texture = frame
+		await get_tree().create_timer(BOOT_INTRO_FRAME_TIME).timeout
+	if not is_instance_valid(overlay):
+		return
+	var fade := overlay.create_tween()
+	fade.tween_property(root, "modulate:a", 0.0, BOOT_INTRO_FADE_TIME)
+	await fade.finished
+	if is_instance_valid(overlay):
+		overlay.queue_free()
 
 
 func _notification(what: int) -> void:

@@ -17,7 +17,7 @@ run/main_scene="res://scene/Main.tscn"
 config/quit_on_go_back=false
 config/features=PackedStringArray("4.7")
 boot_splash/bg_color=Color(0.141176, 0, 0, 1)
-boot_splash/image="res://asset/textures/app_secret.png"
+boot_splash/image="res://asset/textures/app_secret_frame_0.png"
 config/icon="uid://darsey555qqei"
 
 [audio]
