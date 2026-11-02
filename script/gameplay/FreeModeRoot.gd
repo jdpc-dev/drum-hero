@@ -36,6 +36,7 @@ var _pause_overlay: CanvasLayer
 
 
 func _ready() -> void:
+	SettingsUI.setup_ui_scale(get_viewport().get_visible_rect().size.y)
 	get_tree().auto_accept_quit = false
 	# The ChartParser autoload survives scene changes: without clearing it, the
 	# last played song would leave notes falling down the track and counted as
@@ -273,51 +274,56 @@ func _show_pause_overlay() -> void:
 	bg.name = "PauseBg"
 	bg.color = Palette.SCRIM_SOFT
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.add_child(bg)
 
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.name = "PauseMenu"
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.offset_left = -180
-	vbox.offset_top = -160
-	vbox.offset_right = 180
-	vbox.offset_bottom = 160
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 6)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_overlay.add_child(center)
 
-	var title: Label = Label.new()
-	title.text = "PAUSED"
+	var panel := PanelContainer.new()
+	panel.name = "PauseMenu"
+	panel.custom_minimum_size = Vector2(SettingsUI.px(360), 0)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
+	SettingsUI.pad(panel_style, SettingsUI.px(26), SettingsUI.px(22))
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", SettingsUI.px(8))
+	panel.add_child(vbox)
+
+	var title: Label = SettingsUI.label("PAUSED", 26, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	title.add_theme_font_size_override("font_size", 48)
-	title.add_theme_color_override("font_color", Palette.BONE)
-	title.add_theme_color_override("font_shadow_color", Palette.INK)
-	title.add_theme_constant_override("shadow_offset_x", 2)
-	title.add_theme_constant_override("shadow_offset_y", 2)
 	vbox.add_child(title)
 
-	var spacing := Control.new()
-	spacing.custom_minimum_size = Vector2(0, 20)
-	vbox.add_child(spacing)
+	var subtitle: Label = SettingsUI.description("Free mode  ·  no song, no score", Palette.ASH_DIM)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(subtitle)
 
-	var resume_btn: Button = Button.new()
-	resume_btn.text = "RESUME"
-	resume_btn.custom_minimum_size = Vector2(200, 50)
+	var resume_btn: Button = SettingsUI.button("RESUME", "primary")
+	resume_btn.name = "ResumeButton"
+	resume_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	resume_btn.pressed.connect(_resume_game)
 	vbox.add_child(resume_btn)
 
-	var restart_btn: Button = Button.new()
-	restart_btn.text = "RESTART"
-	restart_btn.custom_minimum_size = Vector2(200, 50)
+	var restart_btn: Button = SettingsUI.button("RESTART", "secondary")
+	restart_btn.name = "RestartButton"
+	restart_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	restart_btn.pressed.connect(_restart_free_mode)
 	vbox.add_child(restart_btn)
 
-	var exit_btn: Button = Button.new()
-	exit_btn.text = "EXIT"
-	exit_btn.custom_minimum_size = Vector2(200, 50)
+	var exit_btn: Button = SettingsUI.button("EXIT", "secondary")
+	exit_btn.name = "ExitButton"
+	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	exit_btn.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+	exit_btn.add_theme_color_override("font_hover_color", Palette.BLOOD_GLOW)
+	exit_btn.add_theme_color_override("font_pressed_color", Palette.BLOOD_GLOW)
 	exit_btn.pressed.connect(_exit_to_menu)
 	vbox.add_child(exit_btn)
 
-	_pause_overlay.add_child(vbox)
 	add_child(_pause_overlay)
 
 
