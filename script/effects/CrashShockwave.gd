@@ -13,7 +13,7 @@ extends CanvasLayer
 # blends instead of cutting the previous wave.
 
 const MAX_WAVES: int = 3
-const DURATION: float = 0.9
+const DURATION: float = 0.68
 const STRENGTH_PX: float = 13.0
 const WAVE_WIDTH_PX: float = 150.0
 const RIM_CORE_PX: float = 5.0
@@ -21,6 +21,11 @@ const EDGE_SOFTNESS_PX: float = 28.0
 const RIM_ALPHA: float = 0.32
 # Cool glass edge: the pressure wave should bend colors without warming them.
 const RIM_TINT: Color = Color(0.70, 0.85, 1.0)
+# White-hot contact flash, shorter than the rest of the impact.
+const FLASH_DURATION: float = 0.11
+const FLASH_RADIUS_PX: float = 220.0
+const FLASH_ALPHA: float = 1.0
+const FLASH_TINT: Color = Color(0.92, 0.96, 1.0)
 const LENS_STRENGTH: float = 0.06
 const REFRACTION_STRENGTH: float = 3.5
 const GAS_STRENGTH: float = 0.5
@@ -35,6 +40,8 @@ const MAX_RADIUS_SCALE: float = 1.08  # of the farthest visible corner
 var _waves: Array[Dictionary] = []
 var _max_radius: float = 1500.0
 var _viewport_size: Vector2 = Vector2(1280.0, 720.0)
+var _flash_elapsed: float = FLASH_DURATION
+var _flash_origin: Vector2 = Vector2.ZERO
 
 
 func _ready() -> void:
@@ -59,6 +66,9 @@ func trigger(global_position: Vector2, color: Color) -> void:
 		"elapsed": 0.0,
 	})
 
+	_flash_elapsed = 0.0
+	_flash_origin = global_position
+
 	if not visible:
 		visible = true
 		_copy.visible = true
@@ -68,6 +78,9 @@ func trigger(global_position: Vector2, color: Color) -> void:
 
 
 func _process(delta: float) -> void:
+	if _flash_elapsed < FLASH_DURATION:
+		_flash_elapsed += delta
+
 	var i: int = _waves.size() - 1
 	while i >= 0:
 		_waves[i].elapsed += delta
@@ -83,6 +96,9 @@ func _process(delta: float) -> void:
 
 func _stop() -> void:
 	_waves.clear()
+	_flash_elapsed = FLASH_DURATION
+	if _material:
+		_material.set_shader_parameter("flash_amount", 0.0)
 	visible = false
 	if _copy:
 		_copy.visible = false
@@ -100,6 +116,16 @@ func _update_uniforms() -> void:
 	_material.set_shader_parameter("edge_softness", EDGE_SOFTNESS_PX)
 	_material.set_shader_parameter("refraction_strength", REFRACTION_STRENGTH)
 	_material.set_shader_parameter("gas_strength", GAS_STRENGTH)
+
+	var flash_t: float = clampf(_flash_elapsed / FLASH_DURATION, 0.0, 1.0)
+	var flash_amount: float = 0.0
+	if flash_t < 1.0:
+		var flash_k: float = 1.0 - flash_t
+		flash_amount = FLASH_ALPHA * flash_k * flash_k
+	_material.set_shader_parameter("flash_origin", _flash_origin)
+	_material.set_shader_parameter("flash_amount", flash_amount)
+	_material.set_shader_parameter("flash_color", FLASH_TINT)
+	_material.set_shader_parameter("flash_radius", FLASH_RADIUS_PX)
 
 	var saturation: float = 0.0
 
@@ -120,7 +146,7 @@ func _update_uniforms() -> void:
 		var t: float = clampf(wave.elapsed / DURATION, 0.0, 1.0)
 		# Impulse-like expansion: a fast initial release that slows down as the
 		# bubble loses energy, instead of a constant linear sweep.
-		var eased: float = 1.0 - pow(1.0 - t, 1.7)
+		var eased: float = 1.0 - pow(1.0 - t, 1.5)
 		var radius: float = _max_radius * eased
 		var amplitude: float = _amplitude_at(t)
 		var color: Color = wave.color
@@ -153,8 +179,8 @@ func _farthest_corner_distance(position: Vector2) -> float:
 static func _rim_envelope(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
-	var rise: float = smoothstep(0.0, 0.05, t)
-	var fade: float = 1.0 - smoothstep(0.38, 1.0, t)
+	var rise: float = smoothstep(0.0, 0.01, t)
+	var fade: float = 1.0 - smoothstep(0.30, 0.95, t)
 	return rise * fade
 
 
@@ -163,8 +189,8 @@ static func _rim_envelope(t: float) -> float:
 static func _lens_envelope(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
-	var rise: float = smoothstep(0.0, 0.04, t)
-	var fade: float = 1.0 - smoothstep(0.40, 1.0, t)
+	var rise: float = smoothstep(0.0, 0.01, t)
+	var fade: float = 1.0 - smoothstep(0.30, 0.95, t)
 	return rise * fade
 
 
@@ -172,8 +198,8 @@ static func _lens_envelope(t: float) -> float:
 static func _saturation_at(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
-	var rise: float = smoothstep(0.0, 0.15, t)
-	var fade: float = 1.0 - smoothstep(0.45, 0.85, t)
+	var rise: float = smoothstep(0.0, 0.02, t)
+	var fade: float = 1.0 - smoothstep(0.28, 0.72, t)
 	return SATURATION_BOOST * rise * fade
 
 
@@ -181,7 +207,7 @@ static func _saturation_at(t: float) -> float:
 static func _amplitude_at(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
-	var rise: float = smoothstep(0.0, 0.06, t)
-	var fade: float = 1.0 - smoothstep(0.25, 1.0, t)
+	var rise: float = smoothstep(0.0, 0.02, t)
+	var fade: float = 1.0 - smoothstep(0.20, 0.95, t)
 	var swing: float = 0.85 + 0.15 * cos(t * TAU * 1.5)
 	return STRENGTH_PX * rise * fade * swing

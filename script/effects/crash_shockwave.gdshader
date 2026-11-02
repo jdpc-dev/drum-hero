@@ -25,6 +25,11 @@ uniform float refraction_strength : hint_range(0.0, 6.0) = 3.5;
 uniform float gas_strength : hint_range(0.0, 1.0) = 0.5;
 // 0 = unchanged colors, 0.9 = strong euphoric color pulse.
 uniform float saturation_boost : hint_range(0.0, 1.0) = 0.0;
+// Short white-hot contact flash at the crash origin.
+uniform vec2 flash_origin = vec2(0.0, 0.0);
+uniform float flash_amount = 0.0;
+uniform vec3 flash_color = vec3(0.92, 0.96, 1.0);
+uniform float flash_radius : hint_range(1.0, 600.0) = 170.0;
 
 float band(float distance, float radius, float width) {
 	float x = (distance - radius) / max(width, 0.001);
@@ -123,6 +128,14 @@ void fragment() {
 	// Cheap bloom: bright notes and particles gain more glow than the dark
 	// background, so the color pulse reads as energy instead of a flat filter.
 	color += color * color * saturation_boost * 0.35;
+
+	// Metallic contact flash: a tight silver-white burst around the crash pad
+	// plus a very small neutral screen lift, gone in a little over a tenth of
+	// a second.
+	float flash_distance = length(pixel - flash_origin);
+	float flash_glow = exp(-pow(flash_distance / max(flash_radius, 1.0), 2.0) * 2.0);
+	color += flash_color * flash_amount * flash_glow;
+	color += vec3(flash_amount * 0.05);
 
 	COLOR = vec4(color, 1.0);
 }

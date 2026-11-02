@@ -208,7 +208,7 @@ any scene.
 | `ChartParser` | Loads `notes.mid` (via `MidiParser.gd`) or `notes.chart` (via `DotChartParser.gd`) depending on the file extension. Produces the same `NoteEvent` array for both formats. Supports fallback to PART GUITAR / `[ExpertSingle]` when there are no drums. `get_notes_in_range()` uses binary search (`find_next_note_index`) to jump to the requested range. `clear()` empties the chart; free mode calls it, since it builds the Highway without notes (see *Free mode*). | `ChartData.gd` (data classes) |
 | `TimingEngine` | Master clock. With audio it uses `AudioManager.get_position()`, otherwise frame delta. Emits `time_updated`, `song_ended` (only once, see *End of song*). `stop()` freezes the clock wherever it is; `start()` re-arms it. | `AudioManager` |
 | `ScoreManager` | Score, combo, multiplier, streaks. API: `register_hit(diff)`, `register_miss()`, `reset()`. | — |
-| `EffectManager` | Pool of visual effects (`ParticleBurst`, `Shockwave`, `JudgementPopup`). Generates SFX (programmatic beeps). | — |
+| `EffectManager` | Pool of visual effects (`ParticleBurst`, `Shockwave`, `CrashImpact`, `CrashShockwave`, `JudgementPopup`). Generates SFX (programmatic beeps). | — |
 | `DrumGraphics` | Generates vector textures for notes and per-lane hit lines (double cymbal, cymbal, drumstick, pedal). 128×128 textures pre-generated in `_ready()`. | — |
 | `AndroidBridge` | GDScript→native Android bridge. Manages the `GestureExclusion` plugin (exclude back-gesture edges) and `AllFilesAccess` (grant *All files access* and probe path readability). Only active on Android; no-op on desktop. | — |
 | `HighScoreStore` | Best scores per song+difficulty (`user://scores.cfg`, see *Best scores*). | — |
@@ -1553,7 +1553,7 @@ exclusively from the song's drum stems (`drums_1`, `drums_2`, etc.).
 3. **ParticleBurst** — 16 particles explode from the impact point with the lane color (0.4s). Pool in `EffectManager`.
 4. **JudgementPopup** — Judgement text ("PERFECT", "EXCELLENT", "GOOD", "LATE", "EARLY", "MISS") appears at the corresponding lane's hit line, floats upward and fades (0.6s). Pool in `EffectManager`. Controlled by `show_hit_feedback`.
 5. **Lane background highlight** — The lane's `bg_rect` briefly increases its alpha.
-6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), a large screen-space pressure bubble expands from the pad: the picture inside is magnified like a lens, the wavefront refracts it radially with a small chromatic fringe, a low-frequency gas haze warps the interior, and everything the bubble has crossed is gently dimmed (0.9s). During the first half the whole screen gets a brief saturation/bloom pulse that settles back to normal in the second half. A short local ring pulse also fires at the hit line. Up to three bubbles overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are re-sampled.
+6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), two layers fire. A white-hot contact flash and a metallic ring/spark burst cover the hit line (0.38s), then a large screen-space pressure bubble expands from the pad: the picture inside is magnified like a lens, the wavefront refracts it radially with a small chromatic fringe, a low-frequency gas haze warps the interior, and everything the bubble has crossed is gently dimmed (0.68s). During the first half the whole screen gets a brief saturation/bloom pulse that settles back to normal in the second half. Up to three bubbles overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are re-sampled.
 
 When a note passes the hit line without being hit, "MISS" is shown at the
 corresponding lane's hit line (same effects 4 and 5).
@@ -1565,7 +1565,8 @@ Implemented with pooling in `EffectManager` (max. 16 instances per type).
 | Effect | Scene | Activation |
 |---|---|---|
 | ParticleBurst | `scene/UI/Effects/ParticleBurst.tscn` | `trigger_particle_burst(pos, color, parent)` on each hit |
-| Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent, color, radius)` — local ring pulse on CRASH hits |
+| Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent, color, radius)` — implemented, not connected |
+| CrashImpact | `scene/UI/Effects/CrashImpact.tscn` | `trigger_crash_impact(pos, parent, color)` — metallic ring/spark burst on CRASH hits |
 | JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — active on each hit (controlled by `show_hit_feedback`) |
 | CrashShockwave | `scene/UI/Effects/CrashShockwave.tscn` | `trigger_crash_shockwave(pos, color)` — active on CRASH hits only. Not pooled: one persistent `CanvasLayer` overlay (`BackBufferCopy` + shader) reused for every bubble. |
 

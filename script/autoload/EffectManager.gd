@@ -2,10 +2,12 @@ extends Node
 
 var _particle_pool: Array[Node] = []
 var _shockwave_pool: Array[Node] = []
+var _crash_impact_pool: Array[Node] = []
 var _judgement_pool: Array[Node] = []
 
 const MAX_POOL_SIZE: int = 16
 const CRASH_SHOCKWAVE_SCENE := preload("res://scene/UI/Effects/CrashShockwave.tscn")
+const CRASH_IMPACT_SCENE := preload("res://scene/UI/Effects/CrashImpact.tscn")
 
 var _crash_shockwave: CrashShockwave
 
@@ -80,6 +82,14 @@ func trigger_shockwave(position: Vector2, parent: Node, color: Color = Color(1.0
 		parent.add_child(shock)
 		shock.global_position = position
 		shock.call("play", radius, color)
+
+
+func trigger_crash_impact(position: Vector2, parent: Node, color: Color) -> void:
+	var impact: Node = _borrow(_crash_impact_pool, CRASH_IMPACT_SCENE)
+	if impact:
+		parent.add_child(impact)
+		impact.global_position = position
+		impact.call("play", color)
 
 
 # Exclusive to the CRASH lane: a full-screen lens bubble magnifies and warps
