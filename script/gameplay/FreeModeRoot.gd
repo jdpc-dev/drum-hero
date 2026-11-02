@@ -393,6 +393,11 @@ func _notification(what: int) -> void:
 		else:
 			_toggle_pause()
 		get_viewport().set_input_as_handled()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		# _ready() disables auto_accept_quit, so the window close button and
+		# the desktop close shortcut are only honored if this branch quits:
+		# otherwise free mode has no way out but the in-game pause menu.
+		get_tree().quit()
 
 
 func _exit_to_menu() -> void:

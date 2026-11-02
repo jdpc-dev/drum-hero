@@ -380,6 +380,10 @@ func _notification(what: int) -> void:
 		_back_handled_time = Time.get_ticks_msec() / 1000.0
 		_handle_back()
 		get_viewport().set_input_as_handled()
+	elif what == NOTIFICATION_WM_CLOSE_REQUEST:
+		# _ready() disables auto_accept_quit, so the window close button and
+		# the desktop close shortcut are only honored if this branch quits.
+		get_tree().quit()
 
 
 # The back button depends on where the game is: with the results screen visible
