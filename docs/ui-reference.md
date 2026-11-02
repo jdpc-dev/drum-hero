@@ -104,22 +104,22 @@ Tabs and content:
 
 ## ASCII FREE MODE REFERENCE
 ```
-+-----------------------------------------------------------------------------+
-|                                 FREE MODE                  [ BACK TO MENU ] |
-|                                                                             |
-|      Tap a pad or press 1-8  -  no song, no score                           |
-|                                                                             |
-|                                    SNARE                                    |
-|                                  3 hits                                     |
-|                                                                             |
-|  |  HH  | CRASH | SNARE |  KICK  | TOM 1 | TOM 2 | TOM 3 |  RIDE  |         |
-|  +------+-------+-------+--------+-------+-------+-------+--------+         |
-|  ========================================================================   |
-+-----------------------------------------------------------------------------+
-| Tap any pad (or press 1-8) to play its sample. The pad name and a hit       |
-| counter appear in the middle; the kick also fires from the motion sensor    |
-| when haptic kick is enabled. No notes, no score, no results.                |
-+-----------------------------------------------------------------------------+
++--------------------------------------------------------------------------+
+|                                 FREE MODE            [ BACK TO MENU ]    |
+|              Tap a pad or press 1-8  -  no song, no score                |
+|                                                                          |
+|                                                                          |
+|                                  SNARE                                   |
+|                                 30 hits                                  |
+|                                                                          |
+|    |  HH  | CRASH | SNARE |  KICK  | TOM 1 | TOM 2 | TOM 3 |  RIDE  |    |
+|    +------+-------+-------+--------+-------+-------+-------+--------+    |
+|    ==================================================================    |
++--------------------------------------------------------------------------+
+| Tap any pad (or press 1-8) to play its sample. The pad name and a hit    |
+| counter appear in the middle; the kick also fires from the motion sensor |
+| when haptic kick is enabled. No notes, no score, no results.             |
++--------------------------------------------------------------------------+
 ```
 
 Unlike gameplay, Free Mode does not reserve the top 2.5 % band for the song
