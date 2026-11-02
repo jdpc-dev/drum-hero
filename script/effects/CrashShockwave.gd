@@ -2,11 +2,12 @@ class_name CrashShockwave
 extends CanvasLayer
 
 # CRASH hits release a pressure wave: a large, soft bubble expands from the
-# crash lane, magnifies and warps the gameplay inside it like a lens, dims what
-# it has already crossed and carries a thin bright refracting rim. It is a
-# screen-space effect on purpose: notes, lanes, HUD and particles are never
-# moved, only the pixels that were already drawn are sampled differently while
-# the wave passes over them.
+# crash lane, magnifies and warps the gameplay inside it like a lens and sweeps
+# a soft light band across the screen that brightens everything near its surface.
+# The wave is transparent: it bends and lights the image instead of covering it.
+# It is a screen-space effect on purpose: notes, lanes, HUD and particles are
+# never moved, only the pixels that were already drawn are sampled differently
+# while the wave passes over them.
 #
 # The overlay lives in EffectManager, invisible and out of the process loop
 # until a hit arrives. Up to MAX_WAVES rings can overlap, so a fast crash roll
@@ -16,11 +17,12 @@ const MAX_WAVES: int = 3
 const DURATION: float = 0.68
 const STRENGTH_PX: float = 13.0
 const WAVE_WIDTH_PX: float = 150.0
-const RIM_CORE_PX: float = 5.0
 const EDGE_SOFTNESS_PX: float = 28.0
-const RIM_ALPHA: float = 0.32
-# Cool glass edge: the pressure wave should bend colors without warming them.
-const RIM_TINT: Color = Color(0.70, 0.85, 1.0)
+# Soft light band: brightens the scene around the wavefront without drawing an
+# opaque ring, so the gameplay stays visible through the effect.
+const LIGHT_ALPHA: float = 0.62
+const LIGHT_WIDTH_RATIO: float = 0.20
+const LIGHT_INTENSITY: float = 1.6
 # White-hot contact flash, shorter than the rest of the impact.
 const FLASH_DURATION: float = 0.11
 const FLASH_RADIUS_PX: float = 220.0
@@ -112,8 +114,9 @@ func _update_uniforms() -> void:
 	_material.set_shader_parameter("wave_count", _waves.size())
 	_material.set_shader_parameter("falloff_distance", _max_radius)
 	_material.set_shader_parameter("wave_width", WAVE_WIDTH_PX)
-	_material.set_shader_parameter("rim_core_width", RIM_CORE_PX)
 	_material.set_shader_parameter("edge_softness", EDGE_SOFTNESS_PX)
+	_material.set_shader_parameter("light_width_ratio", LIGHT_WIDTH_RATIO)
+	_material.set_shader_parameter("light_intensity", LIGHT_INTENSITY)
 	_material.set_shader_parameter("refraction_strength", REFRACTION_STRENGTH)
 	_material.set_shader_parameter("gas_strength", GAS_STRENGTH)
 
@@ -150,12 +153,11 @@ func _update_uniforms() -> void:
 		var radius: float = _max_radius * eased
 		var amplitude: float = _amplitude_at(t)
 		var color: Color = wave.color
-		# Keep the rim glassy and cool so the screen-wide wave does not cast a
-		# warm tint over the scene; the lane color only leaves a faint trace.
-		var rim_color: Color = color.lerp(RIM_TINT, 0.9)
-		var rim_alpha: float = RIM_ALPHA * _rim_envelope(t)
+		# Nearly white light; the lane color only leaves a faint trace.
+		var light_tint: Color = Color.WHITE.lerp(color, 0.05)
+		var light_alpha: float = LIGHT_ALPHA * _rim_envelope(t)
 		wave_data[i] = Vector4(wave.origin.x, wave.origin.y, radius, amplitude)
-		ring_data[i] = Vector4(rim_color.r, rim_color.g, rim_color.b, rim_alpha)
+		ring_data[i] = Vector4(light_tint.r, light_tint.g, light_tint.b, light_alpha)
 		lens_data[i] = LENS_STRENGTH * _lens_envelope(t)
 		saturation = maxf(saturation, _saturation_at(t))
 

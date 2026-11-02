@@ -1,10 +1,12 @@
 shader_type canvas_item;
 
-// Screen-space pressure wave for CRASH hits. The bubble behaves like a lens:
-// inside it the rendered image is magnified, the wavefront refracts it
-// radially with a small chromatic fringe, and a low-frequency heat haze warps
-// it like gas escaping. Everything below this CanvasLayer is sampled from the
-// screen texture, so no gameplay node moves.
+// Screen-space pressure wave for CRASH hits. A soft light band sweeps outward
+// and brightens the scene near its surface without drawing an opaque ring, so
+// the wave stays transparent. The bubble behaves like a lens: inside it the
+// rendered image is magnified, the wavefront refracts it radially with a small
+// chromatic fringe, and a low-frequency heat haze warps it like gas escaping.
+// Everything below this CanvasLayer is sampled from the screen texture, so no
+// gameplay node moves.
 
 uniform sampler2D screen_texture : hint_screen_texture, repeat_disable, filter_linear;
 
@@ -12,14 +14,16 @@ uniform vec2 viewport_size = vec2(1280.0, 720.0);
 uniform int wave_count = 0;
 // xy = origin in pixels, z = wave radius in pixels, w = distortion amplitude.
 uniform vec4 waves[3];
-// rgb = rim tint, a = rim alpha (also drives the interior shading).
+// rgb = light tint, a = light intensity at the wavefront.
 uniform vec4 wave_rings[3];
 // Per-wave interior magnification fraction (0 = flat, 0.06 = 6%).
 uniform float wave_lens[3];
 uniform float wave_width : hint_range(1.0, 400.0) = 150.0;
-uniform float rim_core_width : hint_range(0.5, 40.0) = 5.0;
 uniform float edge_softness : hint_range(1.0, 200.0) = 28.0;
 uniform float falloff_distance : hint_range(1.0, 4000.0) = 1500.0;
+// Soft light band: width relative to the wave radius and light intensity.
+uniform float light_width_ratio : hint_range(0.02, 0.8) = 0.20;
+uniform float light_intensity : hint_range(0.0, 4.0) = 1.6;
 // Radial refraction and interior gas-haze amounts, in amplitude units.
 uniform float refraction_strength : hint_range(0.0, 6.0) = 3.5;
 uniform float gas_strength : hint_range(0.0, 1.0) = 0.5;
@@ -41,8 +45,8 @@ void fragment() {
 	vec2 pixel = uv * viewport_size;
 
 	vec2 offset = vec2(0.0);
-	float darken = 0.0;
-	vec3 rim_color = vec3(0.0);
+	float lighting = 0.0;
+	vec3 light_color = vec3(0.0);
 	float fringe = 0.0;
 
 	for (int i = 0; i < 3; i++) {
@@ -50,7 +54,7 @@ void fragment() {
 			break;
 		}
 		vec4 wave = waves[i];
-		vec4 rim = wave_rings[i];
+		vec4 light_data = wave_rings[i];
 		vec2 delta = pixel - wave.xy;
 		float distance = max(length(delta), 1.0);
 		vec2 direction = delta / distance;
@@ -73,7 +77,6 @@ void fragment() {
 		float soft_width = clamp(radius * 0.35, 36.0, wave_width);
 
 		float soft = band(distance, radius, soft_width);
-		float core = band(distance, radius, rim_core_width);
 		float inside = 1.0 - smoothstep(radius - edge_softness, radius + edge_softness, distance);
 
 		// Magnifying lens: the screen inside the bubble is sampled toward its
@@ -93,15 +96,19 @@ void fragment() {
 		float phase = (distance - radius) / soft_width;
 		offset += direction * (-phase * soft * amplitude * refraction_strength);
 
-		// Filled bubble: everything the wavefront has already crossed is
-		// gently dimmed.
-		darken += inside * rim.a * 0.38;
-
-		// Thin, bright pressure edge riding the soft halo.
-		rim_color += rim.rgb * (core + soft * 0.22) * rim.a;
+		// Soft light band: brighten the scene near the wavefront and add a
+		// wide, low-intensity halo. There is no hard white core, so the wave
+		// stays transparent and the gameplay remains readable through it.
+		float light_width = clamp(radius * light_width_ratio, 24.0, 220.0);
+		float light_delta = abs(distance - radius);
+		float glow = exp(-pow(light_delta / light_width, 2.0) * 1.35);
+		float fringe_core = exp(-pow(light_delta / (light_width * 0.32), 2.0));
+		float glow_halo = exp(-pow(light_delta / (light_width * 2.2), 2.0));
+		lighting += glow * light_data.a * light_intensity;
+		light_color += light_data.rgb * glow_halo * light_data.a * 0.10;
 
 		// Chromatic fringe at the refracting edge.
-		fringe += core * amplitude * 0.12;
+		fringe += fringe_core * amplitude * 0.12;
 	}
 
 	vec2 sample_uv = clamp(uv + offset / viewport_size, vec2(0.0), vec2(1.0));
@@ -110,8 +117,8 @@ void fragment() {
 	color.r = texture(screen_texture, clamp(sample_uv + fringe_uv, vec2(0.0), vec2(1.0))).r;
 	color.g = texture(screen_texture, sample_uv).g;
 	color.b = texture(screen_texture, clamp(sample_uv - fringe_uv, vec2(0.0), vec2(1.0))).b;
-	color *= 1.0 - clamp(darken, 0.0, 0.32);
-	color += rim_color;
+	color *= 1.0 + clamp(lighting, 0.0, 2.0);
+	color += light_color;
 
 	// Euphoric color pop: push saturation away from the luminance axis while
 	// the first half of the impact is still ringing, then let it settle back.
