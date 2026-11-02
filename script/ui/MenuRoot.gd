@@ -566,6 +566,9 @@ func _rebuild_filtered_list() -> void:
 
 func _rebuild_song_rows() -> void:
 	for child in _song_list_container.get_children():
+		# Remove immediately so the rebuilt rows can keep the SongRow_N names;
+		# queue_free() alone leaves the old names taken for the rest of the frame.
+		_song_list_container.remove_child(child)
 		child.queue_free()
 
 	if _filtered_indices.is_empty():
@@ -816,10 +819,16 @@ func _on_difficulty_pressed(offset: int) -> void:
 
 func _on_search_changed(new_text: String) -> void:
 	_search_text = new_text
-	_selected_song_index = -1
-	_stop_preview()
-	_update_difficulty_visibility()
+	var had_selection: bool = _selected_song_index >= 0 and _selected_song_index < SongLoader.song_list.size()
 	_rebuild_filtered_list()
+	var selection_visible: bool = had_selection and _filtered_indices.has(_selected_song_index)
+	if not selection_visible:
+		_selected_song_index = -1
+		_stop_preview()
+		_set_album_texture(null)
+		_update_status_text()
+	_update_selection_ui()
+	_update_difficulty_visibility()
 
 
 func _save_menu_state() -> void:

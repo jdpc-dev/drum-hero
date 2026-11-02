@@ -51,6 +51,10 @@ func _ready() -> void:
 	menu._on_search_changed("Song 2")
 	for _i in 4:
 		await get_tree().process_frame
+	_check("la seleccion sobrevive al filtro", menu._selected_song_index == 5)
+	var kept_row: PanelContainer = menu.find_child("SongRow_5", true, false)
+	_check("la fila seleccionada sigue marcada", kept_row != null and bool(kept_row.get_meta("selected", false)))
+	_check("las dificultades siguen activas tras filtrar", not menu._difficulty_buttons[60].disabled)
 	menu._selected_song_index = 7
 	menu._song_list_scroll.scroll_vertical = 160
 	for _i in 2:
