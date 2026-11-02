@@ -8,7 +8,9 @@ var _timer: float = 0.0
 var _color: Color = Color(1.0, 0.3, 0.1, 0.6)
 
 
-func play() -> void:
+func play(new_max_radius: float = 200.0, new_color: Color = Color(1.0, 0.3, 0.1, 0.6)) -> void:
+	_max_radius = new_max_radius
+	_color = new_color
 	_timer = _duration
 	_radius = 0.0
 

@@ -74,12 +74,12 @@ func trigger_particle_burst(position: Vector2, color: Color, parent: Node) -> vo
 		burst.call("play", color)
 
 
-func trigger_shockwave(position: Vector2, parent: Node) -> void:
+func trigger_shockwave(position: Vector2, parent: Node, color: Color = Color(1.0, 0.3, 0.1, 0.6), radius: float = 200.0) -> void:
 	var shock: Node = _borrow(_shockwave_pool, preload("res://scene/UI/Effects/Shockwave.tscn"))
 	if shock:
 		parent.add_child(shock)
 		shock.global_position = position
-		shock.call("play")
+		shock.call("play", radius, color)
 
 
 # Exclusive to the CRASH lane: a full-screen ripple distorts the rendered

@@ -1553,7 +1553,7 @@ exclusively from the song's drum stems (`drums_1`, `drums_2`, etc.).
 3. **ParticleBurst** — 16 particles explode from the impact point with the lane color (0.4s). Pool in `EffectManager`.
 4. **JudgementPopup** — Judgement text ("PERFECT", "EXCELLENT", "GOOD", "LATE", "EARLY", "MISS") appears at the corresponding lane's hit line, floats upward and fades (0.6s). Pool in `EffectManager`. Controlled by `show_hit_feedback`.
 5. **Lane background highlight** — The lane's `bg_rect` briefly increases its alpha.
-6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), a screen-space pressure wave expands from the pad: a soft ring displaces the already rendered gameplay image horizontally and adds a faint lane-colored tint at the wavefront (0.42s). Up to three waves overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are displaced.
+6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), a large screen-space pressure bubble expands from the pad: the area it has crossed is gently dimmed, a thin bright rim (warm, desaturated lane tint) marks the wavefront, and the rendered image is displaced horizontally along it (0.75s). A short local ring pulse also fires at the hit line. Up to three bubbles overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are shaded and displaced.
 
 When a note passes the hit line without being hit, "MISS" is shown at the
 corresponding lane's hit line (same effects 4 and 5).
@@ -1565,15 +1565,16 @@ Implemented with pooling in `EffectManager` (max. 16 instances per type).
 | Effect | Scene | Activation |
 |---|---|---|
 | ParticleBurst | `scene/UI/Effects/ParticleBurst.tscn` | `trigger_particle_burst(pos, color, parent)` on each hit |
-| Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent)` — implemented, not connected |
+| Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent, color, radius)` — local ring pulse on CRASH hits |
 | JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — active on each hit (controlled by `show_hit_feedback`) |
-| CrashShockwave | `scene/UI/Effects/CrashShockwave.tscn` | `trigger_crash_shockwave(pos, color)` — active on CRASH hits only. Not pooled: one persistent `CanvasLayer` overlay (`BackBufferCopy` + shader) reused for every wave. |
+| CrashShockwave | `scene/UI/Effects/CrashShockwave.tscn` | `trigger_crash_shockwave(pos, color)` — active on CRASH hits only. Not pooled: one persistent `CanvasLayer` overlay (`BackBufferCopy` + shader) reused for every bubble. |
 
 The CRASH shockwave lives above the HUD (`CanvasLayer.layer = 5`) so the
-distortion bends notes, lanes, particles and HUD text together. The shader
-samples the screen texture (`script/effects/crash_shockwave.gdshader`) and only
-offsets UVs horizontally; no gameplay node moves. Its `BackBufferCopy` and
-`ColorRect` stay hidden and outside the process loop until a wave is active.
+distortion and dimming bend notes, lanes, particles and HUD text together. The
+shader samples the screen texture (`script/effects/crash_shockwave.gdshader`),
+shades the interior of each expanding bubble and only offsets UVs horizontally;
+no gameplay node moves. Its `BackBufferCopy` and `ColorRect` stay hidden and
+outside the process loop until a wave is active.
 
 **Pooling mechanism (`_borrow`):**
 

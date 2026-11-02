@@ -1,9 +1,10 @@
 class_name CrashShockwave
 extends CanvasLayer
 
-# CRASH hits release a pressure wave: a soft ring expands from the crash lane
-# and pushes the already rendered gameplay image sideways as it travels. It is
-# a screen-space effect on purpose: notes, lanes, HUD and particles are never
+# CRASH hits release a pressure wave: a large, soft bubble expands from the
+# crash lane, dims the gameplay behind it as it sweeps the screen and carries a
+# thin bright rim that pushes the already rendered image sideways. It is a
+# screen-space effect on purpose: notes, lanes, HUD and particles are never
 # moved, only the pixels that were already drawn are displaced while the ring
 # passes over them.
 #
@@ -12,11 +13,13 @@ extends CanvasLayer
 # blends instead of cutting the previous wave.
 
 const MAX_WAVES: int = 3
-const DURATION: float = 0.42
-const STRENGTH_PX: float = 9.0
-const WAVE_WIDTH_PX: float = 68.0
-const RING_ALPHA: float = 0.10
-const MAX_RADIUS_SCALE: float = 1.06  # of the farthest visible corner
+const DURATION: float = 0.75
+const STRENGTH_PX: float = 13.0
+const WAVE_WIDTH_PX: float = 115.0
+const RIM_CORE_PX: float = 5.0
+const EDGE_SOFTNESS_PX: float = 28.0
+const RIM_ALPHA: float = 0.32
+const MAX_RADIUS_SCALE: float = 1.08  # of the farthest visible corner
 
 @onready var _copy: BackBufferCopy = $BackBufferCopy
 @onready var _ripple: ColorRect = $Ripple
@@ -32,7 +35,7 @@ func _ready() -> void:
 
 
 # global_position is the crash lane origin in screen coordinates. color is the
-# lane tone, used only for the faint ring tint at the wavefront.
+# lane tone, used for the faint rim at the wavefront.
 func trigger(global_position: Vector2, color: Color) -> void:
 	_viewport_size = get_viewport().get_visible_rect().size
 	if _viewport_size.x <= 0.0 or _viewport_size.y <= 0.0:
@@ -86,6 +89,8 @@ func _update_uniforms() -> void:
 	_material.set_shader_parameter("wave_count", _waves.size())
 	_material.set_shader_parameter("falloff_distance", _max_radius)
 	_material.set_shader_parameter("wave_width", WAVE_WIDTH_PX)
+	_material.set_shader_parameter("rim_core_width", RIM_CORE_PX)
+	_material.set_shader_parameter("edge_softness", EDGE_SOFTNESS_PX)
 
 	var wave_data: PackedVector4Array = PackedVector4Array()
 	var ring_data: PackedVector4Array = PackedVector4Array()
@@ -100,21 +105,24 @@ func _update_uniforms() -> void:
 		var wave: Dictionary = _waves[i]
 		var t: float = clampf(wave.elapsed / DURATION, 0.0, 1.0)
 		# Impulse-like expansion: a fast initial release that slows down as the
-		# ring loses energy, instead of a constant linear sweep.
-		var eased: float = 1.0 - pow(1.0 - t, 1.6)
+		# bubble loses energy, instead of a constant linear sweep.
+		var eased: float = 1.0 - pow(1.0 - t, 1.7)
 		var radius: float = _max_radius * eased
 		var amplitude: float = _amplitude_at(t)
 		var color: Color = wave.color
-		var ring_alpha: float = RING_ALPHA * _envelope(t)
+		# Keep the rim mostly neutral with a warm flash of the crash lane, so
+		# it reads as a pressure edge instead of a solid orange line.
+		var rim_color: Color = color.lerp(Color.WHITE, 0.35)
+		var rim_alpha: float = RIM_ALPHA * _rim_envelope(t)
 		wave_data[i] = Vector4(wave.origin.x, wave.origin.y, radius, amplitude)
-		ring_data[i] = Vector4(color.r, color.g, color.b, ring_alpha)
+		ring_data[i] = Vector4(rim_color.r, rim_color.g, rim_color.b, rim_alpha)
 
 	_material.set_shader_parameter("waves", wave_data)
 	_material.set_shader_parameter("wave_rings", ring_data)
 
 
-# Radius that just reaches the last visible corner: the ring travels across
-# the whole playfield without wasting most of its life outside the viewport.
+# Radius that just reaches the last visible corner: the bubble covers the whole
+# playfield without wasting most of its life outside the viewport.
 func _farthest_corner_distance(position: Vector2) -> float:
 	var max_distance: float = 0.0
 	for corner in [Vector2.ZERO, Vector2(_viewport_size.x, 0.0), Vector2(0.0, _viewport_size.y), _viewport_size]:
@@ -122,15 +130,21 @@ func _farthest_corner_distance(position: Vector2) -> float:
 	return max_distance
 
 
-# Elastic envelope: quick ramp in, one rebound and a smooth fade to zero.
-static func _envelope(t: float) -> float:
+# Rim/bubble envelope: appears almost instantly and stays readable while the
+# wave crosses the screen, then fades out over the last part of the expansion.
+static func _rim_envelope(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
-	var rise: float = smoothstep(0.0, 0.10, t)
-	var fade: float = 1.0 - smoothstep(0.15, 1.0, t)
-	var swing: float = 0.82 + 0.18 * cos(t * TAU * 1.5)
-	return rise * fade * swing
+	var rise: float = smoothstep(0.0, 0.05, t)
+	var fade: float = 1.0 - smoothstep(0.45, 0.92, t)
+	return rise * fade
 
 
+# Elastic displacement envelope: quick ramp in, one rebound and a smooth fade.
 static func _amplitude_at(t: float) -> float:
-	return STRENGTH_PX * _envelope(t)
+	if t <= 0.0 or t >= 1.0:
+		return 0.0
+	var rise: float = smoothstep(0.0, 0.06, t)
+	var fade: float = 1.0 - smoothstep(0.30, 0.95, t)
+	var swing: float = 0.85 + 0.15 * cos(t * TAU * 1.5)
+	return STRENGTH_PX * rise * fade * swing
