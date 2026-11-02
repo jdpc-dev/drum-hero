@@ -261,6 +261,18 @@ AudioManager.load_stems(song_path)
            └─ fallback → FileHelper.read_file() → AudioStreamWAV
 ```
 
+### Setlist keyboard navigation
+
+With the menu visible and no modal, Settings panel, loading overlay or boot intro
+on screen, Up/Down move the selection through the filtered setlist. They use the
+built-in `ui_up`/`ui_down` actions, so the arrow keys and a gamepad D-pad share
+the same path, and key repeat keeps the selection moving while they are held.
+Navigation clamps at both ends and only visits rows that pass the current search;
+if the selected song is hidden by the filter, the first press starts from the
+nearest visible end. It goes through `_select_song()`, so the highlight, album
+art, status line, difficulty buttons and preview follow the new song exactly as
+if it had been tapped.
+
 ### Song previews in the menu
 
 When a song is selected in the main menu list (`MenuRoot.gd`), a preview of the
@@ -279,7 +291,7 @@ _user taps SongRow
   │   └─ InputEventMouseButton / InputEventMouseMotion → same logic (desktop)
   │
   └─ _select_song(original_index)
-      ├─ If the same song is already selected → return (without reloading)
+      ├─ If the same song is already selected → _rewind_preview() (seek in place; loads only if nothing is buffered)
       ├─ _selected_song_index = original_index
       ├─ _update_selection_ui()          ← puts "► " on the selected row
       ├─ _update_status_for_song()       ← "STATUS: chart OK - audio OK"
@@ -402,7 +414,7 @@ MenuRoot (CanvasLayer)
 - **Stems in fallback:** when using `song.ogg` as fallback, individual stems (`drums.ogg`, `guitar.ogg`, `bass.ogg`, `keys.ogg`, `rhythm.ogg`, `vocals.ogg`) are also loaded if they exist. An `AudioStreamPlayer` is created for each stem found on the `"Music"` bus with volume at 0.5× `preview_volume`. Loading is asynchronous (thread on desktop, synchronous on Android). The stems are synchronized with `_preview_player.get_playback_position()` to keep them temporally coherent.
 - **Android .opus skip:** on Android, `_resolve_preview_path()` ignores `preview.opus` files (ffmpeg unavailable) and falls back to `song.ogg` via `get_stem_path()`. On desktop, `.opus` is decoded normally. `SongLoader.get_stem_path()` uses `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in external storage and in packaged `res://`.
 - **Load timeout:** if the stream does not load within `PREVIEW_LOAD_TIMEOUT = 5s`, the animation stops and shows "Preview unavailable". This avoids an infinite dots loop on error.
-- **Touch anti-spam:** `_select_song()` has an early return if the song is already selected (`original_index == _selected_song_index`). `_on_song_row_input()` uses `InputEventScreenTouch` to distinguish tap from drag (8px threshold).
+- **Re-selection rewinds:** tapping the already-selected row calls `_rewind_preview()`. If the stream is already loaded it seeks back to the preview start (or `preview_start_time`/30s for the `song.ogg` fallback) and keeps playing, without stopping, reloading or replaying the dots animation. A rewind during the 30s fade-out cancels the fade. If nothing is loaded (preview ended, failed or still loading) it either starts the normal load path or leaves the in-flight load alone. `_on_song_row_input()` uses `InputEventScreenTouch` to distinguish tap from drag (8px threshold).
 - **Dots animation:** 3 frames (`.`, `..`, `...`) alternating every 0.3s. Minimum delay of 0.3s (one frame) for visual feedback, maximum 1.5s.
 - **Fallback:** on desktop, `preview.opus` is used if it exists (decoded via ffmpeg). On Android, `preview.opus` is ignored and `song.ogg` is used. If the stream does not load, the 5s timeout shows "Preview unavailable".
 - **Volume:** controlled by `SettingsManager.preview_volume` (default 0.8), applied as `linear_to_db()`.

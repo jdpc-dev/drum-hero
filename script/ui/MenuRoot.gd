@@ -242,6 +242,18 @@ func _input(event: InputEvent) -> void:
 		if now - _back_handled_time < 0.5:
 			return
 		_handle_back()
+		return
+	if not _can_navigate_setlist():
+		return
+	# Up/Down are the built-in `ui_up`/`ui_down` actions: arrow keys on desktop
+	# and the D-pad on a gamepad. Key repeat is allowed so holding the key keeps
+	# moving through the list.
+	if event.is_action_pressed("ui_down", true):
+		_navigate_song(1)
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("ui_up", true):
+		_navigate_song(-1)
+		get_viewport().set_input_as_handled()
 
 
 func _process(delta: float) -> void:
@@ -684,6 +696,9 @@ func _on_song_row_input(event: InputEvent, original_index: int) -> void:
 
 func _select_song(original_index: int) -> void:
 	if original_index == _selected_song_index:
+		# Selecting the same song again is a quick rewind of its preview: it
+		# must not stop and reload the stream.
+		_rewind_preview(original_index)
 		return
 	_selected_song_index = original_index
 	_update_selection_ui()
@@ -691,6 +706,82 @@ func _select_song(original_index: int) -> void:
 	_update_difficulty_visibility()
 	_load_album_art(original_index)
 	_start_preview_animation(original_index)
+
+
+func _rewind_preview(original_index: int) -> void:
+	if original_index < 0 or original_index >= SongLoader.song_list.size():
+		return
+	var song: Dictionary = SongLoader.song_list[original_index]
+	# Nothing loaded to rewind (still loading, ended, or failed): fall back to
+	# the normal path, but leave an in-flight load alone instead of restarting it.
+	if _preview_player.stream == null or _preview_song_path != song.path:
+		if not _preview_animating:
+			_start_preview_animation(original_index)
+		return
+	# A rewind during the 30s fade-out must cancel it; killing the tween also
+	# stops its `finished` callback from clearing the preview.
+	if _preview_fading_out:
+		if _preview_fade_tween:
+			_preview_fade_tween.kill()
+			_preview_fade_tween = null
+		_preview_fading_out = false
+		var target_db: float = linear_to_db(maxf(SettingsManager.preview_volume, 0.0001))
+		_preview_player.volume_db = target_db
+		for player in _preview_stem_players:
+			if is_instance_valid(player):
+				player.volume_db = target_db
+	var preview_path: String = song.get("preview_path", "")
+	var seek_pos: float = 0.0
+	if preview_path.is_empty():
+		var start_time: int = song.get("preview_start_time", -1)
+		seek_pos = 30.0 if start_time < 0 else float(start_time) / 1000.0
+	if _preview_player.playing:
+		_preview_player.seek(seek_pos)
+	else:
+		_preview_player.play(seek_pos)
+	# Keep the fallback stems aligned with the rewound preview.
+	for player in _preview_stem_players:
+		if not is_instance_valid(player) or player.stream == null:
+			continue
+		if player.playing:
+			player.seek(seek_pos)
+		else:
+			player.play(seek_pos)
+	_preview_elapsed = 0.0
+	_preview_status_label.text = "♫  " + song.artist + " - " + song.name
+
+
+func _can_navigate_setlist() -> bool:
+	if _is_switching_scene or _settings_is_open() or _quit_confirm_is_open():
+		return false
+	if _loading_overlay != null or has_node("BootIntro"):
+		return false
+	return true
+
+
+func _navigate_song(direction: int) -> void:
+	if _filtered_indices.is_empty():
+		return
+	var position: int = _filtered_indices.find(_selected_song_index)
+	var next_position: int
+	if position < 0:
+		# The selection may be hidden by the current search: start from the
+		# nearest visible end instead of trying to step a row that is not there.
+		next_position = 0 if direction > 0 else _filtered_indices.size() - 1
+	else:
+		next_position = clampi(position + direction, 0, _filtered_indices.size() - 1)
+	if next_position == position:
+		return
+	_select_song(_filtered_indices[next_position])
+	_scroll_selected_song_into_view()
+
+
+func _scroll_selected_song_into_view() -> void:
+	if not is_instance_valid(_song_list_scroll) or not is_instance_valid(_song_list_container):
+		return
+	var row := _song_list_container.get_node_or_null("SongRow_" + str(_selected_song_index)) as Control
+	if row != null:
+		_song_list_scroll.ensure_control_visible(row)
 
 
 func _load_album_art(index: int) -> void:

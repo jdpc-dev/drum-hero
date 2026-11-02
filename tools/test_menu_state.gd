@@ -11,6 +11,13 @@ func _check(label: String, ok: bool) -> void:
 		print("  FAIL ", label)
 
 
+func _action_event(action: String) -> InputEventAction:
+	var event := InputEventAction.new()
+	event.action = action
+	event.pressed = true
+	return event
+
+
 func _populate_songs() -> void:
 	SongLoader.song_list.clear()
 	for i in 40:
@@ -48,6 +55,29 @@ func _ready() -> void:
 	_check("las dificultades de la cancion quedan activas", not menu._difficulty_buttons[60].disabled)
 	_check("las no disponibles siguen desactivadas", menu._difficulty_buttons[72].disabled)
 
+	# Re-selecting the song must not be ignored: with nothing loaded it starts
+	# the normal preview load path.
+	menu._stop_preview()
+	menu._select_song(5)
+	_check("volver a elegir la misma cancion sin preview lo relanza",
+		menu._preview_pending_index == 5 and menu._preview_animating)
+
+	# With a stream already playing, the same tap rewinds in place: the stream
+	# instance must survive and no load/animation may be scheduled again.
+	var loaded_preview: AudioStream = AudioManager._load_audio_stream(
+		"res://asset/drumSfx/vel2pad8smp0.ogg")
+	menu._preview_player.stream = loaded_preview
+	menu._preview_song_path = SongLoader.song_list[5].path
+	menu._preview_pending_index = -1
+	menu._preview_animating = false
+	menu._preview_elapsed = 5.0
+	menu._select_song(5)
+	_check("volver a tocar la misma cancion rebobina sin recargar",
+		menu._preview_player.stream == loaded_preview
+		and menu._preview_pending_index == -1
+		and not menu._preview_animating
+		and menu._preview_elapsed == 0.0)
+
 	menu._on_search_changed("Song 2")
 	for _i in 4:
 		await get_tree().process_frame
@@ -55,6 +85,34 @@ func _ready() -> void:
 	var kept_row: PanelContainer = menu.find_child("SongRow_5", true, false)
 	_check("la fila seleccionada sigue marcada", kept_row != null and bool(kept_row.get_meta("selected", false)))
 	_check("las dificultades siguen activas tras filtrar", not menu._difficulty_buttons[60].disabled)
+
+	# Arrow keys walk the filtered list, never the hidden songs between results.
+	menu._on_search_changed("Song 2 3")
+	for _i in 4:
+		await get_tree().process_frame
+	menu._selected_song_index = 5
+	menu._update_selection_ui()
+	menu._input(_action_event("ui_down"))
+	_check("flecha abajo salta a la primera cancion visible", menu._selected_song_index == 3)
+	menu._input(_action_event("ui_down"))
+	_check("flecha abajo avanza por el filtro", menu._selected_song_index == 30)
+	menu._input(_action_event("ui_up"))
+	_check("flecha arriba retrocede por el filtro", menu._selected_song_index == 3)
+	menu._input(_action_event("ui_up"))
+	_check("flecha arriba se detiene en el primer resultado", menu._selected_song_index == 3)
+
+	# The ends clamp and an empty selection starts at the matching end.
+	menu._on_search_changed("Song 2")
+	for _i in 4:
+		await get_tree().process_frame
+	menu._selected_song_index = 39
+	menu._update_selection_ui()
+	menu._input(_action_event("ui_down"))
+	_check("flecha abajo se detiene en la ultima cancion", menu._selected_song_index == 39)
+	menu._selected_song_index = -1
+	menu._update_selection_ui()
+	menu._input(_action_event("ui_up"))
+	_check("flecha arriba sin seleccion elige la ultima cancion", menu._selected_song_index == 39)
 
 	# Keeping the selection through a filter also lets clearing the search jump
 	# back to that row instead of leaving the list at the top.

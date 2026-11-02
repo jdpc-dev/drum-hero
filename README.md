@@ -28,7 +28,7 @@ The game is built with Godot 4.7 and targets Android, with desktop builds used f
 - **Three control modes** — Default (all 8 lanes), Haptic (7 lanes plus a kick played by tilting the device) and Custom (reorder lanes, mirror the layout, left-handed mode).
 - **Clone Hero / YARG song support** — `notes.mid` and `notes.chart`, Rock Band drum mappings, Pro Drum tom markers, audio stems and `song.ini`.
 - **External song libraries** — scan Downloads or any custom folder in place; songs do not need to be copied into the app. The scanned library is cached, so launches do not walk the disks again until you ask for a rescan.
-- **Menu and progression** — search, album art, song previews, difficulty selection and per-song best scores.
+- **Menu and progression** — search, arrow-key setlist navigation, album art, song previews, difficulty selection and per-song best scores.
 - **Gameplay feedback** — hit windows, combo and multiplier, beat lines, song timeline, long-rest countdowns and a CRASH shockwave.
 - **Free Mode** — test pads, lane order, layout and the haptic kick without loading a song, with a toggleable 120 BPM metronome.
 - **Android integration** — native plugins for gesture exclusion at the screen edges and `MANAGE_EXTERNAL_STORAGE` access.
