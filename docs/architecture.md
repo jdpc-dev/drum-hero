@@ -669,20 +669,25 @@ TimingEngine.time_updated
 
 ### What marks the end
 
-The song ends with the **audio**, not with the notes.
+The song ends at the **later of the audio and the chart**.
 `GameplayRoot._start_loading()` calls
 `TimingEngine.start(ChartParser.get_duration_seconds(), delay)`, and that duration
 is `max(last note, actual audio duration)`: notes usually end before the music,
 and the time bar must reach 100 % while the audio is still playing.
 
-`TimingEngine._process()` declares the end as soon as either of these two
-conditions is met:
+`TimingEngine._process()` declares the end when
+`audio_position >= chart_duration` (normal case, and also the no-audio case,
+where the clock advances with delta). If `chart_duration` is not set (0), the end
+of the base stream also ends the song.
 
-1. `audio_position >= chart_duration` (normal case, and also the no-audio case, where the clock advances with delta).
-2. `AudioManager.is_stream_finished()`: the base stream reached its end even if `_is_playing` is still `true`.
-
-The second covers `song.ini` with a wrong duration: without it, the clock would
-get stuck at the last sample's position and `song_ended` would never arrive.
+`AudioManager.is_stream_finished()` (the base stream reached its end even if
+`_is_playing` is still `true`) switches the clock from the audio to delta. It
+does **not** end the song by itself while the chart still has notes: a truncated
+download or a package with preview-length stems must not cut the run short. The
+clock continues from the real end of the audio, the remaining notes stay
+playable, and `song_ended` arrives at `chart_duration` as usual. The players are
+released at that point so pausing and resuming cannot restart the missing audio
+from zero.
 
 Before emitting, `audio_position` is clamped to `chart_duration`, so the last
 `time_updated` carries the exact end-of-song value and `SongTimeline` stays at
@@ -796,9 +801,11 @@ godot --headless --path . res://tools/test_song_end_e2e.tscn # real Gameplay.tsc
 
 `test_song_end` covers: `song_ended` is emitted only once, the clock stops at
 `chart_duration`, the bar does not empty after `stop()`, `start()` re-arms the
-clock, the panel dumps `ScoreManager` stats and — with a song's real stems — that
-the end of the stream is detected even when the position returns to 0, that pause
-does not trigger it, and that a second pass ends again.
+clock, the panel dumps `ScoreManager` stats, that a stream shorter than the chart
+keeps the clock running (and pause/resume does not rewind it) instead of ending
+the run early, and — with a song's real stems — that the end of the stream is
+detected even when the position returns to 0, that pause does not trigger it, and
+that a second pass ends again.
 
 `test_song_end_e2e` sets up `scene/Gameplay.tscn` with a real song, lets it reach
 the end (seeking the player near the end) and checks the full chain: `PLAYING` →

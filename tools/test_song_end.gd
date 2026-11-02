@@ -7,7 +7,10 @@ extends Node
 #      at 100 % instead of filling up again from zero.
 #   4. start() re-arms the clock (it does not stay stuck in finished).
 #   5. ResultOverlay dumps ScoreManager stats.
-#   6. With real audio: the end of stream is detected even if
+#   6. With audio shorter than the chart, the clock keeps running to the chart
+#      end instead of ending the run at the end of the audio; pause/resume does
+#      not rewind the exhausted audio.
+#   7. With real audio: the end of stream is detected even if
 #      get_playback_position() returns to 0 at the end (the bug that left the
 #      song never finishing) and pause does not trigger it.
 # Usage: godot --headless --path . res://tools/test_song_end.tscn
@@ -48,6 +51,8 @@ func _ready() -> void:
 		await _run_clock_case()
 	print("\n== overlay ==")
 	await _run_overlay_case()
+	print("\n== audio mas corto que el chart ==")
+	await _run_short_audio_case()
 	print("\n== audio real ==")
 	await _run_real_audio_case()
 	if _failures == 0:
@@ -189,6 +194,63 @@ func _run_overlay_case() -> void:
 
 func _find_value_label(overlay: ResultOverlay, name: String) -> Label:
 	return overlay.find_child(name, true, false) as Label
+
+
+# A song package whose audio is shorter than its chart (a truncated download or
+# preview-length stems) must not cut the run short. The clock keeps advancing
+# with delta and the song ends at chart_duration, not at the end of the audio.
+func _run_short_audio_case() -> void:
+	var short_dir: String = "user://tmp_short_audio"
+	DirAccess.make_dir_recursive_absolute(short_dir)
+	var source: String = "res://asset/drumSfx/vel0pad8smp0.ogg"
+	var target: String = short_dir.path_join("song.ogg")
+	var source_data: PackedByteArray = FileHelper.read_file(source)
+	var out := FileAccess.open(target, FileAccess.WRITE)
+	if out == null or source_data.is_empty():
+		_check("se prepara un stem corto de prueba", false)
+		return
+	out.store_buffer(source_data)
+	out.close()
+
+	if not AudioManager.load_stems(short_dir):
+		_check("se carga el stem corto de prueba", false)
+		_cleanup_short_audio(short_dir)
+		return
+	var audio_length: float = AudioManager.get_length()
+	var baseline: int = _song_ended_count
+	var chart_duration: float = audio_length + 0.8
+	TimingEngine.start(chart_duration)
+
+	var waited: int = 0
+	while not AudioManager.is_stream_finished() and waited < 600:
+		await get_tree().process_frame
+		waited += 1
+	_check("el audio termina antes que el chart", AudioManager.is_stream_finished())
+	_check("el final del audio no anuncia el fin de la cancion", _song_ended_count == baseline)
+	_check("el reloj sigue avanzando tras el audio", TimingEngine.get_time() > audio_length)
+
+	# Pause after the audio is over: resuming must not rewind the players or
+	# restart the missing audio at 0.
+	TimingEngine.pause()
+	var paused_at: float = TimingEngine.get_time()
+	for i in 10:
+		await get_tree().process_frame
+	_check("la pausa congela el reloj tras el audio", is_equal_approx(TimingEngine.get_time(), paused_at))
+	TimingEngine.resume()
+	_check("reanudar no reactiva el audio agotado", not AudioManager.is_playing())
+
+	await _wait_for_song_end(baseline)
+	_check("la cancion termina al final del chart, no del audio", _song_ended_count == baseline + 1)
+	_check("el reloj termina en chart_duration", is_equal_approx(TimingEngine.get_time(), chart_duration))
+	TimingEngine.stop()
+	AudioManager._clear_stems()
+	_cleanup_short_audio(short_dir)
+
+
+func _cleanup_short_audio(short_dir: String) -> void:
+	var absolute: String = ProjectSettings.globalize_path(short_dir)
+	DirAccess.remove_absolute(absolute.path_join("song.ogg"))
+	DirAccess.remove_absolute(absolute)
 
 
 # Case with real audio. Reproduces the original failure: when the stream ends,

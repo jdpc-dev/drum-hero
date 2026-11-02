@@ -304,8 +304,9 @@ func is_playing() -> bool:
 
 
 # The base stream stopped playing even though the manual flag is still true. is_playing()
-# responds to the game's play()/pause()/stop(), not to the player's actual state: if the
-# audio ends before the chart, the clock would get stuck.
+# responds to the game's play()/pause()/stop(), not to the player's actual state. The
+# clock uses this latch to switch from the audio position to delta when the stream runs
+# out (a short/truncated audio file must not freeze the clock or cut the chart short).
 #
 # The finished signal is used instead of "not player.playing" because playing is also
 # false while the player is paused (stream_paused) and get_playback_position() returns
