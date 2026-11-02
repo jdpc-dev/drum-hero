@@ -2,11 +2,11 @@ class_name CrashShockwave
 extends CanvasLayer
 
 # CRASH hits release a pressure wave: a large, soft bubble expands from the
-# crash lane, dims the gameplay behind it as it sweeps the screen and carries a
-# thin bright rim that pushes the already rendered image sideways. It is a
+# crash lane, magnifies and warps the gameplay inside it like a lens, dims what
+# it has already crossed and carries a thin bright refracting rim. It is a
 # screen-space effect on purpose: notes, lanes, HUD and particles are never
-# moved, only the pixels that were already drawn are displaced while the ring
-# passes over them.
+# moved, only the pixels that were already drawn are sampled differently while
+# the wave passes over them.
 #
 # The overlay lives in EffectManager, invisible and out of the process loop
 # until a hit arrives. Up to MAX_WAVES rings can overlap, so a fast crash roll
@@ -15,10 +15,13 @@ extends CanvasLayer
 const MAX_WAVES: int = 3
 const DURATION: float = 0.75
 const STRENGTH_PX: float = 13.0
-const WAVE_WIDTH_PX: float = 115.0
+const WAVE_WIDTH_PX: float = 150.0
 const RIM_CORE_PX: float = 5.0
 const EDGE_SOFTNESS_PX: float = 28.0
 const RIM_ALPHA: float = 0.32
+const LENS_STRENGTH: float = 0.06
+const REFRACTION_STRENGTH: float = 3.5
+const GAS_STRENGTH: float = 0.5
 const MAX_RADIUS_SCALE: float = 1.08  # of the farthest visible corner
 
 @onready var _copy: BackBufferCopy = $BackBufferCopy
@@ -91,16 +94,21 @@ func _update_uniforms() -> void:
 	_material.set_shader_parameter("wave_width", WAVE_WIDTH_PX)
 	_material.set_shader_parameter("rim_core_width", RIM_CORE_PX)
 	_material.set_shader_parameter("edge_softness", EDGE_SOFTNESS_PX)
+	_material.set_shader_parameter("refraction_strength", REFRACTION_STRENGTH)
+	_material.set_shader_parameter("gas_strength", GAS_STRENGTH)
 
 	var wave_data: PackedVector4Array = PackedVector4Array()
 	var ring_data: PackedVector4Array = PackedVector4Array()
+	var lens_data: PackedFloat32Array = PackedFloat32Array()
 	wave_data.resize(MAX_WAVES)
 	ring_data.resize(MAX_WAVES)
+	lens_data.resize(MAX_WAVES)
 
 	for i in range(MAX_WAVES):
 		if i >= _waves.size():
 			wave_data[i] = Vector4.ZERO
 			ring_data[i] = Vector4.ZERO
+			lens_data[i] = 0.0
 			continue
 		var wave: Dictionary = _waves[i]
 		var t: float = clampf(wave.elapsed / DURATION, 0.0, 1.0)
@@ -116,9 +124,11 @@ func _update_uniforms() -> void:
 		var rim_alpha: float = RIM_ALPHA * _rim_envelope(t)
 		wave_data[i] = Vector4(wave.origin.x, wave.origin.y, radius, amplitude)
 		ring_data[i] = Vector4(rim_color.r, rim_color.g, rim_color.b, rim_alpha)
+		lens_data[i] = LENS_STRENGTH * _lens_envelope(t)
 
 	_material.set_shader_parameter("waves", wave_data)
 	_material.set_shader_parameter("wave_rings", ring_data)
+	_material.set_shader_parameter("wave_lens", lens_data)
 
 
 # Radius that just reaches the last visible corner: the bubble covers the whole
@@ -137,6 +147,16 @@ static func _rim_envelope(t: float) -> float:
 		return 0.0
 	var rise: float = smoothstep(0.0, 0.05, t)
 	var fade: float = 1.0 - smoothstep(0.45, 0.92, t)
+	return rise * fade
+
+
+# Magnifying lens envelope: strong while the bubble is still legible, fading
+# out before the rim leaves the screen so the last frames stay calm.
+static func _lens_envelope(t: float) -> float:
+	if t <= 0.0 or t >= 1.0:
+		return 0.0
+	var rise: float = smoothstep(0.0, 0.04, t)
+	var fade: float = 1.0 - smoothstep(0.55, 0.92, t)
 	return rise * fade
 
 

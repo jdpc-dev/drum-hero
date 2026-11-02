@@ -82,8 +82,8 @@ func trigger_shockwave(position: Vector2, parent: Node, color: Color = Color(1.0
 		shock.call("play", radius, color)
 
 
-# Exclusive to the CRASH lane: a full-screen ripple distorts the rendered
-# gameplay horizontally as the pressure wave expands from the hit position.
+# Exclusive to the CRASH lane: a full-screen lens bubble magnifies and warps
+# the rendered gameplay as the pressure wave expands from the hit position.
 func trigger_crash_shockwave(position: Vector2, color: Color) -> void:
 	if _crash_shockwave:
 		_crash_shockwave.trigger(position, color)
