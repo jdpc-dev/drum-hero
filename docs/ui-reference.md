@@ -27,32 +27,32 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 
 ## ASCII MAIN MENU REFERENCE
 ```
-+-----------------------------------------------------------------------------+
-| [ ♪ ]  Search songs                                             [ Settings ]|
-+-----------------------------------------------------------------------------+
-| ● 03:35  Through the Fire and Flames - DragonForce              12,000 pts  |
-|   02:51  Everlong - Foo Fighters                                 8,000 pts  |
-|   05:12  Battery - Metallica                                   --,---pts    |
-|   03:30  Chop Suey! - System of a Down                         60,000 pts   |
-|   07:23  Welcome Home - Coheed and Cambria                     --,---pts    |
-|   04:01  The Pretender - Foo Fighters                          --,---pts    |
-|   06:19  Panic Attack - Dream Theater                          12,000 pts   |
-|   05:58  Painkiller - Judas Priest                            200,000 pts   |
-|                                                                             |
-+-----------------------------------------------------------------------------+
++------------------------------------------------------------------------------+
+| [ ♪ ]  Search songs                                             [ Settings ] |
++------------------------------------------------------------------------------+
+| ● 03:35  Through the Fire and Flames - DragonForce              12,000 pts   |
+|   02:51  Everlong - Foo Fighters                                 8,000 pts   |
+|   05:12  Battery - Metallica                                   --,---pts     |
+|   03:30  Chop Suey! - System of a Down                         60,000 pts    |
+|   07:23  Welcome Home - Coheed and Cambria                     --,---pts     |
+|   04:01  The Pretender - Foo Fighters                          --,---pts     |
+|   06:19  Panic Attack - Dream Theater                          12,000 pts    |
+|   05:58  Painkiller - Judas Priest                            200,000 pts    |
+|                                                                              |
++------------------------------------------------------------------------------+
 |  Easy        Medium        Hard        Expert        Expert+                 |
-+-----------------------------------------------------------------------------+
-|  STATUS: chart OK - missing audio                                           |
++------------------------------------------------------------------------------+
+|  STATUS: chart OK - missing audio                                            |
 |  (hidden by default; enabled with "Show Menu Status" in Settings > Advanced) |
-+-----------------------------------------------------------------------------+
-|                       ♫  Tap a song to preview                              |
-+-----------------------------------------------------------------------------+
++------------------------------------------------------------------------------+
+|                       ♫  Tap a song to preview                               |
++------------------------------------------------------------------------------+
 ```
 
 ## ASCII SETTINGS MENU REFERENCE
 ```
-+-----------------------------------------------------------------------------+
-| +---------------+  Controls                                   [ Back ]      |
++----------------------------------------------------------------------------+
+| +---------------+  Controls                                       [ Back ] |
 | | DRUM HERO     |  How the pads play, how the lanes are arranged...        |
 | | Settings      |                                                          |
 | |               |  +-----------------------------------------------------+ |
@@ -70,27 +70,27 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 | | Hero          |  | HAPTIC KICK                                         | |
 | | Version 7.0.0 |  | (o) Enable haptic kick                              | |
 | +---------------+  | Sensitivity                            [ 1.0 ]      | |
-|                    | [==========o=====================]                   | |
+|                    | [==========o=====================]                  | |
 |                    | Advanced tuning  +                                  | |
 |                    +-----------------------------------------------------+ |
 |                    +-----------------------------------------------------+ |
 |                    | FREE MODE                                           | |
 |                    | [ Open Free Mode ]                                  | |
 |                    +-----------------------------------------------------+ |
-+-----------------------------------------------------------------------------+
++----------------------------------------------------------------------------+
 ```
 ```
 Compact layout (< 1000 px physical width):
-+-----------------------------------------------------------------------------+
-| Controls                                             [ About ] [ Back ]     |
-| How the pads play...                                                        |
++------------------------------------------------------------------------------+
+| Controls                                                  [ About ] [ Back ] |
+| How the pads play...                                                         |
 | +------------------+------------------+------------------+-----------------+ |
 | | CONTROLS         | GAMEPLAY         | AUDIO            | SONGS ...       | |
 | +------------------+------------------+------------------+-----------------+ |
-| +-------------------------------------------------------------------------+ |
-| | CONTROL MODE                                                            | |
-| | [ Default ] [ Haptic ] [ Custom ]                                       | |
-| +-------------------------------------------------------------------------+ |
+| +--------------------------------------------------------------------------+ |
+| | CONTROL MODE                                                             | |
+| | [ Default ] [ Haptic ] [ Custom ]                                        | |
+| +--------------------------------------------------------------------------+ |
 ```
 ```
 Tabs and content:
@@ -105,7 +105,7 @@ Tabs and content:
 ## ASCII FREE MODE REFERENCE
 ```
 +-----------------------------------------------------------------------------+
-|                                 FREE MODE                   [ BACK TO MENU ] |
+|                                 FREE MODE                  [ BACK TO MENU ] |
 |                                                                             |
 |      Tap a pad or press 1-8  -  no song, no score                           |
 |                                                                             |
