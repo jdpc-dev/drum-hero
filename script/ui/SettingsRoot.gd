@@ -14,6 +14,10 @@ var _page_subtitle_label: Label
 var _wide_layout: bool = true
 var _about_overlay: Control
 var _custom_lane_card: Control
+var _banana_sfx_player: AudioStreamPlayer
+var _banana_sfx_clips: Array[String] = []
+var _banana_sfx_cache: Dictionary = {}
+var _last_banana_sfx: String = ""
 
 # CONTROLS tab elements
 var _mode_buttons: Array[CheckBox] = []
@@ -74,6 +78,43 @@ const WIDE_BREAKPOINT: float = 1000.0
 const CONTENT_MAX_WIDTH: float = 1180.0
 const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
+
+# Easter egg: the About icon is a soundboard. The clips live outside the
+# imported resource graph, so the folder is read at runtime and the fallback
+# list covers exports where the directory listing does not include them.
+const BANANA_SFX_DIR: String = "res://asset/bananaSfx"
+const BANANA_SFX_FALLBACK: Array[String] = [
+	"2x1.ogg",
+	"a-20-el-pete.ogg",
+	"ahh.ogg",
+	"ay.ogg",
+	"brrr.ogg",
+	"bulto.ogg",
+	"colorado.ogg",
+	"confundido.ogg",
+	"dale.ogg",
+	"el-peluca-sabe.ogg",
+	"excelente.ogg",
+	"ioo.ogg",
+	"justin.ogg",
+	"lokita_2.ogg",
+	"lokita.ogg",
+	"mamamelo.ogg",
+	"mascapo.ogg",
+	"minas.ogg",
+	"orto.ogg",
+	"paja.ogg",
+	"pajero.ogg",
+	"papitas.ogg",
+	"pudrete.ogg",
+	"putas_2.ogg",
+	"putas.ogg",
+	"salute.ogg",
+	"salvaje.ogg",
+	"sape_2.ogg",
+	"sape.ogg",
+	"timon.ogg",
+]
 
 const TAB_NAMES: Array[String] = ["CONTROLS", "GAMEPLAY", "AUDIO", "SONGS", "ADVANCED"]
 const TAB_ICONS: Array[int] = [
@@ -1436,14 +1477,32 @@ func _show_about() -> void:
 	column.add_theme_constant_override("separation", SettingsUI.px(10))
 	panel.add_child(column)
 
-	var icon := TextureRect.new()
-	icon.texture = load("res://asset/textures/app_icon.png") as Texture2D
-	icon.custom_minimum_size = Vector2(SettingsUI.px(64), SettingsUI.px(64))
-	icon.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	icon.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# TextureButton instead of TextureRect: it handles both mouse and touch
+	# presses without double-firing the emulated mouse event on Android.
+	# It is drawn at 80x80 inside a 64x64 slot: the extra pixels come from the
+	# panel padding and the gap to the title, so nothing around it moves.
+	var icon_slot := Control.new()
+	icon_slot.name = "AppIconSlot"
+	icon_slot.custom_minimum_size = Vector2(SettingsUI.px(64), SettingsUI.px(64))
+	icon_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	column.add_child(icon_slot)
+
+	var icon := TextureButton.new()
+	icon.name = "AppIcon"
+	icon.texture_normal = load("res://asset/textures/app_icon.png") as Texture2D
+	icon.ignore_texture_size = true
+	icon.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
+	var icon_size: int = SettingsUI.px(80)
+	var slot_size: int = SettingsUI.px(64)
+	icon.custom_minimum_size = Vector2(icon_size, icon_size)
+	icon.size = Vector2(icon_size, icon_size)
+	icon.position = Vector2(slot_size - icon_size, slot_size - icon_size) * 0.5
 	icon.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
-	column.add_child(icon)
+	icon.focus_mode = Control.FOCUS_NONE
+	icon.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	icon.pressed.connect(_play_random_banana_sfx)
+	icon_slot.add_child(icon)
 
 	var app_name := SettingsUI.label("Drum Hero", 30, Palette.BONE_HI, 600)
 	app_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
@@ -1504,6 +1563,61 @@ func _close_about() -> void:
 	var fade := create_tween()
 	fade.tween_property(overlay, "modulate:a", 0.0, 0.12).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN)
 	fade.tween_callback(overlay.queue_free)
+
+
+func _play_random_banana_sfx() -> void:
+	var clips: Array[String] = _get_banana_sfx_clips()
+	if clips.is_empty():
+		return
+	var path: String = _pick_banana_sfx(clips)
+	var stream: AudioStream = _banana_sfx_cache.get(path)
+	if stream == null:
+		stream = ResourceLoader.load(path) as AudioStream
+		if stream == null:
+			return
+		_banana_sfx_cache[path] = stream
+	if not is_instance_valid(_banana_sfx_player):
+		_banana_sfx_player = AudioStreamPlayer.new()
+		_banana_sfx_player.name = "BananaSfxPlayer"
+		_banana_sfx_player.bus = "SFX"
+		add_child(_banana_sfx_player)
+	_banana_sfx_player.stream = stream
+	_banana_sfx_player.play()
+	_last_banana_sfx = path
+
+
+# The same clip is never played twice in a row: when the random pick matches
+# the previous one it is shifted inside the remaining slots.
+func _pick_banana_sfx(clips: Array[String]) -> String:
+	if clips.is_empty():
+		return ""
+	if clips.size() == 1:
+		return clips[0]
+	var index: int = randi() % clips.size()
+	if clips[index] == _last_banana_sfx:
+		index = (index + 1 + randi() % (clips.size() - 1)) % clips.size()
+	return clips[index]
+
+
+func _get_banana_sfx_clips() -> Array[String]:
+	if not _banana_sfx_clips.is_empty():
+		return _banana_sfx_clips
+	var found: Dictionary = {}
+	var dir := DirAccess.open(BANANA_SFX_DIR)
+	if dir != null:
+		for file in dir.get_files():
+			if file.get_extension().to_lower() == "ogg":
+				found[BANANA_SFX_DIR.path_join(file)] = true
+	for file in BANANA_SFX_FALLBACK:
+		var path: String = BANANA_SFX_DIR.path_join(file)
+		if ResourceLoader.exists(path):
+			found[path] = true
+	var paths: Array[String] = []
+	for path: String in found:
+		paths.append(path)
+	paths.sort()
+	_banana_sfx_clips = paths
+	return _banana_sfx_clips
 
 
 func _apply_padding_sliders_editable(enabled: bool) -> void:
