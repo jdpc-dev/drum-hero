@@ -18,6 +18,8 @@ var _is_initialized: bool = false
 var _debug_label: Label
 var _pause_overlay: CanvasLayer
 var _pause_button: Button
+var _pause_main_menu: Control
+var _pause_difficulty_menu: Control
 var _is_paused: bool = false
 var _back_handled_time: float = 0.0
 var _calibration_label: Label
@@ -37,6 +39,7 @@ var _countdown_threshold: float
 
 
 func _ready() -> void:
+	SettingsUI.setup_ui_scale(get_viewport().get_visible_rect().size.y)
 	GameManager.game_state_changed.connect(_on_state_changed)
 	_is_initialized = true
 	get_tree().auto_accept_quit = false
@@ -58,8 +61,6 @@ func _setup_input_when_ready() -> void:
 func _show_loading_screen() -> void:
 	if _loading_overlay:
 		return
-	var previous_scale: float = SettingsUI.ui_scale
-	SettingsUI.ui_scale = 1.0
 	_loading_overlay = CanvasLayer.new()
 	_loading_overlay.name = "LoadingOverlay"
 	_loading_overlay.layer = 20
@@ -86,7 +87,7 @@ func _show_loading_screen() -> void:
 	vbox.add_theme_constant_override("separation", SettingsUI.px(10))
 	panel.add_child(vbox)
 
-	var title := SettingsUI.label("LOADING", 26, Palette.BONE_HI, 600)
+	var title := SettingsUI.label("LOADING", 24, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
@@ -102,7 +103,6 @@ func _show_loading_screen() -> void:
 	_loading_bar.value = 0
 	vbox.add_child(_loading_bar)
 
-	SettingsUI.ui_scale = previous_scale
 	add_child(_loading_overlay)
 
 
@@ -560,112 +560,111 @@ func _do_exit_to_menu() -> void:
 func _show_pause_overlay() -> void:
 	if _pause_overlay:
 		return
-	var previous_scale: float = SettingsUI.ui_scale
-	SettingsUI.ui_scale = 1.0
 	_pause_overlay = CanvasLayer.new()
 	_pause_overlay.name = "PauseOverlay"
 	_pause_overlay.layer = 10
 
 	var bg: ColorRect = ColorRect.new()
 	bg.name = "PauseBg"
-	bg.color = Palette.SCRIM_STRONG
+	bg.color = Palette.SCRIM_SOFT
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.add_child(bg)
 
-	var main_card := _make_pause_card("PauseMainCard", 420.0, 400.0)
-	var difficulty_card := _make_pause_card("PauseDifficultyCard", 420.0, 520.0)
-	difficulty_card.visible = false
-	_pause_overlay.add_child(main_card)
-	_pause_overlay.add_child(difficulty_card)
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_pause_overlay.add_child(center)
 
 	var difficulties: Array = _get_available_difficulties()
-	_pause_overlay.add_child(_build_pause_main_menu(difficulties))
-	_pause_overlay.add_child(_build_pause_difficulty_menu(difficulties))
+	_pause_main_menu = _build_pause_main_menu(difficulties)
+	_pause_difficulty_menu = _build_pause_difficulty_menu(difficulties)
+	center.add_child(_pause_main_menu)
+	center.add_child(_pause_difficulty_menu)
 
-	SettingsUI.ui_scale = previous_scale
 	add_child(_pause_overlay)
 
 
-func _make_pause_card(card_name: String, width: float, height: float) -> PanelContainer:
-	var card := PanelContainer.new()
-	card.name = card_name
-	card.set_anchors_preset(Control.PRESET_CENTER)
-	card.offset_left = -width * 0.5
-	card.offset_top = -height * 0.5
-	card.offset_right = width * 0.5
-	card.offset_bottom = height * 0.5
-	card.add_theme_stylebox_override("panel", SettingsUI.flat(Palette.SURFACE_1, 18))
-	return card
+func _build_pause_main_menu(difficulties: Array) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "PauseMenu"
+	panel.custom_minimum_size = Vector2(SettingsUI.px(360), 0)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
+	SettingsUI.pad(panel_style, SettingsUI.px(26), SettingsUI.px(22))
+	panel.add_theme_stylebox_override("panel", panel_style)
 
+	var vbox := VBoxContainer.new()
+	vbox.add_theme_constant_override("separation", SettingsUI.px(8))
+	panel.add_child(vbox)
 
-func _build_pause_main_menu(difficulties: Array) -> VBoxContainer:
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.name = "PauseMenu"
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.offset_left = -180
-	vbox.offset_top = -160
-	vbox.offset_right = 180
-	vbox.offset_bottom = 160
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", SettingsUI.px(10))
-
-	var title: Label = SettingsUI.label("Paused", 30, Palette.BONE_HI, 600)
+	var title: Label = SettingsUI.label("PAUSED", 26, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	var resume_btn: Button = SettingsUI.button("Resume", "primary")
+	var track: String = GameManager.current_song_title
+	if track.is_empty():
+		track = GameManager.current_song_artist
+	var subtitle: Label = SettingsUI.description(
+		(track + "  ·  " + GameManager.current_difficulty_name) if not track.is_empty() else "Gameplay paused",
+		Palette.ASH_DIM
+	)
+	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	vbox.add_child(subtitle)
+
+	var resume_btn: Button = SettingsUI.button("RESUME", "primary")
 	resume_btn.name = "ResumeButton"
-	resume_btn.custom_minimum_size = Vector2(260, SettingsUI.px(50))
 	resume_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	resume_btn.pressed.connect(_resume_game)
 	vbox.add_child(resume_btn)
 
-	var restart_btn: Button = SettingsUI.button("Restart", "secondary")
+	var restart_btn: Button = SettingsUI.button("RESTART", "secondary")
 	restart_btn.name = "RestartButton"
-	restart_btn.custom_minimum_size = Vector2(260, SettingsUI.px(50))
 	restart_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	restart_btn.pressed.connect(_restart_song)
 	vbox.add_child(restart_btn)
 
-	var change_difficulty_btn: Button = SettingsUI.button("Change difficulty", "secondary")
+	var change_difficulty_btn: Button = SettingsUI.button("CHANGE DIFFICULTY", "secondary")
 	change_difficulty_btn.name = "ChangeDifficultyButton"
-	change_difficulty_btn.custom_minimum_size = Vector2(260, SettingsUI.px(50))
 	change_difficulty_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	change_difficulty_btn.disabled = difficulties.is_empty()
 	change_difficulty_btn.pressed.connect(_show_pause_difficulty_menu)
 	vbox.add_child(change_difficulty_btn)
 
-	var exit_btn: Button = SettingsUI.button("Exit", "ghost")
+	var exit_btn: Button = SettingsUI.button("EXIT", "secondary")
 	exit_btn.name = "ExitButton"
-	exit_btn.custom_minimum_size = Vector2(260, SettingsUI.px(50))
 	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	exit_btn.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+	exit_btn.add_theme_color_override("font_hover_color", Palette.BLOOD_GLOW)
+	exit_btn.add_theme_color_override("font_pressed_color", Palette.BLOOD_GLOW)
 	exit_btn.pressed.connect(_exit_to_menu)
 	vbox.add_child(exit_btn)
 
-	return vbox
+	return panel
 
 
-func _build_pause_difficulty_menu(difficulties: Array) -> VBoxContainer:
-	var vbox: VBoxContainer = VBoxContainer.new()
-	vbox.name = "DifficultyMenu"
-	vbox.set_anchors_preset(Control.PRESET_CENTER)
-	vbox.offset_left = -180
-	vbox.offset_top = -230
-	vbox.offset_right = 180
-	vbox.offset_bottom = 230
-	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+func _build_pause_difficulty_menu(difficulties: Array) -> Control:
+	var panel := PanelContainer.new()
+	panel.name = "DifficultyMenu"
+	panel.custom_minimum_size = Vector2(SettingsUI.px(380), 0)
+	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	panel.visible = false
+	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
+	SettingsUI.pad(panel_style, SettingsUI.px(26), SettingsUI.px(22))
+	panel.add_theme_stylebox_override("panel", panel_style)
+
+	var vbox := VBoxContainer.new()
 	vbox.add_theme_constant_override("separation", SettingsUI.px(8))
-	vbox.visible = false
+	panel.add_child(vbox)
 
-	var title: Label = SettingsUI.label("Difficulty", 26, Palette.BONE_HI, 600)
+	var title: Label = SettingsUI.label("DIFFICULTY", 24, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
 	var list: VBoxContainer = VBoxContainer.new()
 	list.name = "DifficultyList"
 	list.alignment = BoxContainer.ALIGNMENT_CENTER
-	list.add_theme_constant_override("separation", SettingsUI.px(8))
+	list.add_theme_constant_override("separation", SettingsUI.px(6))
 	vbox.add_child(list)
 
 	# Only the difficulties present in this song, in Easy -> Expert+ order.
@@ -682,64 +681,40 @@ func _build_pause_difficulty_menu(difficulties: Array) -> VBoxContainer:
 		var diff: Dictionary = by_offset[off]
 		var btn: Button = SettingsUI.button(String(diff.get("name", ChartData.DIFFICULTY_NAMES.get(off, str(off)))), "secondary")
 		btn.name = "Difficulty" + str(off)
-		btn.custom_minimum_size = Vector2(260, SettingsUI.px(50))
+		btn.custom_minimum_size = Vector2(0, SettingsUI.px(44))
 		btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		btn.toggle_mode = true
 		btn.button_group = group
-		var is_current: bool = off == GameManager.current_difficulty_offset
-		btn.button_pressed = is_current
-		if is_current:
-			var selected_style := SettingsUI.pad(SettingsUI.flat(Palette.ACCENT_SURFACE, 12), SettingsUI.px(20), SettingsUI.px(12))
-			btn.add_theme_stylebox_override("normal", selected_style)
-			btn.add_theme_stylebox_override("hover", selected_style)
-			btn.add_theme_stylebox_override("pressed", selected_style)
-			btn.add_theme_stylebox_override("hover_pressed", selected_style)
-			btn.add_theme_color_override("font_color", Palette.BONE_HI)
+		btn.button_pressed = off == GameManager.current_difficulty_offset
+		btn.add_theme_stylebox_override("pressed", SettingsUI.flat(Palette.ACCENT_SURFACE, 12))
+		btn.add_theme_stylebox_override("hover_pressed", SettingsUI.flat(Palette.ACCENT_SURFACE_HOVER, 12))
+		btn.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
+		btn.add_theme_color_override("font_hover_pressed_color", Palette.BONE_HI)
 		btn.pressed.connect(_on_pause_difficulty_pressed.bind(off, btn.text))
 		list.add_child(btn)
 
-	var back_btn: Button = SettingsUI.button("Back", "ghost")
+	var back_btn: Button = SettingsUI.button("BACK", "secondary")
 	back_btn.name = "DifficultyBackButton"
-	back_btn.custom_minimum_size = Vector2(260, SettingsUI.px(50))
+	back_btn.custom_minimum_size = Vector2(0, SettingsUI.px(46))
 	back_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	back_btn.pressed.connect(_show_pause_main_menu)
 	vbox.add_child(back_btn)
 
-	return vbox
+	return panel
 
 
 func _show_pause_difficulty_menu() -> void:
-	if _pause_overlay == null:
-		return
-	var main_menu: Control = _pause_overlay.get_node_or_null("PauseMenu") as Control
-	var difficulty_menu: Control = _pause_overlay.get_node_or_null("DifficultyMenu") as Control
-	var main_card: Control = _pause_overlay.get_node_or_null("PauseMainCard") as Control
-	var difficulty_card: Control = _pause_overlay.get_node_or_null("PauseDifficultyCard") as Control
-	if main_menu:
-		main_menu.hide()
-	if difficulty_menu:
-		difficulty_menu.show()
-	if main_card:
-		main_card.hide()
-	if difficulty_card:
-		difficulty_card.show()
+	if is_instance_valid(_pause_main_menu):
+		_pause_main_menu.hide()
+	if is_instance_valid(_pause_difficulty_menu):
+		_pause_difficulty_menu.show()
 
 
 func _show_pause_main_menu() -> void:
-	if _pause_overlay == null:
-		return
-	var main_menu: Control = _pause_overlay.get_node_or_null("PauseMenu") as Control
-	var difficulty_menu: Control = _pause_overlay.get_node_or_null("DifficultyMenu") as Control
-	var main_card: Control = _pause_overlay.get_node_or_null("PauseMainCard") as Control
-	var difficulty_card: Control = _pause_overlay.get_node_or_null("PauseDifficultyCard") as Control
-	if main_menu:
-		main_menu.show()
-	if difficulty_menu:
-		difficulty_menu.hide()
-	if main_card:
-		main_card.show()
-	if difficulty_card:
-		difficulty_card.hide()
+	if is_instance_valid(_pause_main_menu):
+		_pause_main_menu.show()
+	if is_instance_valid(_pause_difficulty_menu):
+		_pause_difficulty_menu.hide()
 
 
 func _hide_pause_overlay() -> void:
@@ -749,6 +724,8 @@ func _hide_pause_overlay() -> void:
 		_pause_overlay.visible = false
 		_pause_overlay.queue_free()
 		_pause_overlay = null
+	_pause_main_menu = null
+	_pause_difficulty_menu = null
 
 
 func _find_notes_file(song_path: String) -> String:

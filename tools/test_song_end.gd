@@ -148,8 +148,8 @@ func _run_overlay_case() -> void:
 	await get_tree().process_frame
 
 	_check("el panel monta su fondo", overlay.get_node_or_null("ResultBg") != null)
-	_check("el panel monta el boton de replay", overlay.get_node_or_null("ResultPanel/RetryButton") is Button)
-	_check("el panel monta el boton de salir", overlay.get_node_or_null("ResultPanel/ExitButton") is Button)
+	_check("el panel monta el boton de replay", overlay.find_child("RetryButton", true, false) is Button)
+	_check("el panel monta el boton de salir", overlay.find_child("ExitButton", true, false) is Button)
 
 	var score_label: Label = _find_value_label(overlay, "ScoreValue")
 	var accuracy_label: Label = _find_value_label(overlay, "AccuracyValue")
@@ -172,8 +172,8 @@ func _run_overlay_case() -> void:
 	_exit_count = 0
 	overlay.retry_requested.connect(_on_retry_probe)
 	overlay.exit_requested.connect(_on_exit_probe)
-	(overlay.get_node("ResultPanel/RetryButton") as Button).pressed.emit()
-	(overlay.get_node("ResultPanel/ExitButton") as Button).pressed.emit()
+	(overlay.find_child("RetryButton", true, false) as Button).pressed.emit()
+	(overlay.find_child("ExitButton", true, false) as Button).pressed.emit()
 	_check("el boton de replay emite retry_requested", _retry_count == 1)
 	_check("el boton de salir emite exit_requested", _exit_count == 1)
 

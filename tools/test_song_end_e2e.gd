@@ -106,6 +106,7 @@ func _ready() -> void:
 	_check("el estado pasa a RESULT al acabar la cancion", GameManager.state == GameManager.GameState.RESULT)
 	var overlay: Node = _gameplay.find_child("ResultOverlay", true, false)
 	_check("el overlay de resultados aparece en pantalla", overlay != null)
+	await get_tree().process_frame
 	_check("el reloj queda congelado al final", is_equal_approx(TimingEngine.get_time(), TimingEngine.chart_duration))
 	var stored: int = HighScoreStore.get_best(GameManager.current_song_path, GameManager.current_difficulty_offset)
 	_check("el record de la cancion se guarda al terminar", stored == ScoreManager.score)
@@ -118,18 +119,19 @@ func _ready() -> void:
 	# (REPLAY plays again, EXIT clears the overlay).
 	var vp: Vector2 = get_viewport().get_visible_rect().size
 	var bg: ColorRect = overlay.get_node_or_null("ResultBg") as ColorRect
-	var panel: Control = overlay.get_node_or_null("ResultPanel") as Control
+	var panel: Control = overlay.find_child("ResultPanel", true, false) as Control
+	var panel_rect: Rect2 = panel.get_global_rect() if panel != null else Rect2()
 	_check("el panel se dibuja por encima del HUD", (overlay as CanvasLayer).layer == 15)
 	_check("el fondo tapa la pantalla entera", bg != null and bg.size.x >= vp.x - 1.0 and bg.size.y >= vp.y - 1.0)
-	_check("el panel cabe dentro de la pantalla", panel != null and panel.position.x >= 0.0 and panel.position.x + panel.size.x <= vp.x + 1.0 and panel.position.y >= 0.0)
-	_check("el panel esta centrado horizontalmente", panel != null and absf(panel.position.x + panel.size.x * 0.5 - vp.x * 0.5) < 2.0)
+	_check("el panel cabe dentro de la pantalla", panel != null and panel_rect.position.x >= 0.0 and panel_rect.position.x + panel_rect.size.x <= vp.x + 1.0 and panel_rect.position.y >= 0.0)
+	_check("el panel esta centrado horizontalmente", panel != null and absf(panel_rect.position.x + panel_rect.size.x * 0.5 - vp.x * 0.5) < 2.0)
 	_check("el panel tiene contenido visible", panel != null and panel.get_combined_minimum_size().y < vp.y and panel.size.y > 0.0)
 	var score_label: Label = overlay.find_child("ScoreValue", true, false) as Label
 	_check("el panel muestra el score", score_label != null and score_label.text == ScoreData.format_score(ScoreManager.score))
 	var song_label: Label = overlay.find_child("SongLabel", true, false) as Label
 	_check("el panel muestra la cancion", song_label != null and song_label.text.contains("Ready to Go"))
 
-	var retry_btn: Button = overlay.get_node_or_null("ResultPanel/RetryButton") as Button
+	var retry_btn: Button = overlay.find_child("RetryButton", true, false) as Button
 	_check("el panel tiene boton de replay", retry_btn != null)
 	if retry_btn != null:
 		retry_btn.pressed.emit()
