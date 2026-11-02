@@ -1,8 +1,8 @@
 class_name CrashImpact
 extends Node2D
 
-# Local cymbal burst for CRASH hits: a white-hot flash, a few fast metal rings
-# and a spray of silver/gold sparks. It is drawn in world space on top of the
+# Local cymbal burst for CRASH hits: a white-hot flash, a few soft metallic
+# light bands and a spray of silver/gold sparks. It is drawn in world space on top of the
 # notes, so the screen-space pressure bubble can still refract it as a whole.
 #
 # The node is pooled by EffectManager and removes itself when the burst ends.
@@ -76,10 +76,12 @@ func _draw() -> void:
 		draw_circle(Vector2.ZERO, radius, Color(_tint.r, _tint.g, _tint.b, fade * 0.45))
 		draw_circle(Vector2.ZERO, radius * 0.55, Color(1.0, 1.0, 1.0, fade * 0.95))
 
-	# Metal rings: a fast bright edge, a slower gold echo and a faint outer wash.
-	_draw_ring(0.0, 0.16, 22.0, 200.0, 8.0, 1.0, Color(0.92, 0.96, 1.0))
-	_draw_ring(0.012, 0.24, 10.0, 155.0, 3.5, 0.75, Color(1.0, 0.82, 0.45))
-	_draw_ring(0.03, 0.34, 6.0, 250.0, 1.8, 0.42, Color(1.0, 0.95, 0.82))
+	# Soft metal light bands instead of hard rings: a fast silver pulse, a
+	# broader gold echo and a wide, faint outer wash. Alphas and widths are
+	# proportionally different so each band keeps its own role.
+	_draw_light_ring(0.0, 0.16, 22.0, 200.0, 0.10, 0.55, Color(0.92, 0.96, 1.0))
+	_draw_light_ring(0.012, 0.24, 10.0, 155.0, 0.16, 0.34, Color(1.0, 0.82, 0.45))
+	_draw_light_ring(0.03, 0.34, 6.0, 250.0, 0.24, 0.18, Color(1.0, 0.95, 0.82))
 
 	# Sparks: short outward streaks that slow down and fade.
 	for spark in _sparks:
@@ -96,11 +98,18 @@ func _draw() -> void:
 		draw_line(tip, tail, color, maxf(0.5, spark.width * (1.0 - 0.6 * k)), true)
 
 
-func _draw_ring(delay: float, duration: float, start_radius: float, end_radius: float, width: float, alpha: float, color: Color) -> void:
+func _draw_light_ring(delay: float, duration: float, start_radius: float, end_radius: float, width_ratio: float, alpha: float, color: Color) -> void:
 	var t: float = (_elapsed - delay) / duration
 	if t < 0.0 or t >= 1.0:
 		return
 	var eased: float = 1.0 - pow(1.0 - t, 2.0)
 	var radius: float = lerpf(start_radius, end_radius, eased)
-	var ring_color := Color(color.r, color.g, color.b, (1.0 - t) * (1.0 - t) * alpha)
-	draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, ring_color, maxf(0.5, width * (1.0 - t)), true)
+	var fade: float = (1.0 - t) * (1.0 - t)
+	var band: float = maxf(6.0, radius * width_ratio)
+	# Layered arcs create a soft light band with a bright center and no hard
+	# outline. The alpha is spread instead of drawn as one opaque ring.
+	for layer in range(4):
+		var spread: float = 1.0 + 0.55 * float(layer)
+		var layer_alpha: float = fade * alpha * (0.38 - 0.06 * float(layer))
+		var layer_color := Color(color.r, color.g, color.b, layer_alpha)
+		draw_arc(Vector2.ZERO, radius, 0.0, TAU, 64, layer_color, band * spread, true)

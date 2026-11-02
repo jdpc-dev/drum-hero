@@ -1553,7 +1553,7 @@ exclusively from the song's drum stems (`drums_1`, `drums_2`, etc.).
 3. **ParticleBurst** — 16 particles explode from the impact point with the lane color (0.4s). Pool in `EffectManager`.
 4. **JudgementPopup** — Judgement text ("PERFECT", "EXCELLENT", "GOOD", "LATE", "EARLY", "MISS") appears at the corresponding lane's hit line, floats upward and fades (0.6s). Pool in `EffectManager`. Controlled by `show_hit_feedback`.
 5. **Lane background highlight** — The lane's `bg_rect` briefly increases its alpha.
-6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), two layers fire. A white-hot contact flash and a metallic ring/spark burst cover the hit line (0.38s), then a large transparent pressure bubble expands from the pad: a soft light band brightens the scene near its surface without covering it, the picture inside is magnified like a lens, the wavefront refracts it radially with a small chromatic fringe, and a low-frequency gas haze warps the interior (0.68s). During the first half the whole screen gets a brief saturation/bloom pulse that settles back to normal in the second half. Up to three bubbles overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are re-sampled.
+6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), two layers fire. A white-hot contact flash and a soft metallic light-band/spark burst cover the hit line (0.38s), then a large transparent pressure bubble expands from the pad: a soft light band brightens the scene near its surface without covering it, the picture inside is magnified like a lens, the wavefront refracts it radially with a small chromatic fringe, and a low-frequency gas haze warps the interior (0.68s). During the first half the whole screen gets a brief saturation/bloom pulse that settles back to normal in the second half. Up to three bubbles overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are re-sampled.
 
 When a note passes the hit line without being hit, "MISS" is shown at the
 corresponding lane's hit line (same effects 4 and 5).
@@ -1566,7 +1566,7 @@ Implemented with pooling in `EffectManager` (max. 16 instances per type).
 |---|---|---|
 | ParticleBurst | `scene/UI/Effects/ParticleBurst.tscn` | `trigger_particle_burst(pos, color, parent)` on each hit |
 | Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent, color, radius)` — implemented, not connected |
-| CrashImpact | `scene/UI/Effects/CrashImpact.tscn` | `trigger_crash_impact(pos, parent, color)` — metallic ring/spark burst on CRASH hits |
+| CrashImpact | `scene/UI/Effects/CrashImpact.tscn` | `trigger_crash_impact(pos, parent, color)` — soft light-band/spark burst on CRASH hits |
 | JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — active on each hit (controlled by `show_hit_feedback`) |
 | CrashShockwave | `scene/UI/Effects/CrashShockwave.tscn` | `trigger_crash_shockwave(pos, color)` — active on CRASH hits only. Not pooled: one persistent `CanvasLayer` overlay (`BackBufferCopy` + shader) reused for every bubble. |
 
