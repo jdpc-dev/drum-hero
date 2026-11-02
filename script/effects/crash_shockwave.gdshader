@@ -23,6 +23,8 @@ uniform float falloff_distance : hint_range(1.0, 4000.0) = 1500.0;
 // Radial refraction and interior gas-haze amounts, in amplitude units.
 uniform float refraction_strength : hint_range(0.0, 6.0) = 3.5;
 uniform float gas_strength : hint_range(0.0, 1.0) = 0.5;
+// 0 = unchanged colors, 0.9 = strong euphoric color pulse.
+uniform float saturation_boost : hint_range(0.0, 1.0) = 0.0;
 
 float band(float distance, float radius, float width) {
 	float x = (distance - radius) / max(width, 0.001);
@@ -105,5 +107,22 @@ void fragment() {
 	color.b = texture(screen_texture, clamp(sample_uv - fringe_uv, vec2(0.0), vec2(1.0))).b;
 	color *= 1.0 - clamp(darken, 0.0, 0.32);
 	color += rim_color;
+
+	// Euphoric color pop: push saturation away from the luminance axis while
+	// the first half of the impact is still ringing, then let it settle back.
+	// Muted colors (lane washes, background, smoke) get a stronger vibrance
+	// push than already-pure notes, so every hue gains presence on its own
+	// without tinting the whole screen. The lift and bloom are neutral, so
+	// reds stay red, blues stay blue and greens stay green.
+	float luminance = dot(color, vec3(0.2126, 0.7152, 0.0722));
+	float chroma = max(color.r, max(color.g, color.b)) - min(color.r, min(color.g, color.b));
+	float sat_mix = 1.0 + saturation_boost * (0.35 + 0.9 * (1.0 - clamp(chroma, 0.0, 1.0)));
+	color = mix(vec3(luminance), color, sat_mix);
+	color = pow(max(color, vec3(0.0)), vec3(1.0 - 0.05 * saturation_boost));
+	color *= 1.0 + 0.06 * saturation_boost;
+	// Cheap bloom: bright notes and particles gain more glow than the dark
+	// background, so the color pulse reads as energy instead of a flat filter.
+	color += color * color * saturation_boost * 0.35;
+
 	COLOR = vec4(color, 1.0);
 }

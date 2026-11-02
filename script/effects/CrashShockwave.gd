@@ -13,15 +13,19 @@ extends CanvasLayer
 # blends instead of cutting the previous wave.
 
 const MAX_WAVES: int = 3
-const DURATION: float = 0.75
+const DURATION: float = 0.9
 const STRENGTH_PX: float = 13.0
 const WAVE_WIDTH_PX: float = 150.0
 const RIM_CORE_PX: float = 5.0
 const EDGE_SOFTNESS_PX: float = 28.0
 const RIM_ALPHA: float = 0.32
+# Cool glass edge: the pressure wave should bend colors without warming them.
+const RIM_TINT: Color = Color(0.70, 0.85, 1.0)
 const LENS_STRENGTH: float = 0.06
 const REFRACTION_STRENGTH: float = 3.5
 const GAS_STRENGTH: float = 0.5
+# Peak saturation/vibrance reached during the first half of the effect.
+const SATURATION_BOOST: float = 0.9
 const MAX_RADIUS_SCALE: float = 1.08  # of the farthest visible corner
 
 @onready var _copy: BackBufferCopy = $BackBufferCopy
@@ -97,6 +101,8 @@ func _update_uniforms() -> void:
 	_material.set_shader_parameter("refraction_strength", REFRACTION_STRENGTH)
 	_material.set_shader_parameter("gas_strength", GAS_STRENGTH)
 
+	var saturation: float = 0.0
+
 	var wave_data: PackedVector4Array = PackedVector4Array()
 	var ring_data: PackedVector4Array = PackedVector4Array()
 	var lens_data: PackedFloat32Array = PackedFloat32Array()
@@ -118,17 +124,19 @@ func _update_uniforms() -> void:
 		var radius: float = _max_radius * eased
 		var amplitude: float = _amplitude_at(t)
 		var color: Color = wave.color
-		# Keep the rim mostly neutral with a warm flash of the crash lane, so
-		# it reads as a pressure edge instead of a solid orange line.
-		var rim_color: Color = color.lerp(Color.WHITE, 0.35)
+		# Keep the rim glassy and cool so the screen-wide wave does not cast a
+		# warm tint over the scene; the lane color only leaves a faint trace.
+		var rim_color: Color = color.lerp(RIM_TINT, 0.9)
 		var rim_alpha: float = RIM_ALPHA * _rim_envelope(t)
 		wave_data[i] = Vector4(wave.origin.x, wave.origin.y, radius, amplitude)
 		ring_data[i] = Vector4(rim_color.r, rim_color.g, rim_color.b, rim_alpha)
 		lens_data[i] = LENS_STRENGTH * _lens_envelope(t)
+		saturation = maxf(saturation, _saturation_at(t))
 
 	_material.set_shader_parameter("waves", wave_data)
 	_material.set_shader_parameter("wave_rings", ring_data)
 	_material.set_shader_parameter("wave_lens", lens_data)
+	_material.set_shader_parameter("saturation_boost", saturation)
 
 
 # Radius that just reaches the last visible corner: the bubble covers the whole
@@ -146,7 +154,7 @@ static func _rim_envelope(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
 	var rise: float = smoothstep(0.0, 0.05, t)
-	var fade: float = 1.0 - smoothstep(0.45, 0.92, t)
+	var fade: float = 1.0 - smoothstep(0.38, 1.0, t)
 	return rise * fade
 
 
@@ -156,8 +164,17 @@ static func _lens_envelope(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
 	var rise: float = smoothstep(0.0, 0.04, t)
-	var fade: float = 1.0 - smoothstep(0.55, 0.92, t)
+	var fade: float = 1.0 - smoothstep(0.40, 1.0, t)
 	return rise * fade
+
+
+# Euphoric color pop: saturated during the first half, restored in the second.
+static func _saturation_at(t: float) -> float:
+	if t <= 0.0 or t >= 1.0:
+		return 0.0
+	var rise: float = smoothstep(0.0, 0.15, t)
+	var fade: float = 1.0 - smoothstep(0.45, 0.85, t)
+	return SATURATION_BOOST * rise * fade
 
 
 # Elastic displacement envelope: quick ramp in, one rebound and a smooth fade.
@@ -165,6 +182,6 @@ static func _amplitude_at(t: float) -> float:
 	if t <= 0.0 or t >= 1.0:
 		return 0.0
 	var rise: float = smoothstep(0.0, 0.06, t)
-	var fade: float = 1.0 - smoothstep(0.30, 0.95, t)
+	var fade: float = 1.0 - smoothstep(0.25, 1.0, t)
 	var swing: float = 0.85 + 0.15 * cos(t * TAU * 1.5)
 	return STRENGTH_PX * rise * fade * swing
