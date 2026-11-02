@@ -135,7 +135,7 @@ Leaving the menu (Android back button or `ui_cancel`) depends on **Show Menu
 Status**. With the status line visible, the double tap is preserved ("Press
 again to exit" → "Closing..." if pressed within `_back_cooldown`). With the line
 hidden there is nowhere to show that warning, so the first back opens a
-confirmation modal (same scrim and centered VBox as the pause and results
+confirmation modal (same scrim and centered card as the pause and results
 overlays) with CANCEL/EXIT; back on the modal closes it.
 
 Test: `godot --headless --path . res://tools/test_menu_state.tscn`
@@ -763,7 +763,11 @@ It is not the same as `Highway.restart()`, which discards notes without scoring
 `ScoreManager` (score, accuracy, max combo, hits/misses) plus the song title and
 difficulty. It emits `retry_requested` and `exit_requested`; the callback is
 `GameplayRoot._restart_song()` / `_exit_to_menu()`. The pause overlay lives on
-layer 10 and the loading overlay on layer 20.
+layer 10 and the loading overlay on layer 20. Both overlays use the same
+`SettingsUI` surfaces, rounded cards and button styles as the menu/settings.
+Gameplay modals are built at the base scale rather than the mobile DPI
+multiplier, because their type and buttons are already large and the result card
+must fit the 720-unit canvas.
 
 `AndroidBridge.clear_exclusion()` is **not** called when the song ends: we are
 still inside gameplay and the touch zones have not changed. It is only cleared

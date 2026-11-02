@@ -10,8 +10,7 @@ signal retry_requested()
 signal exit_requested()
 
 const PANEL_WIDTH: float = 520.0
-const ROW_HEIGHT: float = 38.0
-const BASE_LABEL_SETTINGS := preload("res://asset/fonts/label_settings.tres")
+const ROW_HEIGHT: float = 36.0
 
 var _song_label: Label
 var _score_label: Label
@@ -26,11 +25,27 @@ func _ready() -> void:
 
 
 func _build() -> void:
+	# Gameplay already uses large type; keep the modal at the base scale so it
+	# fits the 720-unit canvas on a phone instead of growing past the screen.
+	var previous_scale: float = SettingsUI.ui_scale
+	SettingsUI.ui_scale = 1.0
+
 	var bg := ColorRect.new()
 	bg.name = "ResultBg"
 	bg.color = Palette.SCRIM_RESULT
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(bg)
+
+	var card := PanelContainer.new()
+	card.name = "ResultCard"
+	card.set_anchors_preset(Control.PRESET_CENTER)
+	card.offset_left = -PANEL_WIDTH * 0.5 - 24.0
+	card.offset_top = -320.0 - 24.0
+	card.offset_right = PANEL_WIDTH * 0.5 + 24.0
+	card.offset_bottom = 320.0 + 24.0
+	card.add_theme_stylebox_override("panel", SettingsUI.flat(Palette.SURFACE_1, 18))
+	add_child(card)
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "ResultPanel"
@@ -40,15 +55,15 @@ func _build() -> void:
 	vbox.offset_top = -320.0
 	vbox.offset_bottom = 320.0
 	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", SettingsUI.px(8))
 	add_child(vbox)
 
-	var title := _make_label("RESULTS", 48, Palette.BONE)
+	var title := SettingsUI.label("Results", 30, Palette.BONE_HI, 600)
 	title.name = "TitleLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	_song_label = _make_label("", 20, Palette.ASH)
+	_song_label = SettingsUI.label("", 16, Palette.ASH, 400)
 	_song_label.name = "SongLabel"
 	_song_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	# Long titles ("Artist - Song (Difficulty)") are split into two lines
@@ -56,29 +71,30 @@ func _build() -> void:
 	_song_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	vbox.add_child(_song_label)
 
-	vbox.add_child(_spacer(14))
+	vbox.add_child(_spacer(8))
 
-	_score_label = _add_row(vbox, "SCORE", 34, Palette.BONE_HI)
-	_accuracy_label = _add_row(vbox, "ACCURACY", 24, Palette.BONE)
-	_combo_label = _add_row(vbox, "MAX COMBO", 24, Palette.CHROME)
-	_counts_label = _add_row(vbox, "NOTES", 20, Palette.ASH)
+	_score_label = _add_row(vbox, "Score", 28, Palette.BONE_HI)
+	_accuracy_label = _add_row(vbox, "Accuracy", 18, Palette.BONE)
+	_combo_label = _add_row(vbox, "Max combo", 18, Palette.CHROME)
+	_counts_label = _add_row(vbox, "Notes", 14, Palette.ASH)
 
-	vbox.add_child(_spacer(18))
+	vbox.add_child(_spacer(12))
 
-	var retry_btn := Button.new()
+	var retry_btn := SettingsUI.button("Replay", "primary")
 	retry_btn.name = "RetryButton"
-	retry_btn.text = "REPLAY"
-	retry_btn.custom_minimum_size = Vector2(PANEL_WIDTH, 50)
+	retry_btn.custom_minimum_size = Vector2(PANEL_WIDTH, SettingsUI.px(50))
+	retry_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	retry_btn.pressed.connect(func() -> void: retry_requested.emit())
 	vbox.add_child(retry_btn)
 
-	var exit_btn := Button.new()
+	var exit_btn := SettingsUI.button("Exit", "ghost")
 	exit_btn.name = "ExitButton"
-	exit_btn.text = "EXIT"
-	exit_btn.custom_minimum_size = Vector2(PANEL_WIDTH, 50)
+	exit_btn.custom_minimum_size = Vector2(PANEL_WIDTH, SettingsUI.px(50))
+	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	exit_btn.pressed.connect(func() -> void: exit_requested.emit())
 	vbox.add_child(exit_btn)
 
+	SettingsUI.ui_scale = previous_scale
 	refresh()
 
 
@@ -103,30 +119,17 @@ func _add_row(parent: VBoxContainer, caption: String, font_size: int, color: Col
 	row.custom_minimum_size = Vector2(0, ROW_HEIGHT)
 	parent.add_child(row)
 
-	var left := _make_label(caption, 18, Palette.MUTED)
+	var left := SettingsUI.label(caption, 13, Palette.MUTED, 400)
 	left.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	left.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(left)
 
-	var value := _make_label("-", font_size, color)
+	var value := SettingsUI.label("-", font_size, color, 500)
 	value.name = caption.capitalize().replace(" ", "") + "Value"
 	value.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	value.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	row.add_child(value)
 	return value
-
-
-func _make_label(text: String, font_size: int, color: Color) -> Label:
-	var label := Label.new()
-	label.text = text
-	# Duplicated LabelSettings instead of theme overrides: the base resource
-	# already brings the game font and outline, and each label decides its size
-	# and color without depending on which one takes precedence.
-	var settings := BASE_LABEL_SETTINGS.duplicate() as LabelSettings
-	settings.font_size = font_size
-	settings.font_color = color
-	label.label_settings = settings
-	return label
 
 
 func _spacer(height: float) -> Control:
