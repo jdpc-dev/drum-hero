@@ -160,7 +160,7 @@ func _layout_hud() -> void:
 	title.size = Vector2(content_w, 22)
 	hud.add_child(title)
 
-	var hint := _make_label("Tap a pad or press 1-8  -  no song, no score", 13, Palette.ASH_DIM)
+	var hint := _make_label("Tap a pad or press 1-8", 13, Palette.ASH_DIM)
 	hint.name = "HintLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -315,7 +315,7 @@ func _show_pause_overlay() -> void:
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(title)
 
-	var subtitle: Label = SettingsUI.description("Free mode  ·  no song, no score", Palette.ASH_DIM)
+	var subtitle: Label = SettingsUI.description("Free mode - no song or score", Palette.ASH_DIM)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	vbox.add_child(subtitle)
 

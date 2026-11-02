@@ -106,7 +106,7 @@ Tabs and content:
 ```
 +--------------------------------------------------------------------------+
 |                                 FREE MODE            [ BACK TO MENU ]    |
-|              Tap a pad or press 1-8  -  no song, no score                |
+|                          Tap a pad or press 1-8                          |
 |                                                                          |
 |                                                                          |
 |                                  SNARE                                   |
