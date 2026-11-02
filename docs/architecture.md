@@ -208,7 +208,7 @@ any scene.
 | `ChartParser` | Loads `notes.mid` (via `MidiParser.gd`) or `notes.chart` (via `DotChartParser.gd`) depending on the file extension. Produces the same `NoteEvent` array for both formats. Supports fallback to PART GUITAR / `[ExpertSingle]` when there are no drums. `get_notes_in_range()` uses binary search (`find_next_note_index`) to jump to the requested range. `clear()` empties the chart; free mode calls it, since it builds the Highway without notes (see *Free mode*). | `ChartData.gd` (data classes) |
 | `TimingEngine` | Master clock. With audio it uses `AudioManager.get_position()`, otherwise frame delta. Emits `time_updated`, `song_ended` (only once, see *End of song*). `stop()` freezes the clock wherever it is; `start()` re-arms it. | `AudioManager` |
 | `ScoreManager` | Score, combo, multiplier, streaks. API: `register_hit(diff)`, `register_miss()`, `reset()`. | — |
-| `EffectManager` | Pool of visual effects (`ParticleBurst`, `Shockwave`, `CrashImpact`, `CrashShockwave`, `JudgementPopup`). Generates SFX (programmatic beeps). | — |
+| `EffectManager` | Pool of visual effects (`ParticleBurst`, `Shockwave`, `CrashImpact`, `CrashShockwave`, `DrumPulse`, `LanePulse`, `JudgementPopup`). Generates SFX (programmatic beeps). | — |
 | `DrumGraphics` | Generates vector textures for notes and per-lane hit lines (double cymbal, cymbal, drumstick, pedal). 128×128 textures pre-generated in `_ready()`. | — |
 | `AndroidBridge` | GDScript→native Android bridge. Manages the `GestureExclusion` plugin (exclude back-gesture edges) and `AllFilesAccess` (grant *All files access* and probe path readability). Only active on Android; no-op on desktop. | — |
 | `HighScoreStore` | Best scores per song+difficulty (`user://scores.cfg`, see *Best scores*). | — |
@@ -1569,13 +1569,33 @@ Implemented with pooling in `EffectManager` (max. 16 instances per type).
 | CrashImpact | `scene/UI/Effects/CrashImpact.tscn` | `trigger_crash_impact(pos, parent, color)` — soft light-band/spark burst on CRASH hits |
 | JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — active on each hit (controlled by `show_hit_feedback`) |
 | CrashShockwave | `scene/UI/Effects/CrashShockwave.tscn` | `trigger_crash_shockwave(pos, color)` — active on CRASH hits only. Not pooled: one persistent `CanvasLayer` overlay (`BackBufferCopy` + shader) reused for every bubble. |
+| DrumPulse | `scene/UI/Effects/DrumPulse.tscn` | `trigger_drum_pulse(lane)` — subtle screen feedback for KICK, HH and SNARE. Not pooled: one persistent `CanvasLayer` overlay at layer 4. |
+| LanePulse | `scene/UI/Effects/LanePulse.tscn` | `trigger_lane_pulse("tom"/"ride", pos, parent, color)` — local TOM heartbeat or RIDE bell ping. |
 
 The CRASH shockwave lives above the HUD (`CanvasLayer.layer = 5`) so the
 lens/refraction bends notes, lanes, particles and HUD text together. The shader
 samples the screen texture (`script/effects/crash_shockwave.gdshader`),
-magnifies the bubble interior, shades it and refracts the wavefront; no gameplay
+magnifies the bubble interior, lights the wavefront and refracts it; no gameplay
 node moves. Its `BackBufferCopy` and `ColorRect` stay hidden and outside the
 process loop until a wave is active.
+
+### Lane-specific feedback
+
+So CRASH remains the highest-contrast moment, the other lanes use quieter,
+shorter cues:
+
+| Lane | Effect |
+|---|---|
+| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a faint top highlight (0.22s). |
+| HH | `DrumPulse` applies a very small whole-screen shake (0.16s, ~2px). |
+| SNARE | `DrumPulse` uses a short staccato pulse train of 1–3px jolts (0.14s), like a burst of hits. |
+| TOMS | `LanePulse` emits two soft rings 0.12s apart at the hit line, a quiet "lub-dub" heartbeat (0.44s). |
+| RIDE | `LanePulse` emits one tiny soft ring/light band plus a few short sparkles, like a bell ping (0.30s). |
+| CRASH | Full transparent pressure bubble + white-hot flash + metallic light bands/sparks; unchanged and still the dominant effect. |
+
+`DrumPulse` lives at `CanvasLayer.layer = 4`, below the CRASH overlay at layer 5,
+so a crash hit always wins visually even when another lane is hit at the same
+time.
 
 **Pooling mechanism (`_borrow`):**
 

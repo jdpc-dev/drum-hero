@@ -90,10 +90,25 @@ func _on_lane_pressed(lane_index: int, _position: Vector2) -> void:
 	_total_hits += 1
 	_update_pad_readout(lane_index)
 	highway.flash_hit_line(lane_index)
+	var hit_position: Vector2 = highway.get_hit_global_position(lane_index)
+	var lane_color: Color = Highway._get_lane_colors()[lane_index]
 	EffectManager.call_deferred("trigger_particle_burst",
-		highway.get_hit_global_position(lane_index),
-		Highway._get_lane_colors()[lane_index],
+		hit_position,
+		lane_color,
 		highway)
+
+	# The same lane feedback used in gameplay; free mode is where the pads are
+	# tested, so it should feel consistent.
+	match lane_index:
+		1:
+			EffectManager.trigger_crash_impact(hit_position, highway, lane_color)
+			EffectManager.trigger_crash_shockwave(hit_position, lane_color)
+		0, 2, 3:
+			EffectManager.trigger_drum_pulse(lane_index)
+		4, 5, 6:
+			EffectManager.trigger_lane_pulse("tom", hit_position, highway, lane_color)
+		7:
+			EffectManager.trigger_lane_pulse("ride", hit_position, highway, lane_color)
 
 
 func _update_pad_readout(lane_index: int) -> void:

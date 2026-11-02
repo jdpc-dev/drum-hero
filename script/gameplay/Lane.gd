@@ -130,28 +130,34 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 				_return_note(nearest)
 				highway_ref.flash_hit_line(lane_index)
 				_highlight()
+				var hit_position: Vector2 = highway_ref.get_hit_global_position(lane_index)
+				var lane_color: Color = Highway._get_lane_colors()[lane_index]
 				EffectManager.call_deferred("trigger_particle_burst",
-					highway_ref.get_hit_global_position(lane_index),
-					Highway._get_lane_colors()[lane_index],
+					hit_position,
+					lane_color,
 					highway_ref)
-				# Only the CRASH cymbal (lane 1) releases the screen-wide
-				# pressure wave, so the effect stays special to that pad. It
-				# also gets a metallic ring/spark burst on the hit line.
-				if lane_index == 1:
-					var crash_color: Color = Highway._get_lane_colors()[lane_index]
-					# Crash effects run immediately, not deferred: the burst
-					# and flash must land on the same frame as the cymbal.
-					EffectManager.trigger_crash_impact(
-						highway_ref.get_hit_global_position(lane_index),
-						highway_ref,
-						crash_color)
-					EffectManager.trigger_crash_shockwave(
-						highway_ref.get_hit_global_position(lane_index),
-						crash_color)
+
+				# Lane-specific feedback, intentionally quieter than CRASH.
+				# Crash effects run immediately so they land with the cymbal.
+				match lane_index:
+					1:
+						EffectManager.trigger_crash_impact(
+							hit_position, highway_ref, lane_color)
+						EffectManager.trigger_crash_shockwave(
+							hit_position, lane_color)
+					0, 2, 3:
+						EffectManager.trigger_drum_pulse(lane_index)
+					4, 5, 6:
+						EffectManager.trigger_lane_pulse(
+							"tom", hit_position, highway_ref, lane_color)
+					7:
+						EffectManager.trigger_lane_pulse(
+							"ride", hit_position, highway_ref, lane_color)
+
 				if SettingsManager.show_hit_feedback:
 					EffectManager.call_deferred("show_judgement",
 						accuracy,
-						highway_ref.get_hit_global_position(lane_index),
+						hit_position,
 						highway_ref)
 				return true
 			else:

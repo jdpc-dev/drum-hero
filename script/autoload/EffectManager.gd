@@ -3,13 +3,17 @@ extends Node
 var _particle_pool: Array[Node] = []
 var _shockwave_pool: Array[Node] = []
 var _crash_impact_pool: Array[Node] = []
+var _lane_pulse_pool: Array[Node] = []
 var _judgement_pool: Array[Node] = []
 
 const MAX_POOL_SIZE: int = 16
 const CRASH_SHOCKWAVE_SCENE := preload("res://scene/UI/Effects/CrashShockwave.tscn")
 const CRASH_IMPACT_SCENE := preload("res://scene/UI/Effects/CrashImpact.tscn")
+const DRUM_PULSE_SCENE := preload("res://scene/UI/Effects/DrumPulse.tscn")
+const LANE_PULSE_SCENE := preload("res://scene/UI/Effects/LanePulse.tscn")
 
 var _crash_shockwave: CrashShockwave
+var _drum_pulse: DrumPulse
 
 var _hit_sfx: AudioStreamPlayer
 var _miss_sfx: AudioStreamPlayer
@@ -21,6 +25,11 @@ func _ready() -> void:
 	# there is no wave travelling.
 	_crash_shockwave = CRASH_SHOCKWAVE_SCENE.instantiate() as CrashShockwave
 	add_child(_crash_shockwave)
+
+	# Subtle screen feedback for KICK, HH and SNARE. It lives one layer below
+	# the CRASH overlay so the crash always remains the dominant effect.
+	_drum_pulse = DRUM_PULSE_SCENE.instantiate() as DrumPulse
+	add_child(_drum_pulse)
 
 	_hit_sfx = AudioStreamPlayer.new()
 	_hit_sfx.stream = _generate_beep(880.0, 0.08)
@@ -97,6 +106,22 @@ func trigger_crash_impact(position: Vector2, parent: Node, color: Color) -> void
 func trigger_crash_shockwave(position: Vector2, color: Color) -> void:
 	if _crash_shockwave:
 		_crash_shockwave.trigger(position, color)
+
+
+# Subtle screen-space feedback: KICK lifts the top edge, HH shakes the frame,
+# SNARE adds a short staccato jolt.
+func trigger_drum_pulse(lane_index: int) -> void:
+	if _drum_pulse:
+		_drum_pulse.trigger(lane_index)
+
+
+# Small local feedback for TOMS (double heartbeat ring) and RIDE (bell ping).
+func trigger_lane_pulse(mode: String, position: Vector2, parent: Node, color: Color) -> void:
+	var pulse: Node = _borrow(_lane_pulse_pool, LANE_PULSE_SCENE)
+	if pulse:
+		parent.add_child(pulse)
+		pulse.global_position = position
+		pulse.call("play", mode, color)
 
 
 func show_judgement(accuracy: int, position: Vector2, parent: Node) -> void:
