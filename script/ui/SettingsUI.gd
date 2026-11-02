@@ -86,6 +86,43 @@ static func pad(sb: StyleBoxFlat, horizontal: float, vertical: float) -> StyleBo
 	return sb
 
 
+# Album art is center-cropped to a square and given the same corner ratio as
+# its frame. Godot clips Controls to rectangles, not rounded rects, so the
+# transparency has to be baked into the texture itself. 192px is enough for the
+# scaled header tile while keeping the one-off pixel mask cheap on mobile.
+static func rounded_cover(texture: Texture2D, resolution: int = 192, radius_ratio: float = 14.0 / 64.0) -> Texture2D:
+	if texture == null:
+		return null
+	var image: Image = texture.get_image()
+	if image == null:
+		return texture
+	if image.is_compressed():
+		if image.decompress() != OK:
+			return texture
+	image = image.duplicate()
+	var width: int = image.get_width()
+	var height: int = image.get_height()
+	if width <= 0 or height <= 0:
+		return texture
+	var side: int = mini(width, height)
+	var origin := Vector2i((width - side) / 2, (height - side) / 2)
+	image = image.get_region(Rect2i(origin, Vector2i(side, side)))
+	image.resize(resolution, resolution, Image.INTERPOLATE_BILINEAR)
+	image.convert(Image.FORMAT_RGBA8)
+
+	var radius: float = float(resolution) * clampf(radius_ratio, 0.0, 0.5)
+	var size := Vector2(resolution, resolution)
+	for y in resolution:
+		for x in resolution:
+			var coverage := _coverage(_round_box_sdf(Vector2(x + 0.5, y + 0.5), size, radius))
+			if coverage >= 0.999:
+				continue
+			var color := image.get_pixel(x, y)
+			color.a *= coverage
+			image.set_pixel(x, y, color)
+	return ImageTexture.create_from_image(image)
+
+
 static func font_weight(weight: int) -> Font:
 	if _font_cache.has(weight):
 		return _font_cache[weight]

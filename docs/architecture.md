@@ -1440,7 +1440,9 @@ Its single column keeps the original order: header (album art, search, Settings)
 song list, difficulty buttons, optional status line, preview line. Rows are
 rounded cards with an opaque accent surface for the current song, difficulty
 buttons are scaled action pills, and the loading/quit overlays use the same card
-and button styles. Search, scroll position, selection and playlist behavior are
+and button styles. The album tile center-crops the cover and bakes the corner
+radius into the texture, because Godot clips Controls to rectangles rather than
+rounded rectangles. Search, scroll position, selection and playlist behavior are
 unchanged.
 
 ### Settings menu layout

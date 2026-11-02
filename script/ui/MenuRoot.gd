@@ -408,7 +408,6 @@ func _build_header_bar() -> void:
 	art_frame.custom_minimum_size = Vector2(SettingsUI.px(64), SettingsUI.px(64))
 	art_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var art_style := SettingsUI.flat(Palette.SURFACE_2, 14)
-	SettingsUI.pad(art_style, SettingsUI.px(4), SettingsUI.px(4))
 	art_frame.add_theme_stylebox_override("panel", art_style)
 	art_frame.mouse_filter = Control.MOUSE_FILTER_PASS
 	hbox.add_child(art_frame)
@@ -416,7 +415,7 @@ func _build_header_bar() -> void:
 	_album_art = TextureRect.new()
 	_album_art.name = "AlbumArt"
 	_album_art.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	_album_art.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_album_art.stretch_mode = TextureRect.STRETCH_SCALE
 	_album_art.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS
 	_album_art.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_album_art.size_flags_vertical = Control.SIZE_EXPAND_FILL
@@ -713,10 +712,11 @@ func _load_album_art(index: int) -> void:
 
 
 func _set_album_texture(tex: Texture2D) -> void:
+	var rounded: Texture2D = SettingsUI.rounded_cover(tex)
 	if is_instance_valid(_album_art):
-		_album_art.texture = tex
+		_album_art.texture = rounded
 	if is_instance_valid(_album_placeholder):
-		_album_placeholder.visible = tex == null
+		_album_placeholder.visible = rounded == null
 
 
 func _load_external_texture(path: String) -> Texture2D:
