@@ -20,6 +20,7 @@ var _lane_color: Color
 var _is_slashing: bool = false
 var _slash_timer: float = 0.0
 var _slash_duration: float = 0.12
+var _slash_alpha_scale: float = 0.85
 var _slash_alpha: float = 0.0
 var _slash_lw: float = 0.0
 var _slash_center_x: float = 0.0
@@ -44,6 +45,8 @@ func _ready() -> void:
 	_bg_rect.z_index = -1
 	_bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg_rect)
+
+	_configure_hit_feedback()
 
 
 func queue_note(event: ChartData.NoteEvent) -> void:
@@ -135,7 +138,8 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 				EffectManager.call_deferred("trigger_particle_burst",
 					hit_position,
 					lane_color,
-					highway_ref)
+					highway_ref,
+					lane_index)
 
 				# Lane-specific feedback, intentionally quieter than CRASH.
 				# Crash effects run immediately so they land with the cymbal.
@@ -165,6 +169,30 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 				return false
 
 	return false
+
+
+# Tune the local lane slash to the same personality as the screen/world
+# feedback: fast and light for HH/SNARE/RIDE, heavier for KICK, medium for TOMS.
+func _configure_hit_feedback() -> void:
+	match lane_index:
+		0:
+			_slash_duration = 0.09
+			_slash_alpha_scale = 0.62
+		1:
+			_slash_duration = 0.12
+			_slash_alpha_scale = 0.85
+		2:
+			_slash_duration = 0.09
+			_slash_alpha_scale = 0.80
+		3:
+			_slash_duration = 0.16
+			_slash_alpha_scale = 0.80
+		4, 5, 6:
+			_slash_duration = 0.12
+			_slash_alpha_scale = 0.70
+		7:
+			_slash_duration = 0.09
+			_slash_alpha_scale = 0.50
 
 
 func _highlight() -> void:
@@ -206,7 +234,7 @@ func _update_highlight(delta: float) -> void:
 		_slash_alpha = progress / 0.15
 	else:
 		_slash_alpha = 1.0 - (progress - 0.15) / 0.85
-	_slash_alpha = clampf(_slash_alpha, 0.0, 1.0) * 0.85
+	_slash_alpha = clampf(_slash_alpha, 0.0, 1.0) * _slash_alpha_scale
 
 	queue_redraw()
 

@@ -1549,8 +1549,8 @@ When the player hits a note, the following visual effects fire simultaneously.
 exclusively from the song's drum stems (`drums_1`, `drums_2`, etc.).
 
 1. **HitLine flash** — The corresponding hit line's `ColorRect` turns white and returns to its original color (0.1s). Implemented in `HitLine.gd`.
-2. **Slash effect** — Two `ColorRect`s expand from the lane center toward the edges with the lane's characteristic color (0.12s). Implemented in `Lane.gd` (`_slash_left`, `_slash_right`).
-3. **ParticleBurst** — 16 particles explode from the impact point with the lane color (0.4s). Pool in `EffectManager`.
+2. **Slash effect** — Two `ColorRect`s expand from the lane center toward the edges with the lane's characteristic color. Duration and intensity are lane-tuned: fast/light for HH, SNARE and RIDE, heavier for KICK and medium for TOMS (0.09–0.16s). Implemented in `Lane.gd` (`_configure_hit_feedback()`).
+3. **ParticleBurst** — A lane-profiled burst explodes from the impact point: heavy falling debris for KICK, quick small sparks for HH, a sharp fast spray for SNARE, medium debris for TOMS, small upward sparkles for RIDE and the original large burst for CRASH (8–16 particles, 0.20–0.40s). Pool in `EffectManager`.
 4. **JudgementPopup** — Judgement text ("PERFECT", "EXCELLENT", "GOOD", "LATE", "EARLY", "MISS") appears at the corresponding lane's hit line, floats upward and fades (0.6s). Pool in `EffectManager`. Controlled by `show_hit_feedback`.
 5. **Lane background highlight** — The lane's `bg_rect` briefly increases its alpha.
 6. **CRASH shockwave** — Only on a successful hit in lane 1 (CRASH), two layers fire. A white-hot contact flash and a soft metallic light-band/spark burst cover the hit line (0.38s), then a large transparent pressure bubble expands from the pad: a soft light band brightens the scene near its surface without covering it, the picture inside is magnified like a lens, the wavefront refracts it radially with a small chromatic fringe, and a low-frequency gas haze warps the interior (0.68s). During the first half the whole screen gets a brief saturation/bloom pulse that settles back to normal in the second half. Up to three bubbles overlap so fast crash hits blend instead of restarting. The screen is never moved; only the rendered pixels are re-sampled.
@@ -1564,7 +1564,7 @@ Implemented with pooling in `EffectManager` (max. 16 instances per type).
 
 | Effect | Scene | Activation |
 |---|---|---|
-| ParticleBurst | `scene/UI/Effects/ParticleBurst.tscn` | `trigger_particle_burst(pos, color, parent)` on each hit |
+| ParticleBurst | `scene/UI/Effects/ParticleBurst.tscn` | `trigger_particle_burst(pos, color, parent, lane_index)` on each hit — per-lane profile selected from the lane index |
 | Shockwave | `scene/UI/Effects/Shockwave.tscn` | `trigger_shockwave(pos, parent, color, radius)` — implemented, not connected |
 | CrashImpact | `scene/UI/Effects/CrashImpact.tscn` | `trigger_crash_impact(pos, parent, color)` — soft light-band/spark burst on CRASH hits |
 | JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — active on each hit (controlled by `show_hit_feedback`) |
@@ -1597,6 +1597,11 @@ shorter cues:
 so a crash hit always wins visually even when another lane is hit at the same
 time.
 
+The local highway note-hit feedback follows the same personalities: the lane
+slash uses lane-tuned duration/intensity and `ParticleBurst` selects a profile
+from the lane index (heavy KICK debris, quick HH sparks, sharp SNARE spray,
+medium TOM debris, small upward RIDE sparkles, and the large CRASH burst).
+
 **Pooling mechanism (`_borrow`):**
 
 1. Walks the pool and removes invalid references with `is_instance_valid()`.
@@ -1609,10 +1614,10 @@ instead of `queue_free()`. This detaches it from the tree but keeps it in memory
 for later reuse, eliminating constant node creation and destruction in the
 gameplay hot path.
 
-**ParticleBurst** (particles with `ColorRect`): 16 particles pre-created on the
-first `play()` call. Each particle is a `ColorRect` that is positioned and
-animated without needing `queue_redraw()` or `draw_circle()`, reducing CPU
-rendering load on mobile.
+**ParticleBurst** (particles with `ColorRect`): 16 particle slots pre-created on
+the first `play()` call; each lane profile activates 8–16 of them. Each particle
+is a `ColorRect` that is positioned and animated without needing `queue_redraw()`
+or `draw_circle()`, reducing CPU rendering load on mobile.
 
 **JudgementPopup** (judgement text): caches a `LabelSettings` instance created in
 `_ready()` instead of instantiating a new one on each `show_judgement()`,

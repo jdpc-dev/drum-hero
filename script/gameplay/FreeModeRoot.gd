@@ -95,7 +95,8 @@ func _on_lane_pressed(lane_index: int, _position: Vector2) -> void:
 	EffectManager.call_deferred("trigger_particle_burst",
 		hit_position,
 		lane_color,
-		highway)
+		highway,
+		lane_index)
 
 	# The same lane feedback used in gameplay; free mode is where the pads are
 	# tested, so it should feel consistent.

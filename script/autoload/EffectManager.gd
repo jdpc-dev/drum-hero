@@ -77,12 +77,13 @@ static func _generate_beep(freq: float, duration: float) -> AudioStreamWAV:
 	return wav
 
 
-func trigger_particle_burst(position: Vector2, color: Color, parent: Node) -> void:
+func trigger_particle_burst(position: Vector2, color: Color, parent: Node, lane_index: int = -1) -> void:
 	var burst: Node = _borrow(_particle_pool, preload("res://scene/UI/Effects/ParticleBurst.tscn"))
 	if burst:
 		parent.add_child(burst)
 		burst.global_position = position
-		burst.call("play", color)
+		var profile: String = ParticleBurst.profile_for_lane(lane_index) if lane_index >= 0 else ""
+		burst.call("play", color, profile)
 
 
 func trigger_shockwave(position: Vector2, parent: Node, color: Color = Color(1.0, 0.3, 0.1, 0.6), radius: float = 200.0) -> void:
