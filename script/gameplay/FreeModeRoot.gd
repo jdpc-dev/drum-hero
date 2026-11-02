@@ -16,6 +16,7 @@ extends Node2D
 
 const MAIN_SCENE := preload("res://scene/Main.tscn")
 const BASE_LABEL_SETTINGS := preload("res://asset/fonts/label_settings.tres")
+const METRONOME_SCRIPT := preload("res://script/gameplay/Metronome.gd")
 
 @onready var highway = $Highway
 @onready var touch_input = $TouchInput
@@ -31,6 +32,8 @@ var _pad_name_label: Label
 var _hits_label: Label
 var _fps_label: Label
 var _calibration_label: Label
+var _metronome
+var _metronome_button: Button
 var _pause_button: Button
 var _pause_overlay: CanvasLayer
 
@@ -45,6 +48,7 @@ func _ready() -> void:
 	ScoreManager.reset()
 	GameManager.set_state(GameManager.GameState.PLAYING)
 	_setup_hud()
+	_setup_metronome()
 	_setup_haptic()
 	_setup_input_when_ready()
 	_setup_pause_button()
@@ -181,6 +185,75 @@ func _update_hits_label() -> void:
 		_hits_label.text = str(_total_hits) + (" hits" if _total_hits != 1 else " hit")
 
 
+# ---------------------------------------------------------------- Metronome
+
+
+# Same square icon button as the pause control, with an M drawn from vector
+# lines instead of a generated texture. Keeping the M in _draw() means it
+# scales cleanly and can change tone with the toggle/hover state.
+class MetronomeIconButton extends Button:
+	func _init() -> void:
+		toggle_mode = true
+		focus_mode = Control.FOCUS_NONE
+		mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+		toggled.connect(func(_enabled: bool) -> void: queue_redraw())
+		mouse_entered.connect(queue_redraw)
+		mouse_exited.connect(queue_redraw)
+
+	func _draw() -> void:
+		var color: Color = Palette.ACCENT if button_pressed else (
+			Palette.BONE if is_hovered() else Palette.TEXT_DIM
+		)
+		var scale: float = minf(size.x, size.y) / 48.0
+		var center: Vector2 = size * 0.5
+		var points := PackedVector2Array([
+			center + Vector2(-8.0, 9.0) * scale,
+			center + Vector2(-8.0, -9.0) * scale,
+			center + Vector2(0.0, 2.0) * scale,
+			center + Vector2(8.0, -9.0) * scale,
+			center + Vector2(8.0, 9.0) * scale,
+		])
+		draw_polyline(points, color, maxf(1.5, 3.2 * scale), true)
+
+
+# Free mode has no song or chart tempo, so the metronome runs at a fixed 120
+# BPM. The button is the only control: it lives in the top-left corner, away
+# from the centred pause button and the track labels.
+func _setup_metronome() -> void:
+	_metronome = METRONOME_SCRIPT.new()
+	_metronome.name = "Metronome"
+	add_child(_metronome)
+
+	_metronome_button = MetronomeIconButton.new()
+	_metronome_button.name = "MetronomeButton"
+	_metronome_button.custom_minimum_size = Vector2(38, 38)
+	_metronome_button.tooltip_text = "Metronome (%d BPM)" % int(_metronome.get_bpm())
+	_metronome_button.toggled.connect(_on_metronome_toggled)
+	hud.add_child(_metronome_button)
+
+	var pl: float = 0.0
+	if SettingsManager.gameplay_padding_enabled:
+		pl = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left)
+	var inset: float = SettingsUI.px(4)
+	_metronome_button.anchor_left = 0.0
+	_metronome_button.anchor_top = 0.0
+	_metronome_button.anchor_right = 0.0
+	_metronome_button.anchor_bottom = 0.0
+	_metronome_button.offset_left = pl + inset
+	_metronome_button.offset_top = inset
+	_metronome_button.offset_right = _metronome_button.offset_left + 38.0
+	_metronome_button.offset_bottom = _metronome_button.offset_top + 38.0
+
+
+func _on_metronome_toggled(enabled: bool) -> void:
+	if _metronome == null:
+		return
+	if enabled:
+		_metronome.start()
+	else:
+		_metronome.stop()
+
+
 func _process(_delta: float) -> void:
 	if _is_paused:
 		return
@@ -265,8 +338,12 @@ func _toggle_pause() -> void:
 
 func _pause_game() -> void:
 	_is_paused = true
+	if _metronome:
+		_metronome.stop()
 	if _pause_button:
 		_pause_button.hide()
+	if _metronome_button:
+		_metronome_button.hide()
 	GameManager.set_state(GameManager.GameState.PAUSED)
 	_show_pause_overlay()
 
@@ -275,8 +352,16 @@ func _resume_game() -> void:
 	_is_paused = false
 	if _pause_button:
 		_pause_button.show()
+	if _metronome_button:
+		_metronome_button.show()
 	_hide_pause_overlay()
+	_resume_metronome_if_enabled()
 	GameManager.set_state(GameManager.GameState.PLAYING)
+
+
+func _resume_metronome_if_enabled() -> void:
+	if _metronome and _metronome_button and _metronome_button.button_pressed:
+		_metronome.start()
 
 
 func _show_pause_overlay() -> void:
@@ -348,6 +433,9 @@ func _restart_free_mode() -> void:
 	_hide_pause_overlay()
 	if _pause_button:
 		_pause_button.show()
+	if _metronome_button:
+		_metronome_button.show()
+	_resume_metronome_if_enabled()
 	GameManager.set_state(GameManager.GameState.PLAYING)
 	# Reset state
 	_total_hits = 0
@@ -419,6 +507,8 @@ func _notification(what: int) -> void:
 		# _ready() disables auto_accept_quit, so the window close button and
 		# the desktop close shortcut are only honored if this branch quits:
 		# otherwise free mode has no way out but the in-game pause menu.
+		if _metronome:
+			_metronome.stop()
 		get_tree().quit()
 
 
@@ -427,8 +517,12 @@ func _exit_to_menu() -> void:
 		return
 	_is_leaving = true
 	_hide_pause_overlay()
+	if _metronome:
+		_metronome.stop()
 	if _pause_button:
 		_pause_button.hide()
+	if _metronome_button:
+		_metronome_button.hide()
 	_is_paused = false
 	InputManager.haptic_kick_enabled = false
 	# With the kick off the signal was never connected, and disconnecting an

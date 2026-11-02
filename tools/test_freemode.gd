@@ -109,6 +109,42 @@ func _ready() -> void:
 	_check("el HUD cambia a KICK", pad_label != null and pad_label.text == "KICK")
 	_check("el HUD muestra el contador", hits_label != null and hits_label.text.contains("2"))
 
+	print("=== 5b. el metronomo se alterna desde la esquina superior izquierda ===")
+	var metronome = _free_mode.get_node_or_null("Metronome")
+	var metronome_button: Button = _free_mode.find_child("MetronomeButton", true, false) as Button
+	_check("hay nodo Metronome", metronome != null)
+	_check("hay boton Metronome", metronome_button != null)
+	if metronome != null and metronome_button != null:
+		var viewport_width: float = _free_mode.get_viewport_rect().size.x
+		_check("el boton esta arriba a la izquierda",
+			metronome_button.position.x < viewport_width * 0.5 and metronome_button.position.y < 100.0)
+		var title_label: Label = _free_mode.find_child("TitleLabel", true, false) as Label
+		_check("hay titulo FREE MODE", title_label != null)
+		if title_label != null:
+			_check("el metronomo queda a la altura del titulo",
+				absf(title_label.position.y - metronome_button.position.y) <= 4.0)
+		_check("el metronomo tiene margen superior", metronome_button.position.y >= 3.0)
+		var padding_left: float = 0.0
+		if SettingsManager.gameplay_padding_enabled:
+			padding_left = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left)
+		_check("el margen izquierdo coincide con el superior",
+			absf((metronome_button.position.x - padding_left) - metronome_button.position.y) <= 0.5)
+		_check("el metronomo usa un boton de icono", metronome_button.text.is_empty())
+		_check("el metronomo mide 38 x 38",
+			absf(metronome_button.size.x - 38.0) < 1.0
+			and absf(metronome_button.size.y - 38.0) < 1.0)
+		_check("el metronomo empieza apagado", not metronome.is_running())
+		metronome_button.button_pressed = true
+		_check("encender arranca el metronomo", metronome.is_running())
+		metronome_button.button_pressed = false
+		_check("apagar detiene el metronomo", not metronome.is_running())
+		metronome_button.button_pressed = true
+		_free_mode._pause_game()
+		_check("pausar detiene el metronomo", not metronome.is_running())
+		_free_mode._resume_game()
+		_check("reanudar restaura el metronomo activo", metronome.is_running())
+		metronome_button.button_pressed = false
+
 	print("=== 6. sin chart no hay fallos ni puntuacion ===")
 	for i in 15:
 		await get_tree().process_frame

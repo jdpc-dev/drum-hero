@@ -105,7 +105,7 @@ Tabs and content:
 ## ASCII FREE MODE REFERENCE
 ```
 +--------------------------------------------------------------------------+
-|                                 FREE MODE            [ BACK TO MENU ]    |
+| [ M ]                           FREE MODE                                |
 |                          Tap a pad or press 1-8                          |
 |                                                                          |
 |                                                                          |

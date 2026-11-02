@@ -152,6 +152,14 @@ timeline band is the one layout exception: `FreeMode.tscn` sets
 `timeline_band_enabled = false` on the Highway, so the 2.5 % strip reserved for
 `SongTimeline` is not left empty and the track starts at the top edge.
 
+A **metronome** toggle sits in the top-left corner. It reuses the pause
+button's square icon-button look, with the `M` drawn from vector lines
+(`draw_polyline`) instead of a texture. Free mode has no song or chart tempo, so
+`Metronome.gd` synthesizes a 4/4 click loop at 120 BPM and plays it on the `SFX`
+bus through a looping `AudioStreamWAV` (sample-accurate, no `Timer` drift).
+Pausing stops the click; resuming starts it again if the toggle is still on.
+The metronome is stopped when leaving free mode.
+
 Compared with `Gameplay.tscn`, free mode does **not** set up `HitDetection` or
 `HapticKick`:
 
