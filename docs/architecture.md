@@ -147,9 +147,13 @@ not a synthetic song: there is no chart, score, combo or results screen, so it
 cannot pollute the records in `user://scores.cfg`.
 
 It intentionally reuses `Highway.tscn` so the lane order, layout, *gameplay
-padding* and Android gesture exclusion are exactly those of the game. The only
-things it does **not** set up compared with `Gameplay.tscn` are `HitDetection`
-and `HapticKick`:
+padding* and Android gesture exclusion are exactly those of the game. The
+timeline band is the one layout exception: `FreeMode.tscn` sets
+`timeline_band_enabled = false` on the Highway, so the 2.5 % strip reserved for
+`SongTimeline` is not left empty and the track starts at the top edge.
+
+Compared with `Gameplay.tscn`, free mode does **not** set up `HitDetection` or
+`HapticKick`:
 
 - `TouchInput` receives `null` as `HitDetection`, so its "no note was hit"
   branch is what triggers the pad sample. The sample is not played through any

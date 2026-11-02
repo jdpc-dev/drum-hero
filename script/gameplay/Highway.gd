@@ -6,6 +6,9 @@ var _kick_lane: Lane
 
 @export var lane_scene: PackedScene
 @export var hit_line_scene: PackedScene
+# Gameplay reserves the 0-2.5 % band for the SongTimeline. Free mode has no
+# song clock, so it disables the band and the track starts at the top edge.
+@export var timeline_band_enabled: bool = true
 
 # Seconds a note takes to cross the track with note_speed = 1.0. It is the only
 # travel-time constant in the game: spawn, position, bar lines and pixels per
@@ -87,7 +90,7 @@ func _refresh_screen_size() -> void:
 	position = Vector2(pad_left, pad_top)
 	screen_w = vs.x - pad_left - pad_right
 	screen_h = vs.y - pad_top - pad_bottom
-	highway_top_y = screen_h * 0.025
+	highway_top_y = screen_h * 0.025 if timeline_band_enabled else 0.0
 	highway_bottom_y = screen_h * 0.65
 	hit_line_top_y = screen_h * 0.65
 	hit_line_bottom_y = screen_h * 0.72

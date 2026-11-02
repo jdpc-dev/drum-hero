@@ -121,3 +121,6 @@ Tabs and content:
 | when haptic kick is enabled. No notes, no score, no results.                |
 +-----------------------------------------------------------------------------+
 ```
+
+Unlike gameplay, Free Mode does not reserve the top 2.5 % band for the song
+timeline: the track starts at the top edge, so the title and hint sit over it.

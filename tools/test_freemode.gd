@@ -62,6 +62,7 @@ func _ready() -> void:
 	var highway: Highway = _free_mode.get_node_or_null("Highway") as Highway
 	_check("hay nodo Highway", highway != null)
 	_check("la Highway construye 8 pistas", highway != null and highway.lane_nodes.size() == 8)
+	_check("no reserva la banda del timeline", highway != null and is_zero_approx(highway.highway_top_y))
 	_check("el estado pasa a PLAYING", GameManager.state == GameManager.GameState.PLAYING)
 	_check("el chart quedo limpio al entrar", ChartParser.note_data.is_empty())
 

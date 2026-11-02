@@ -5,11 +5,14 @@ extends Node2D
 # song, chart or score: the track appears empty and each hit plays its sample,
 # flashes the hit line and launches particles.
 #
-# It intentionally reuses the real Highway so the lane order, layout, gameplay
-# padding and Android gesture exclusion are exactly those of the game. The only
-# thing not set up here is HitDetection: without a chart there is nothing to
-# judge, so TouchInput receives null and its "no note was hit" branch is what
-# triggers the sample.
+# It intentionally reuses the real Highway so the lane order, gameplay padding
+# and Android gesture exclusion are exactly those of the game. The one layout
+# difference is the timeline band: without a song there is no clock to show, so
+# the scene disables it and the track starts at the top edge.
+#
+# HitDetection is not set up: without a chart there is nothing to judge, so
+# TouchInput receives null and its "no note was hit" branch is what triggers
+# the sample.
 
 const MAIN_SCENE := preload("res://scene/Main.tscn")
 const BASE_LABEL_SETTINGS := preload("res://asset/fonts/label_settings.tres")
@@ -132,7 +135,8 @@ func _setup_hud() -> void:
 
 
 # The pad that was hit is shown in the center of the track, which is exactly
-# where notes would fall. The title lives in the timeline band.
+# where notes would fall. The title sits just inside the top of the track,
+# since free mode does not reserve the timeline band.
 func _layout_hud() -> void:
 	var vs: Vector2 = get_viewport_rect().size
 	var pl: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left) if SettingsManager.gameplay_padding_enabled else 0.0
