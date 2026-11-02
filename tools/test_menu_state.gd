@@ -55,6 +55,29 @@ func _ready() -> void:
 	var kept_row: PanelContainer = menu.find_child("SongRow_5", true, false)
 	_check("la fila seleccionada sigue marcada", kept_row != null and bool(kept_row.get_meta("selected", false)))
 	_check("las dificultades siguen activas tras filtrar", not menu._difficulty_buttons[60].disabled)
+
+	# Keeping the selection through a filter also lets clearing the search jump
+	# back to that row instead of leaving the list at the top.
+	menu._selected_song_index = 35
+	menu._update_selection_ui()
+	menu._on_search_changed("zzz")
+	for _i in 4:
+		await get_tree().process_frame
+	_check("la seleccion se conserva aunque el filtro la oculte", menu._selected_song_index == 35)
+	menu._song_list_scroll.scroll_vertical = 0
+	menu._on_search_changed("")
+	for _i in 8:
+		await get_tree().process_frame
+	var far_row: Control = menu.find_child("SongRow_35", true, false)
+	var scroll_rect: Rect2 = menu._song_list_scroll.get_global_rect()
+	var row_rect: Rect2 = far_row.get_global_rect() if far_row != null else Rect2()
+	_check("al limpiar la busqueda la lista se desplaza a la seleccion", menu._song_list_scroll.scroll_vertical > 0)
+	_check("la seleccion queda visible tras limpiar la busqueda",
+		far_row != null and row_rect.position.y >= scroll_rect.position.y and row_rect.end.y <= scroll_rect.end.y + 1.0)
+
+	menu._on_search_changed("Song 2")
+	for _i in 4:
+		await get_tree().process_frame
 	menu._selected_song_index = 7
 	menu._song_list_scroll.scroll_vertical = 160
 	for _i in 2:

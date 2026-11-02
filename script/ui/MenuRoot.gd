@@ -819,16 +819,27 @@ func _on_difficulty_pressed(offset: int) -> void:
 
 func _on_search_changed(new_text: String) -> void:
 	_search_text = new_text
-	var had_selection: bool = _selected_song_index >= 0 and _selected_song_index < SongLoader.song_list.size()
+	# Searching filters the view, it does not discard the current selection.
+	# Keeping it lets the list return to the song when the search is cleared.
 	_rebuild_filtered_list()
-	var selection_visible: bool = had_selection and _filtered_indices.has(_selected_song_index)
-	if not selection_visible:
-		_selected_song_index = -1
-		_stop_preview()
-		_set_album_texture(null)
-		_update_status_text()
 	_update_selection_ui()
 	_update_difficulty_visibility()
+	if new_text.is_empty() and _selected_song_index >= 0:
+		_scroll_to_selected_song.call_deferred()
+
+
+func _scroll_to_selected_song() -> void:
+	if not is_inside_tree():
+		return
+	# Rows are recreated on this frame and the scrollbar maximum is updated on
+	# the next layout pass.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	if not is_inside_tree() or not is_instance_valid(_song_list_scroll) or not is_instance_valid(_song_list_container):
+		return
+	var row := _song_list_container.get_node_or_null("SongRow_" + str(_selected_song_index)) as Control
+	if row != null:
+		_song_list_scroll.ensure_control_visible(row)
 
 
 func _save_menu_state() -> void:
