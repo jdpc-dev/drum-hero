@@ -624,12 +624,6 @@ func _create_song_row(original_index: int, song: Dictionary) -> PanelContainer:
 	hbox.add_theme_constant_override("separation", SettingsUI.px(10))
 	panel.add_child(hbox)
 
-	var selector_label := SettingsUI.label("", 14, Palette.ACCENT, 600)
-	selector_label.custom_minimum_size.x = SettingsUI.px(12)
-	selector_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	selector_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hbox.add_child(selector_label)
-
 	var song_length: int = int(song.get("song_length", 0))
 	var prefix: String = (_format_duration(song_length) + "  ") if song_length > 0 else ""
 	var song_label := SettingsUI.label(prefix + song.artist + " - " + song.name, 18, Palette.BONE, 500)
@@ -733,17 +727,10 @@ func _update_selection_ui() -> void:
 		var row = _song_list_container.get_child(i)
 		if not row is PanelContainer:
 			continue
-		var hbox = row.get_child(0)
-		if not hbox is HBoxContainer:
-			continue
-		var selector = hbox.get_child(0)
-		if not selector is Label:
-			continue
 		var original_index: int = int(row.name.replace("SongRow_", ""))
 		var selected: bool = original_index == _selected_song_index
 		row.set_meta("selected", selected)
 		row.add_theme_stylebox_override("panel", _song_row_style(selected, false))
-		selector.text = "●" if selected else ""
 
 
 func _update_status_for_song(original_index: int) -> void:

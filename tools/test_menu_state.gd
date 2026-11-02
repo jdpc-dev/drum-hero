@@ -44,8 +44,7 @@ func _ready() -> void:
 	_check("la cancion seleccionada se recupera", menu._selected_song_index == 5)
 	_check("el preview de la cancion se relanza", menu._preview_pending_index == 5)
 	var selected_row: PanelContainer = menu.find_child("SongRow_5", true, false)
-	var selector: Label = (selected_row.get_child(0) as HBoxContainer).get_child(0) as Label
-	_check("la fila recuperada queda marcada", selector.text == "●")
+	_check("la fila recuperada queda marcada", bool(selected_row.get_meta("selected", false)))
 	_check("las dificultades de la cancion quedan activas", not menu._difficulty_buttons[60].disabled)
 	_check("las no disponibles siguen desactivadas", menu._difficulty_buttons[72].disabled)
 

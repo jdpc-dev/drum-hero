@@ -119,11 +119,11 @@ func _ready() -> void:
 	add_child(menu)
 	await get_tree().process_frame
 	var row := menu.find_child("SongRow_0", true, false)
-	var expected: String = (ScoreData.format_score(menu_score) + "pts") if menu_score > 0 else "--,---pts"
+	var expected: String = (ScoreData.format_score(menu_score) + " pts") if menu_score > 0 else "--,---pts"
 	if row == null:
 		_check("el menu monta la fila 0", false)
 	else:
-		var label: Label = (row.get_child(0) as HBoxContainer).get_child(2) as Label
+		var label: Label = (row.get_child(0) as HBoxContainer).get_child(1) as Label
 		_check("el menu monta la fila 0 con su label de score", label != null)
 		if label:
 			print("  fila[0] texto=", label.text)
@@ -134,7 +134,7 @@ func _ready() -> void:
 	if placeholder_row == null:
 		print("  SKIP no hay una segunda cancion para probar el placeholder")
 	else:
-		var plabel: Label = (placeholder_row.get_child(0) as HBoxContainer).get_child(2) as Label
+		var plabel: Label = (placeholder_row.get_child(0) as HBoxContainer).get_child(1) as Label
 		_check("la fila sin record conserva el placeholder", plabel.text == "--,---pts")
 
 	menu.queue_free()
