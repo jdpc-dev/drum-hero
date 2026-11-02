@@ -25,11 +25,14 @@ var _total_hits: int = 0
 var _haptic_active: bool = false
 var _back_handled_time: float = 0.0
 var _is_leaving: bool = false
+var _is_paused: bool = false
 
 var _pad_name_label: Label
 var _hits_label: Label
 var _fps_label: Label
 var _calibration_label: Label
+var _pause_button: Button
+var _pause_overlay: CanvasLayer
 
 
 func _ready() -> void:
@@ -43,6 +46,7 @@ func _ready() -> void:
 	_setup_hud()
 	_setup_haptic()
 	_setup_input_when_ready()
+	_setup_pause_button()
 
 
 func _setup_input_when_ready() -> void:
@@ -120,19 +124,6 @@ func _setup_hud() -> void:
 
 	_layout_hud()
 
-	var back_btn := Button.new()
-	back_btn.name = "BackButton"
-	back_btn.text = "BACK TO MENU"
-	back_btn.custom_minimum_size = Vector2(160, 44)
-	back_btn.anchor_left = 1.0
-	back_btn.anchor_right = 1.0
-	back_btn.offset_left = -180.0
-	back_btn.offset_top = 24.0
-	back_btn.offset_right = -20.0
-	back_btn.offset_bottom = 68.0
-	back_btn.pressed.connect(_exit_to_menu)
-	hud.add_child(back_btn)
-
 
 # The pad that was hit is shown in the center of the track, which is exactly
 # where notes would fall. The title sits just inside the top of the track,
@@ -144,20 +135,20 @@ func _layout_hud() -> void:
 	var pt: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_top) if SettingsManager.gameplay_padding_enabled else 0.0
 	var content_w: float = vs.x - pl - pr
 
-	var title := _make_label("FREE MODE", 28, Palette.BLOOD_GLOW)
+	var title := _make_label("FREE MODE", 18, Palette.BLOOD_GLOW)
 	title.name = "TitleLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	title.position = Vector2(pl, pt + vs.y * 0.035)
-	title.size = Vector2(content_w, 36)
+	title.position = Vector2(pl, 1.0)
+	title.size = Vector2(content_w, 22)
 	hud.add_child(title)
 
-	var hint := _make_label("Tap a pad or press 1-8  -  no song, no score", 18, Palette.ASH_DIM)
+	var hint := _make_label("Tap a pad or press 1-8  -  no song, no score", 13, Palette.ASH_DIM)
 	hint.name = "HintLabel"
 	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	hint.position = Vector2(pl, pt + vs.y * 0.075)
-	hint.size = Vector2(content_w, 26)
+	hint.position = Vector2(pl, 19.0)
+	hint.size = Vector2(content_w, 20)
 	hud.add_child(hint)
 
 	var mid_y: float = pt + (vs.y - pt) * 0.30
@@ -174,6 +165,8 @@ func _update_hits_label() -> void:
 
 
 func _process(_delta: float) -> void:
+	if _is_paused:
+		return
 	_update_hits_label()
 	if SettingsManager.show_fps:
 		_ensure_fps_label()
@@ -202,6 +195,150 @@ func _make_label(text: String, font_size: int, color: Color) -> Label:
 	label.label_settings = settings
 	label.text = text
 	return label
+
+
+# ---------------------------------------------------------------- Pause
+
+
+func _create_pause_icon(size: int = 24) -> Texture2D:
+	var img := Image.create(size, size, false, Image.FORMAT_RGBA8)
+	img.fill(Color.TRANSPARENT)
+
+	var bar_width := maxi(1, int(size * 0.25))
+	var gap := maxi(1, int(size * 0.15))
+	var bar_height := int(size * 0.6)
+	var y_offset := (size - bar_height) / 2
+
+	var color := Palette.TEXT_DIM
+
+	for y in size:
+		if y < y_offset or y >= y_offset + bar_height:
+			continue
+		for x in size:
+			if (x >= gap and x < gap + bar_width) or (x >= size - gap - bar_width and x < size - gap):
+				img.set_pixel(x, y, color)
+
+	return ImageTexture.create_from_image(img)
+
+
+func _setup_pause_button() -> void:
+	_pause_button = Button.new()
+	_pause_button.name = "PauseButton"
+	_pause_button.icon = _create_pause_icon(24)
+	_pause_button.expand_icon = true
+	_pause_button.custom_minimum_size = Vector2(48, 48)
+	_pause_button.anchor_left = 0.5
+	_pause_button.anchor_top = 0.0
+	_pause_button.anchor_right = 0.5
+	_pause_button.anchor_bottom = 0.0
+	_pause_button.offset_left = -24
+	_pause_button.offset_top = 38
+	_pause_button.offset_right = 24
+	_pause_button.offset_bottom = 86
+	_pause_button.pressed.connect(_toggle_pause)
+	hud.add_child(_pause_button)
+
+
+func _toggle_pause() -> void:
+	if _is_paused:
+		_resume_game()
+	else:
+		_pause_game()
+
+
+func _pause_game() -> void:
+	_is_paused = true
+	if _pause_button:
+		_pause_button.hide()
+	GameManager.set_state(GameManager.GameState.PAUSED)
+	_show_pause_overlay()
+
+
+func _resume_game() -> void:
+	_is_paused = false
+	if _pause_button:
+		_pause_button.show()
+	_hide_pause_overlay()
+	GameManager.set_state(GameManager.GameState.PLAYING)
+
+
+func _show_pause_overlay() -> void:
+	if _pause_overlay:
+		return
+	_pause_overlay = CanvasLayer.new()
+	_pause_overlay.name = "PauseOverlay"
+	_pause_overlay.layer = 10
+
+	var bg: ColorRect = ColorRect.new()
+	bg.name = "PauseBg"
+	bg.color = Palette.SCRIM_SOFT
+	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_pause_overlay.add_child(bg)
+
+	var vbox: VBoxContainer = VBoxContainer.new()
+	vbox.name = "PauseMenu"
+	vbox.set_anchors_preset(Control.PRESET_CENTER)
+	vbox.offset_left = -180
+	vbox.offset_top = -160
+	vbox.offset_right = 180
+	vbox.offset_bottom = 160
+	vbox.alignment = BoxContainer.ALIGNMENT_CENTER
+	vbox.add_theme_constant_override("separation", 6)
+
+	var title: Label = Label.new()
+	title.text = "PAUSED"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 48)
+	title.add_theme_color_override("font_color", Palette.BONE)
+	title.add_theme_color_override("font_shadow_color", Palette.INK)
+	title.add_theme_constant_override("shadow_offset_x", 2)
+	title.add_theme_constant_override("shadow_offset_y", 2)
+	vbox.add_child(title)
+
+	var spacing := Control.new()
+	spacing.custom_minimum_size = Vector2(0, 20)
+	vbox.add_child(spacing)
+
+	var resume_btn: Button = Button.new()
+	resume_btn.text = "RESUME"
+	resume_btn.custom_minimum_size = Vector2(200, 50)
+	resume_btn.pressed.connect(_resume_game)
+	vbox.add_child(resume_btn)
+
+	var restart_btn: Button = Button.new()
+	restart_btn.text = "RESTART"
+	restart_btn.custom_minimum_size = Vector2(200, 50)
+	restart_btn.pressed.connect(_restart_free_mode)
+	vbox.add_child(restart_btn)
+
+	var exit_btn: Button = Button.new()
+	exit_btn.text = "EXIT"
+	exit_btn.custom_minimum_size = Vector2(200, 50)
+	exit_btn.pressed.connect(_exit_to_menu)
+	vbox.add_child(exit_btn)
+
+	_pause_overlay.add_child(vbox)
+	add_child(_pause_overlay)
+
+
+func _restart_free_mode() -> void:
+	_is_paused = false
+	_hide_pause_overlay()
+	if _pause_button:
+		_pause_button.show()
+	GameManager.set_state(GameManager.GameState.PLAYING)
+	# Reset state
+	_total_hits = 0
+	_update_hits_label()
+	if _pad_name_label:
+		_pad_name_label.text = ""
+
+
+func _hide_pause_overlay() -> void:
+	if _pause_overlay:
+		_pause_overlay.visible = false
+		_pause_overlay.queue_free()
+		_pause_overlay = null
 
 
 # ---------------------------------------------------------------- Haptic calibration
@@ -241,14 +378,20 @@ func _unhandled_input(event: InputEvent) -> void:
 		if now - _back_handled_time < 0.5:
 			return
 		_back_handled_time = now
-		_exit_to_menu()
+		if _is_paused:
+			_resume_game()
+		else:
+			_toggle_pause()
 		get_viewport().set_input_as_handled()
 
 
 func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		_back_handled_time = Time.get_ticks_msec() / 1000.0
-		_exit_to_menu()
+		if _is_paused:
+			_resume_game()
+		else:
+			_toggle_pause()
 		get_viewport().set_input_as_handled()
 
 
@@ -256,6 +399,10 @@ func _exit_to_menu() -> void:
 	if not is_inside_tree() or _is_leaving:
 		return
 	_is_leaving = true
+	_hide_pause_overlay()
+	if _pause_button:
+		_pause_button.hide()
+	_is_paused = false
 	InputManager.haptic_kick_enabled = false
 	# With the kick off the signal was never connected, and disconnecting an
 	# unconnected Callable is an error in Godot: it is checked beforehand.
