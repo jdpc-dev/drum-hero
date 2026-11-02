@@ -5,12 +5,21 @@ var _shockwave_pool: Array[Node] = []
 var _judgement_pool: Array[Node] = []
 
 const MAX_POOL_SIZE: int = 16
+const CRASH_SHOCKWAVE_SCENE := preload("res://scene/UI/Effects/CrashShockwave.tscn")
+
+var _crash_shockwave: CrashShockwave
 
 var _hit_sfx: AudioStreamPlayer
 var _miss_sfx: AudioStreamPlayer
 
 
 func _ready() -> void:
+	# One persistent overlay: CRASH hits overlap instead of stacking copies of
+	# a full-screen shader. It stays hidden and outside the process loop while
+	# there is no wave travelling.
+	_crash_shockwave = CRASH_SHOCKWAVE_SCENE.instantiate() as CrashShockwave
+	add_child(_crash_shockwave)
+
 	_hit_sfx = AudioStreamPlayer.new()
 	_hit_sfx.stream = _generate_beep(880.0, 0.08)
 	_hit_sfx.name = "HitSFX"
@@ -71,6 +80,13 @@ func trigger_shockwave(position: Vector2, parent: Node) -> void:
 		parent.add_child(shock)
 		shock.global_position = position
 		shock.call("play")
+
+
+# Exclusive to the CRASH lane: a full-screen ripple distorts the rendered
+# gameplay horizontally as the pressure wave expands from the hit position.
+func trigger_crash_shockwave(position: Vector2, color: Color) -> void:
+	if _crash_shockwave:
+		_crash_shockwave.trigger(position, color)
 
 
 func show_judgement(accuracy: int, position: Vector2, parent: Node) -> void:

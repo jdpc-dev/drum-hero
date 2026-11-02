@@ -134,6 +134,12 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 					highway_ref.get_hit_global_position(lane_index),
 					Highway._get_lane_colors()[lane_index],
 					highway_ref)
+				# Only the CRASH cymbal (lane 1) releases the screen-wide
+				# pressure wave, so the effect stays special to that pad.
+				if lane_index == 1:
+					EffectManager.call_deferred("trigger_crash_shockwave",
+						highway_ref.get_hit_global_position(lane_index),
+						Highway._get_lane_colors()[lane_index])
 				if SettingsManager.show_hit_feedback:
 					EffectManager.call_deferred("show_judgement",
 						accuracy,
