@@ -10,6 +10,13 @@ enum NoteType {
 }
 
 const DIFFICULTY_OFFSETS: Array = [60, 72, 84, 96, 120]
+# Expert+ is an internal difficulty code (also the .chart [ExpertPlusDrums]
+# offset). It is not a MIDI octave: MIDI charts encode the extra double-kick
+# notes as note 95 on the Expert range, and notes 120-127 are fill/roll
+# markers, not playable notes.
+const EXPERT_PLUS_OFFSET: int = 120
+const MIDI_EXPERT_PLUS_KICK: int = 95
+const MIDI_FIRST_MARKER_NOTE: int = 120
 const DIFFICULTY_NAMES: Dictionary = {
 	60: "Easy",
 	72: "Medium",

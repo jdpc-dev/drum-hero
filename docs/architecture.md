@@ -1265,13 +1265,20 @@ The format follows the **Rock Band MIDI** standard: each difficulty occupies a
 MIDI octave. The parser (`MidiParser.gd`) subtracts the difficulty offset and maps
 the relative note (0–11) to the internal lane, defined in `ChartData.gd`:
 
-| MIDI octave | Offset | Difficulty |
+| MIDI range | Offset | Difficulty |
 |---|---|---|
-| 60–71 | 60 | Easy |
-| 72–83 | 72 | Medium |
-| 84–95 | 84 | Hard |
-| 96–107 | 96 | Expert |
-| 120–127 | 120 | Expert+ |
+| 60–64 | 60 | Easy |
+| 72–76 | 72 | Medium |
+| 84–88 | 84 | Hard |
+| 96–100 | 96 | Expert |
+| 95 | 120 | Expert+ (extra double-kick notes) |
+
+Expert+ is not a MIDI octave. Rock Band charts encode the extra 2x-kick notes as
+note **95** in the Expert range; the game builds Expert+ from the Expert notes
+plus those kicks. A `PART DRUMS_2X` track, when present, is a complete Expert
+chart and is used as the Expert+ chart directly. Notes **120–127 are authoring
+markers** (drum fills, Big Rock Ending phrases and roll lanes), not playable
+notes, and are ignored.
 
 | Relative | Instrument (Rock Band) | Lane (internal) |
 |---|---|---|
@@ -1288,9 +1295,10 @@ the relative note (0–11) to the internal lane, defined in `ChartData.gd`:
 | 10 | Tom 2 | 5 |
 | 11 | Tom 3 | 6 |
 
-Notes outside these ranges (GM raw 36–51, special 110+) are ignored.
-`_resolve_difficulty()` iterates `DIFFICULTY_OFFSETS = [60, 72, 84, 96, 120]` and
-the first match in range 0–11 determines the difficulty and lane.
+Notes outside these ranges (GM raw 36–51, special 110+, authoring markers 120+)
+are ignored. `_resolve_difficulty()` iterates the playable offsets
+`[60, 72, 84, 96]`; the first match in range 0–4 determines the difficulty and
+lane. Note 95 is handled separately as an Expert+ kick.
 
 ### Chart source detection (.mid / .chart)
 
@@ -1300,9 +1308,10 @@ to the parser based on the file extension.
 
 #### MIDI (`MidiParser.gd`)
 
-It looks for MIDI tracks whose name starts with `"PART DRUMS"`. If no drum notes
-are found and the `use_guitar_fallback` option is enabled, the parser retries
-with `"PART GUITAR"` tracks.
+It looks for MIDI tracks whose name starts with `"PART DRUMS"` (including
+`PART DRUMS_2X` for Expert+). If no drum notes are found and the
+`use_guitar_fallback` option is enabled, the parser retries with `"PART GUITAR"`
+tracks.
 
 **Detection flow:**
 

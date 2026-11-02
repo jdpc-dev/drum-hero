@@ -47,7 +47,9 @@ const CACHE_PATH: String = "user://song_library.json"
 # Bumped when the shape of an entry changes. Schema 1 caches could have empty
 # album/preview paths for packaged songs (imported files are not listed by
 # DirAccess in exported builds), so they are discarded and rescanned once.
-const CACHE_SCHEMA: int = 2
+# Schema 3 discards difficulty sets that treated MIDI fill markers 120-124 as
+# an Expert+ chart.
+const CACHE_SCHEMA: int = 3
 const CHART_FILENAMES = ["notes.mid", "notes.chart"]
 const MAX_DIRS_PER_ROOT = 4000
 # Work ceiling per batch. The limit is directories, not time: a large library is

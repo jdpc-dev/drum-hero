@@ -13,6 +13,9 @@ var _track_prefix: String = "PART DRUMS"
 var has_drum_track: bool = false
 var using_guitar_fallback: bool = false
 var _tom_marker_ticks: Dictionary = {}
+var _has_2x_track: bool = false
+
+const _PLAYABLE_OFFSETS: Array = [60, 72, 84, 96]
 
 
 # expected_duration is accepted only to keep the same interface as
@@ -31,7 +34,8 @@ func load(path: String, root_path: String = "", difficulty_offset: int = -1, use
 	_track_prefix = "PART DRUMS"
 	has_drum_track = false
 	using_guitar_fallback = false
-	var success: bool = _parse(data, difficulty_offset)
+	_has_2x_track = false
+	var success: bool = _parse(data)
 	if not success:
 		return false
 	if _notes.is_empty() and use_guitar_fallback:
@@ -40,7 +44,8 @@ func load(path: String, root_path: String = "", difficulty_offset: int = -1, use
 		_tempo_events.clear()
 		_time_sig_events.clear()
 		_track_prefix = "PART GUITAR"
-		success = _parse(data, difficulty_offset)
+		_has_2x_track = false
+		success = _parse(data)
 		if not success:
 			return false
 		if not _notes.is_empty():
@@ -48,7 +53,7 @@ func load(path: String, root_path: String = "", difficulty_offset: int = -1, use
 	return true
 
 
-func _parse(data: PackedByteArray, difficulty_offset: int = -1) -> bool:
+func _parse(data: PackedByteArray) -> bool:
 	var offset: int = 0
 	var header: String = data.slice(offset, offset + 4).get_string_from_ascii()
 	offset += 4
@@ -66,17 +71,18 @@ func _parse(data: PackedByteArray, difficulty_offset: int = -1) -> bool:
 	offset += header_len - 6
 
 	for track_idx in range(num_tracks):
-		if not _parse_track(data, offset, difficulty_offset):
+		if not _parse_track(data, offset):
 			return false
 		var track_len: int = _read32(data, offset + 4)
 		offset += track_len + 8
 
+	_build_expert_plus()
 	_calculate_timing()
 
 	return true
 
 
-func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1) -> bool:
+func _parse_track(data: PackedByteArray, start: int) -> bool:
 	var offset: int = start
 	var chunk_id: String = data.slice(offset, offset + 4).get_string_from_ascii()
 	offset += 4
@@ -89,6 +95,7 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 	var running_status: int = -1
 	var track_name: String = ""
 	var is_drum_track: bool = false
+	var is_2x_track: bool = false
 	var raw_events: Array = []
 
 	_tom_marker_ticks.clear()
@@ -111,6 +118,10 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 			if meta_type == 0x03:
 				track_name = data.slice(offset, offset + meta_len).get_string_from_ascii()
 				is_drum_track = track_name.begins_with(_track_prefix)
+				is_2x_track = (
+					_track_prefix == "PART DRUMS"
+					and track_name.begins_with("PART DRUMS_2X")
+				)
 				if is_drum_track and _track_prefix == "PART DRUMS":
 					has_drum_track = true
 			elif meta_type == 0x51:
@@ -222,23 +233,27 @@ func _parse_track(data: PackedByteArray, start: int, difficulty_offset: int = -1
 				else:
 					offset += 1
 
-	_process_raw_events(raw_events, difficulty_offset)
+	var plus_before: int = _notes_by_offset.get(_ChartData.EXPERT_PLUS_OFFSET, []).size()
+	_process_raw_events(raw_events, is_2x_track)
+	if is_2x_track:
+		_has_2x_track = (
+			_notes_by_offset.get(_ChartData.EXPERT_PLUS_OFFSET, []).size() > plus_before
+		)
 
 	return true
 
 
-func _process_raw_events(raw_events: Array, difficulty_offset: int) -> void:
+func _process_raw_events(raw_events: Array, is_2x_track: bool) -> void:
 	for ev in raw_events:
 		if ev.is_on:
 			var tick: int = ev.tick
 			var note: int = ev.note
 			var vel: int = ev.vel
-			var diff_off: int = _resolve_difficulty(note)
-			if diff_off < 0:
+			var mapping: Dictionary = _note_mapping(note, is_2x_track)
+			if mapping.is_empty():
 				continue
-			var rel: int = note - diff_off
-			if not _ChartData.LANE_MAP.has(rel):
-				continue
+			var diff_off: int = mapping.offset
+			var rel: int = mapping.relative
 			var lane: int = _ChartData.LANE_MAP[rel]
 			var note_type: int = _ChartData.NoteType.NORMAL
 			if rel == 0:
@@ -246,26 +261,76 @@ func _process_raw_events(raw_events: Array, difficulty_offset: int) -> void:
 			elif rel == 2 or rel == 3 or rel == 4:
 				if _tom_marker_ticks.has(tick) and _tom_marker_ticks[tick].has(rel):
 					lane = _ChartData.TOM_LANE_MAP[rel]
-			if lane >= 0 and (difficulty_offset < 0 or diff_off == difficulty_offset):
+			if lane >= 0:
 				var nev = _ChartData.NoteEvent.new(tick, lane, note_type, 0, vel, diff_off, rel)
 				_notes.append(nev)
 				if not _notes_by_offset.has(diff_off):
 					_notes_by_offset[diff_off] = []
 				_notes_by_offset[diff_off].append(nev)
 		else:
-			_find_and_end_note(ev.tick, ev.note)
+			_find_and_end_note(ev.tick, ev.note, is_2x_track)
 
 
-func _find_and_end_note(tick: int, midi_note: int) -> void:
+# Resolves a MIDI note to the internal difficulty and relative lane. Notes
+# 120-127 are authoring markers (fills, BREs, rolls) and must never become
+# playable notes. Expert+ is not a MIDI octave either: the extra kicks live on
+# note 95 in the Expert range, and PART DRUMS_2X holds a complete Expert chart.
+func _note_mapping(midi_note: int, is_2x_track: bool) -> Dictionary:
+	if is_2x_track:
+		if midi_note == _ChartData.MIDI_EXPERT_PLUS_KICK:
+			return {"offset": _ChartData.EXPERT_PLUS_OFFSET, "relative": 0}
+		if midi_note >= 96 and midi_note <= 100:
+			return {"offset": _ChartData.EXPERT_PLUS_OFFSET, "relative": midi_note - 96}
+		return {}
+
+	if _track_prefix == "PART DRUMS" and midi_note == _ChartData.MIDI_EXPERT_PLUS_KICK:
+		return {"offset": _ChartData.EXPERT_PLUS_OFFSET, "relative": 0}
+
 	var diff_off: int = _resolve_difficulty(midi_note)
 	if diff_off < 0:
+		return {}
+	return {"offset": diff_off, "relative": midi_note - diff_off}
+
+
+func _find_and_end_note(tick: int, midi_note: int, is_2x_track: bool) -> void:
+	var mapping: Dictionary = _note_mapping(midi_note, is_2x_track)
+	if mapping.is_empty():
 		return
-	var rel: int = midi_note - diff_off
+	var diff_off: int = mapping.offset
+	var rel: int = mapping.relative
 	for i in range(_notes.size() - 1, -1, -1):
 		var n = _notes[i]
 		if n.relative_note == rel and n.difficulty_offset == diff_off and n.length == 0 and n.tick < tick:
 			n.length = tick - n.tick
 			break
+
+
+# Rock Band encodes the Expert+ chart as the Expert notes plus note-95 kicks.
+# A PART DRUMS_2X track, when present, already carries the complete 2x chart,
+# so it is used as-is and nothing is duplicated.
+func _build_expert_plus() -> void:
+	if _track_prefix != "PART DRUMS":
+		return
+	if not _notes_by_offset.has(_ChartData.EXPERT_PLUS_OFFSET):
+		return
+	var plus_notes: Array = _notes_by_offset[_ChartData.EXPERT_PLUS_OFFSET]
+	if not _has_2x_track and not plus_notes.is_empty():
+		var expert_notes: Array = _notes_by_offset.get(96, [])
+		for source in expert_notes:
+			var copy = _ChartData.NoteEvent.new(
+				source.tick,
+				source.lane,
+				source.note_type,
+				source.length,
+				source.velocity,
+				_ChartData.EXPERT_PLUS_OFFSET,
+				source.relative_note
+			)
+			plus_notes.append(copy)
+			_notes.append(copy)
+	# PART DRUMS_2X can add kicks interleaved with its Expert notes, so the
+	# per-offset list has to be ordered before ChartParser returns it.
+	plus_notes.sort_custom(func(a, b): return a.tick < b.tick)
 
 
 func _calculate_timing() -> void:
@@ -326,7 +391,9 @@ func get_ticks_per_beat() -> int:
 
 
 func _resolve_difficulty(midi_note: int) -> int:
-	for off in _ChartData.DIFFICULTY_OFFSETS:
+	if midi_note >= _ChartData.MIDI_FIRST_MARKER_NOTE:
+		return -1
+	for off in _PLAYABLE_OFFSETS:
 		var rel: int = midi_note - off
 		if rel >= 0 and rel < 12 and _ChartData.LANE_MAP.has(rel):
 			return off
@@ -387,7 +454,7 @@ static func detect_chart_info(path: String) -> Dictionary:
 	var has_drum: bool = false
 	var drum_found: Dictionary = {}
 	var guitar_found: Dictionary = {}
-	var DIFFS: Array[int] = [60, 72, 84, 96, 120]
+	var ChartData = preload("res://script/chart/ChartData.gd")
 
 	while pos + 8 <= data.size():
 		if data.slice(pos, pos + 4).get_string_from_ascii() != "MTrk":
@@ -397,6 +464,7 @@ static func detect_chart_info(path: String) -> Dictionary:
 		var track_end: int = mini(pos + track_len, data.size())
 
 		var is_drum: bool = false
+		var is_2x_track: bool = false
 		var is_guitar: bool = false
 		var running_status: int = -1
 
@@ -429,7 +497,11 @@ static func detect_chart_info(path: String) -> Dictionary:
 				if mt == 0x03 and not is_drum and not is_guitar:
 					if pos + mlen <= track_end:
 						var name: String = data.slice(pos, pos + mlen).get_string_from_ascii()
-						if name.begins_with("PART DRUMS"):
+						if name.begins_with("PART DRUMS_2X"):
+							is_drum = true
+							is_2x_track = true
+							has_drum = true
+						elif name.begins_with("PART DRUMS"):
 							is_drum = true
 							has_drum = true
 						elif name.begins_with("PART GUITAR"):
@@ -456,11 +528,15 @@ static func detect_chart_info(path: String) -> Dictionary:
 					var vel: int = data[pos]
 					pos += 1
 					if vel > 0:
-						if is_drum:
-							for d in DIFFS:
-								if note >= d and note < d + 12:
-									drum_found[d] = true
-									break
+						if is_2x_track:
+							# A 2x track is a full duplicate of the drums chart:
+							# only its Expert range becomes the Expert+ chart.
+							if note == ChartData.MIDI_EXPERT_PLUS_KICK or (note >= 96 and note <= 100):
+								drum_found[ChartData.EXPERT_PLUS_OFFSET] = true
+						elif is_drum:
+							var drum_off: int = _midi_note_difficulty(note)
+							if drum_off >= 0:
+								drum_found[drum_off] = true
 						elif is_guitar:
 							var guitar_off: int = _guitar_note_offset(note)
 							if guitar_off >= 0:
@@ -489,7 +565,6 @@ static func detect_chart_info(path: String) -> Dictionary:
 
 		pos = track_end
 
-	var ChartData = preload("res://script/chart/ChartData.gd")
 	var drums: Array = []
 	var guitar: Array = []
 	for off in ChartData.DIFFICULTY_OFFSETS:
@@ -512,6 +587,23 @@ static func detect_difficulties_fast(path: String, use_guitar_fallback: bool = f
 	if use_guitar_fallback and not info.guitar_difficulties.is_empty():
 		return {"difficulties": info.guitar_difficulties, "has_drum_chart": false, "guitar_fallback_used": true}
 	return {"difficulties": [], "has_drum_chart": false, "guitar_fallback_used": false}
+
+
+# Fast detection mirrors _note_mapping: only real playable note ranges are
+# counted, and note 95 means the chart has Expert+ kick notes.
+static func _midi_note_difficulty(note: int) -> int:
+	var ChartData = preload("res://script/chart/ChartData.gd")
+	if note == ChartData.MIDI_EXPERT_PLUS_KICK:
+		return ChartData.EXPERT_PLUS_OFFSET
+	if note >= 60 and note <= 64:
+		return 60
+	if note >= 72 and note <= 76:
+		return 72
+	if note >= 84 and note <= 88:
+		return 84
+	if note >= 96 and note <= 100:
+		return 96
+	return -1
 
 
 static func _guitar_note_offset(note: int) -> int:
