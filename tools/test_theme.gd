@@ -87,6 +87,8 @@ func _ready() -> void:
 	_check("Hacker comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
 	_check("el launch comparte el mismo fondo negro",
 		ProjectSettings.get_setting("application/boot_splash/bg_color", Color.RED) == Color.BLACK)
+	_check("el fondo de juego comparte el mismo negro",
+		ProjectSettings.get_setting("rendering/environment/defaults/default_clear_color", Color.RED) == Color.BLACK)
 	_check("Hacker conserva el metal", Palette.BONE == metal)
 	_check("Hacker usa tinta negra sobre el acento", Palette.ON_ACCENT == Palette.INK)
 	_check("Hacker mantiene contraste en el botón primario", _primary_contrast_ok())

@@ -101,6 +101,9 @@ func _refresh_screen_size() -> void:
 func _add_background() -> void:
 	_bg_sprite = Sprite2D.new()
 	_bg_sprite.texture = preload("res://asset/textures/highway_bg.png")
+	# Same black foundation as the menu and the launch splash. The texture is
+	# black too, but the modulate keeps this path theme-aware if it changes.
+	_bg_sprite.modulate = Palette.NIGHT_BG
 	_bg_sprite.centered = false
 	var bg_h: float = highway_bottom_y - highway_top_y
 	_bg_sprite.position = Vector2(0, highway_top_y)

@@ -40,8 +40,9 @@ func _ready() -> void:
 	_bg_rect = ColorRect.new()
 	_bg_rect.position = Vector2(lw * vi, highway_ref.highway_top_y)
 	_bg_rect.size = Vector2(lw, bg_h)
-	_bg_rect.color = _lane_color
-	_bg_rect.color.a = 0.08
+	# The lane strip is part of the shared black foundation; lane identity is
+	# carried by the notes, labels, hit line and feedback, not by a tinted bg.
+	_bg_rect.color = Palette.NIGHT_BG
 	_bg_rect.z_index = -1
 	_bg_rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(_bg_rect)
