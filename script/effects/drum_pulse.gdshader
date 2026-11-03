@@ -24,6 +24,15 @@ void fragment() {
 
 	vec2 sample_uv = clamp(pixel / viewport_size, vec2(0.0), vec2(1.0));
 	vec3 color = texture(screen_texture, sample_uv).rgb;
-	color += vec3(top_glow * top_mask * top_mask * 0.06);
+
+	// The shared black background makes the lifted pixels nearly invisible:
+	// both the sample and its source are black. Draw a light band that follows
+	// the lift instead, with a soft falloff and a brighter edge line. The
+	// corner weight matches the lift so the flex reads strongest at the edges.
+	float edge = 1.0 - smoothstep(0.0, 0.28, uv.y);
+	float line = 1.0 - smoothstep(0.0, 0.010, uv.y);
+	float highlight = (edge * 0.12 + line * 0.18) * corner;
+	color += vec3(0.92, 0.89, 1.0) * (top_glow * highlight);
+
 	COLOR = vec4(color, 1.0);
 }

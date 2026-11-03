@@ -15,8 +15,8 @@ const KICK_DURATION: float = 0.22
 const HAT_DURATION: float = 0.16
 const SNARE_DURATION: float = 0.14
 
-const KICK_LIFT_PX: float = 8.5
-const KICK_GLOW: float = 0.65
+const KICK_LIFT_PX: float = 11.0
+const KICK_GLOW: float = 1.0
 const HAT_SHAKE_PX: float = 2.0
 const SNARE_JOLT_PX: float = 3.0
 
@@ -155,5 +155,5 @@ func _update_uniforms() -> void:
 	offset = offset.limit_length(4.0)
 	_material.set_shader_parameter("viewport_size", _viewport_size)
 	_material.set_shader_parameter("screen_offset", offset)
-	_material.set_shader_parameter("top_lift", minf(top_lift, 9.0))
-	_material.set_shader_parameter("top_glow", minf(top_glow, 0.8))
+	_material.set_shader_parameter("top_lift", minf(top_lift, 12.0))
+	_material.set_shader_parameter("top_glow", minf(top_glow, 1.2))

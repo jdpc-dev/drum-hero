@@ -1664,7 +1664,7 @@ shorter cues:
 
 | Lane | Effect |
 |---|---|
-| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a faint top highlight (0.22s). In Haptic mode the full-width lane slash also starts at the top edge but is drawn under the SongTimeline fill. |
+| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a soft top-edge glow plus a brighter highlight line (0.22s). The glow is self-lit rather than sampled, so the pulse still reads on the shared black background. In Haptic mode the full-width lane slash also starts at the top edge but is drawn under the SongTimeline fill. |
 | HH | `DrumPulse` applies a very small whole-screen shake (0.16s, ~2px). |
 | SNARE | `DrumPulse` uses a short staccato pulse train of 1–3px jolts (0.14s), like a burst of hits. |
 | TOMS | `LanePulse` emits two soft rings 0.12s apart at the hit line, a quiet "lub-dub" heartbeat (0.44s). |
