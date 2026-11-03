@@ -2,7 +2,9 @@ extends Node
 
 # Verifies SongTimeline's geometry: the bar must occupy the 0-2.5 % band of the
 # screen aligned with the game board, and the white fill must grow from left to
-# right in proportion to the song time.
+# right in proportion to the song time. It also checks that the timeline is
+# drawn above the Highway (so its fill covers the lane slash) and below the HUD,
+# and that every lane slash reaches the top edge.
 # Usage: godot --headless --path . --script res://tools/test_timeline.gd
 
 
@@ -28,6 +30,7 @@ func _check(label: String, ok: bool) -> void:
 
 func _ready() -> void:
 	_check_scene_node()
+	await _run_slash_case()
 	await _run_case(Vector4(0, 0, 0, 0), "sin padding")
 	await _run_case(Vector4(75, 0, 75, 0), "con padding lateral")
 	await _run_case(Vector4(75, 20, 75, 30), "con padding en los cuatro lados")
@@ -49,14 +52,34 @@ func _check_scene_node() -> void:
 	var hud := root.get_node("HUD") as CanvasLayer
 	var tl: Control = root.get_node("TimelineLayer/SongTimeline") as Control
 	_check("la barra tiene su propia capa", timeline_layer != null)
-	_check("la barra queda debajo de la autopista y del HUD",
-		timeline_layer != null and timeline_layer.layer < 0 and timeline_layer.layer < hud.layer)
+	_check("la barra queda encima de la autopista y debajo del HUD",
+		timeline_layer != null and timeline_layer.layer > 0 and timeline_layer.layer < hud.layer)
 	_check("SongTimeline es un Control (no TextureProgressBar)", tl is Control and not (tl is TextureProgressBar))
 	_check("ancho completo", is_equal_approx(tl.anchor_left, 0.0) and is_equal_approx(tl.anchor_right, 1.0))
 	_check("no intercepta el raton", tl.mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	var txt: String = FileAccess.get_file_as_string("res://scene/Gameplay.tscn")
 	_check("sin tint_under/tint_progress heredados", not txt.contains("tint_under") and not txt.contains("texture_progress"))
 	root.free()
+
+
+# The lane slash must start at the top edge so it reaches into the timeline
+# band. It is drawn by the Highway, below TimelineLayer, so the bar fill covers
+# the slash instead of the slash covering the bar.
+func _run_slash_case() -> void:
+	print("\n== slash de pista ==")
+	var packed: PackedScene = load("res://scene/UI/Highway.tscn")
+	var highway := packed.instantiate() as Highway
+	add_child(highway)
+	await get_tree().process_frame
+	var lane: Lane = highway.lane_nodes[0]
+	lane._highlight()
+	lane._update_highlight(0.0)
+	_check("el slash de una pista normal llega al borde superior",
+		is_zero_approx(lane._slash_top_y))
+	_check("el slash cubre desde arriba hasta la linea de golpeo",
+		is_equal_approx(lane._slash_bg_h, highway.highway_bottom_y))
+	highway.queue_free()
+	await get_tree().process_frame
 
 
 func _run_case(pad: Vector4, label: String) -> void:

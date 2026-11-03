@@ -18,7 +18,7 @@ script = ExtResource("11_7md6q")
 script = ExtResource("9_aw3n2")
 
 [node name="TimelineLayer" type="CanvasLayer" parent="."]
-layer = -1
+layer = 1
 
 [node name="SongTimeline" type="Control" parent="TimelineLayer"]
 unique_name_in_owner = true
@@ -35,6 +35,7 @@ mouse_filter = 2
 script = ExtResource("5_yyip7")
 
 [node name="HUD" type="CanvasLayer" parent="."]
+layer = 2
 script = ExtResource("4_nsqny")
 
 [node name="ScoreLabel" type="Label" parent="HUD"]

@@ -223,19 +223,19 @@ func _update_highlight(delta: float) -> void:
 
 	var total: int = highway_ref.active_lane_count
 	if highway_ref.is_full_width_lane(lane_index):
-		# The haptic KICK has no column: its slash spans the whole board and
-		# starts at the top edge, so it also covers the timeline band. The
-		# TimelineLayer sits below the Highway, so this reaches over the bar.
+		# The haptic KICK has no column: its slash spans the whole board.
 		_slash_lw = highway_ref.screen_w
 		_slash_center_x = highway_ref.screen_w * 0.5
-		_slash_top_y = 0.0
-		_slash_bg_h = highway_ref.highway_bottom_y
 	else:
 		_slash_lw = highway_ref.screen_w / float(total)
 		var vi: int = highway_ref.get_lane_visual_index(lane_index)
 		_slash_center_x = _slash_lw * vi + _slash_lw * 0.5
-		_slash_top_y = highway_ref.highway_top_y
-		_slash_bg_h = highway_ref.highway_bottom_y - highway_ref.highway_top_y
+
+	# Every slash starts at the top edge, over the timeline band. The bar is
+	# drawn in TimelineLayer above the Highway, so its fill covers the slash
+	# instead of being covered by it.
+	_slash_top_y = 0.0
+	_slash_bg_h = highway_ref.highway_bottom_y
 
 	var t: float = _slash_timer / _slash_duration
 	var progress: float = 1.0 - t

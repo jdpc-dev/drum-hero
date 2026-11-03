@@ -86,7 +86,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │   and credits. Escape / Android back closes the modal before the panel.
 
 Gameplay (Node2D)                       ← GameplayRoot.gd
-├── TimelineLayer (CanvasLayer)         ← layer -1, drawn below the Highway
+├── TimelineLayer (CanvasLayer)         ← layer 1, drawn above the Highway
 │   └── SongTimeline (Control)          ← SongTimeline.gd
 ├── Highway (Node2D)                    ← Highway.gd
 │   ├── bg_sprite (Sprite2D)           ← highway_bg.png
@@ -98,7 +98,7 @@ Gameplay (Node2D)                       ← GameplayRoot.gd
 │   └── Label_HH (Label)              ← "HH", "CRASH", etc.
 │       ... (one label per lane)
 ├── CountdownLabel (CanvasLayer)        ← CountdownLabel.gd (layer 5)
-├── HUD (CanvasLayer)                   ← HUD.gd
+├── HUD (CanvasLayer)                   ← HUD.gd (layer 2)
 │   ├── ScoreLabel
 │   ├── ComboLabel
 │   └── MultiplierLabel
@@ -1664,7 +1664,7 @@ shorter cues:
 
 | Lane | Effect |
 |---|---|
-| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a faint top highlight (0.22s). In Haptic mode the full-width lane slash also starts at the top edge and covers the SongTimeline. |
+| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a faint top highlight (0.22s). In Haptic mode the full-width lane slash also starts at the top edge but is drawn under the SongTimeline fill. |
 | HH | `DrumPulse` applies a very small whole-screen shake (0.16s, ~2px). |
 | SNARE | `DrumPulse` uses a short staccato pulse train of 1–3px jolts (0.14s), like a burst of hits. |
 | TOMS | `LanePulse` emits two soft rings 0.12s apart at the hit line, a quiet "lub-dub" heartbeat (0.44s). |
@@ -1684,9 +1684,10 @@ from the lane index (heavy KICK debris, quick HH sparks, sharp SNARE spray,
 medium TOM debris, small upward RIDE sparkles, and the large CRASH burst).
 
 `SongTimeline` is not in the HUD layer: it lives in `TimelineLayer`
-(`CanvasLayer.layer = -1`), below the Highway (layer 0), so a KICK slash or
-note that reaches the top band renders over the time bar instead of being
-clipped by it. The HUD text stays at layer 1, above the Highway.
+(`CanvasLayer.layer = 1`), above the Highway (layer 0), so the bar fill covers
+the lane slash that reaches the top band. The unfilled part of the bar is
+transparent, so the slash is still visible there. The HUD stays at layer 2,
+above the timeline.
 
 ### First-hit warm-up
 

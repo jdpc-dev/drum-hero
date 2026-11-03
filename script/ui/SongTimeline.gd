@@ -5,9 +5,9 @@ extends Control
 # screen_h * 0.025, so the bar is drawn right above it, with the same width and
 # the same gameplay padding.
 #
-# It lives in TimelineLayer (CanvasLayer.layer = -1), below the Highway, so the
-# haptic KICK slash that reaches the top edge covers the bar instead of being
-# cut off underneath it.
+# It lives in TimelineLayer (CanvasLayer.layer = 1), above the Highway and
+# below the HUD: lane slashes reach the top edge and the fill covers them,
+# while the unfilled strip stays transparent so the slash shows through.
 const BAND_RATIO: float = 0.025
 
 var _fill: ColorRect
