@@ -420,7 +420,7 @@ class TapRow extends VBoxContainer:
 		if not _tracking:
 			return
 		_tracking = false
-		if not _dragged:
+		if not _dragged and not target.disabled:
 			target.button_pressed = not target.button_pressed
 			if not DisplayServer.is_touchscreen_available():
 				target.grab_focus()

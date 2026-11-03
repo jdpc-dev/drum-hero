@@ -24,6 +24,7 @@ var _mode_buttons: Array[CheckBox] = []
 var _mode_desc_label: Label
 var _custom_lane_container: VBoxContainer
 var _haptic_enabled_check: CheckBox
+var _haptic_settings: VBoxContainer
 
 # GAMEPLAY tab elements
 var _fps_cap_slider: HSlider
@@ -666,6 +667,7 @@ func _build_tab_content() -> void:
 	_custom_lane_container = null
 	_custom_lane_card = null
 	_haptic_enabled_check = null
+	_haptic_settings = null
 	_mode_desc_label = null
 	_fps_cap_slider = null
 	_padding_check = null
@@ -753,12 +755,17 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	var haptic_card := SettingsUI.section("HAPTIC KICK", "Play the kick by tilting the device instead of tapping a pad.")
 	parent.add_child(haptic_card)
 	_haptic_enabled_check = SettingsUI.add_toggle(haptic_card.body, "Enable haptic kick", "A short forward tilt fires the kick.", SettingsManager.haptic_enabled, _on_haptic_enabled_toggled)
-	_haptic_enabled_check.disabled = (SettingsManager.game_mode == 1)
+	_haptic_settings = VBoxContainer.new()
+	_haptic_settings.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_haptic_settings.mouse_filter = Control.MOUSE_FILTER_PASS
+	_haptic_settings.add_theme_constant_override("separation", SettingsUI.px(16))
+	haptic_card.body.add_child(_haptic_settings)
+	_sync_haptic_toggle()
 	if SettingsManager.game_mode == 1:
-		haptic_card.body.add_child(SettingsUI.description("Haptic mode always enables the motion kick."))
-	SettingsUI.add_slider_row(haptic_card.body, "Sensitivity", "How much movement is needed for kick detection.", 0.1, 3.0, 0.1, SettingsManager.haptic_sensitivity, _fmt_number, _on_haptic_sensitivity_changed, _on_haptic_sensitivity_drag_ended)
+		_haptic_settings.add_child(SettingsUI.description("Haptic mode always enables the motion kick."))
+	SettingsUI.add_slider_row(_haptic_settings, "Sensitivity", "How much movement is needed for kick detection.", 0.1, 3.0, 0.1, SettingsManager.haptic_sensitivity, _fmt_number, _on_haptic_sensitivity_changed, _on_haptic_sensitivity_drag_ended)
 
-	var tuning := _add_disclosure(haptic_card.body, "Advanced tuning", "Activation, release, cooldown and smoothing.")
+	var tuning := _add_disclosure(_haptic_settings, "Advanced tuning", "Activation, release, cooldown and smoothing.")
 	SettingsUI.add_slider_row(tuning, "Activation", "Lift threshold before a kick is detected.", 0.5, 12.0, 0.5, SettingsManager.haptic_activation_threshold, _fmt_number, _on_haptic_activation_changed, _on_haptic_any_drag_ended)
 	SettingsUI.add_slider_row(tuning, "Release", "When the kick resets after firing.", 0.1, 8.0, 0.5, SettingsManager.haptic_release_threshold, _fmt_number, _on_haptic_release_changed, _on_haptic_any_drag_ended)
 	SettingsUI.add_slider_row(tuning, "Cooldown", "Minimum time between two kicks.", 0.05, 0.5, 0.01, SettingsManager.haptic_cooldown_duration, _fmt_seconds, _on_haptic_cooldown_changed, _on_haptic_any_drag_ended)
@@ -1718,6 +1725,19 @@ func _load_current_settings() -> void:
 		_mode_buttons[i].set_pressed_no_signal(i == current_mode)
 	if is_instance_valid(_custom_lane_card):
 		_custom_lane_card.visible = (current_mode == 2)
+	_sync_haptic_toggle()
+
+
+func _sync_haptic_toggle() -> void:
+	if not is_instance_valid(_haptic_enabled_check):
+		return
+	# Haptic mode always runs the motion kick, so the toggle shows as on and
+	# disabled without overwriting the user's standalone haptic preference.
+	var haptic_mode: bool = SettingsManager.game_mode == 1
+	_haptic_enabled_check.set_pressed_no_signal(haptic_mode or SettingsManager.haptic_enabled)
+	_haptic_enabled_check.disabled = haptic_mode
+	if is_instance_valid(_haptic_settings):
+		_haptic_settings.visible = _haptic_enabled_check.button_pressed
 
 
 func _on_mode_toggled(toggled: bool, mode: int) -> void:
@@ -1736,13 +1756,7 @@ func _on_mode_toggled(toggled: bool, mode: int) -> void:
 		_custom_lane_card.visible = (mode == 2)
 	if is_instance_valid(_mode_desc_label):
 		_mode_desc_label.text = MODE_DESCRIPTIONS[clampi(mode, 0, 2)]
-	if is_instance_valid(_haptic_enabled_check):
-		if mode == 1:
-			_haptic_enabled_check.set_pressed_no_signal(true)
-			_haptic_enabled_check.disabled = true
-		else:
-			_haptic_enabled_check.set_pressed_no_signal(SettingsManager.haptic_enabled)
-			_haptic_enabled_check.disabled = false
+	_sync_haptic_toggle()
 
 
 func _rebuild_custom_lane_ui(lanes: Array) -> void:
@@ -1900,6 +1914,7 @@ func _on_menu_status_toggled(toggled: bool) -> void:
 func _on_haptic_enabled_toggled(toggled: bool) -> void:
 	SettingsManager.haptic_enabled = toggled
 	SettingsManager.save_settings()
+	_sync_haptic_toggle()
 
 
 func _on_haptic_sensitivity_changed(value: float) -> void:
