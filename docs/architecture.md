@@ -85,12 +85,12 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │   and credits. Escape / Android back closes the modal before the panel.
 
 Gameplay (Node2D)                       ← GameplayRoot.gd
+├── TimelineLayer (CanvasLayer)         ← layer -1, drawn below the Highway
+│   └── SongTimeline (Control)          ← SongTimeline.gd
 ├── Highway (Node2D)                    ← Highway.gd
 │   ├── bg_sprite (Sprite2D)           ← highway_bg.png
 │   ├── Lane_0 (Lane)                  ← Lane.gd (for each active lane)
 │   │   ├── bg_rect (ColorRect)        ← lane color (alpha 0.08)
-│   │   ├── slash_left (ColorRect)     ← expanding slash effect
-│   │   ├── slash_right (ColorRect)    ← expanding slash effect
 │   │   └── Note (Note)                ← Note.gd (dynamic spawn)
 │   ├── HitLine (Node2D)              ← HitLine.gd
 │   │   └── lane_sprite_N (Sprite2D)  ← DrumGraphics (vector, per lane)
@@ -100,8 +100,7 @@ Gameplay (Node2D)                       ← GameplayRoot.gd
 ├── HUD (CanvasLayer)                   ← HUD.gd
 │   ├── ScoreLabel
 │   ├── ComboLabel
-│   ├── MultiplierLabel
-│   └── SongTimeline (Control)
+│   └── MultiplierLabel
 ├── HitDetection (Node)                 ← HitDetection.gd
 ├── TouchInput (Node)                   ← TouchInput.gd
 └── HapticKick (Node)                   ← HapticKick.gd
@@ -1618,7 +1617,7 @@ shorter cues:
 
 | Lane | Effect |
 |---|---|
-| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a faint top highlight (0.22s). |
+| KICK | `DrumPulse` lifts the top edge/corners of the screen by a few pixels and adds a faint top highlight (0.22s). In Haptic mode the full-width lane slash also starts at the top edge and covers the SongTimeline. |
 | HH | `DrumPulse` applies a very small whole-screen shake (0.16s, ~2px). |
 | SNARE | `DrumPulse` uses a short staccato pulse train of 1–3px jolts (0.14s), like a burst of hits. |
 | TOMS | `LanePulse` emits two soft rings 0.12s apart at the hit line, a quiet "lub-dub" heartbeat (0.44s). |
@@ -1636,6 +1635,11 @@ The local highway note-hit feedback follows the same personalities: the lane
 slash uses lane-tuned duration/intensity and `ParticleBurst` selects a profile
 from the lane index (heavy KICK debris, quick HH sparks, sharp SNARE spray,
 medium TOM debris, small upward RIDE sparkles, and the large CRASH burst).
+
+`SongTimeline` is not in the HUD layer: it lives in `TimelineLayer`
+(`CanvasLayer.layer = -1`), below the Highway (layer 0), so a KICK slash or
+note that reaches the top band renders over the time bar instead of being
+clipped by it. The HUD text stays at layer 1, above the Highway.
 
 ### First-hit warm-up
 

@@ -4,6 +4,10 @@ extends Control
 # The 0-2.5 % band of the screen is the timeline: Highway starts its track at
 # screen_h * 0.025, so the bar is drawn right above it, with the same width and
 # the same gameplay padding.
+#
+# It lives in TimelineLayer (CanvasLayer.layer = -1), below the Highway, so the
+# haptic KICK slash that reaches the top edge covers the bar instead of being
+# cut off underneath it.
 const BAND_RATIO: float = 0.025
 
 var _fill: ColorRect

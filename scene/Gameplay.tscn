@@ -17,6 +17,23 @@ script = ExtResource("11_7md6q")
 [node name="Highway" parent="." instance=ExtResource("10_5lqln")]
 script = ExtResource("9_aw3n2")
 
+[node name="TimelineLayer" type="CanvasLayer" parent="."]
+layer = -1
+
+[node name="SongTimeline" type="Control" parent="TimelineLayer"]
+unique_name_in_owner = true
+anchors_preset = 12
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 1.0
+anchor_bottom = 0.0
+offset_left = 0.0
+offset_top = 0.0
+offset_right = 0.0
+offset_bottom = 18.0
+mouse_filter = 2
+script = ExtResource("5_yyip7")
+
 [node name="HUD" type="CanvasLayer" parent="."]
 script = ExtResource("4_nsqny")
 
@@ -70,20 +87,6 @@ label_settings = ExtResource("12_jn4yc")
 theme_override_font_sizes/font_size = 24
 ; label_settings manda sobre theme_override_colors: el color real lo pone
 ; HUD._ready() duplicando el LabelSettings.
-
-[node name="SongTimeline" type="Control" parent="HUD"]
-unique_name_in_owner = true
-anchors_preset = 12
-anchor_left = 0.0
-anchor_top = 0.0
-anchor_right = 1.0
-anchor_bottom = 0.0
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 0.0
-offset_bottom = 18.0
-mouse_filter = 2
-script = ExtResource("5_yyip7")
 
 [node name="HitDetection" type="Node" parent="."]
 script = ExtResource("1_6u3n0")

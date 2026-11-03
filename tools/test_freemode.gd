@@ -89,6 +89,9 @@ func _ready() -> void:
 	var slash_right: float = haptic_kick_lane._slash_center_x + haptic_kick_lane._slash_lw * 0.5
 	_check("el slash del kick cubre toda la autopista",
 		is_zero_approx(slash_left) and is_equal_approx(slash_right, probe.screen_w))
+	_check("el slash del kick arranca sobre la banda del timeline",
+		is_zero_approx(haptic_kick_lane._slash_top_y)
+		and is_equal_approx(haptic_kick_lane._slash_bg_h, probe.highway_bottom_y))
 
 	var kick_note: Note = (load("res://scene/UI/Note.tscn") as PackedScene).instantiate() as Note
 	kick_note.lane_ref = haptic_kick_lane

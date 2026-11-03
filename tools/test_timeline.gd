@@ -45,7 +45,12 @@ func _check_scene_node() -> void:
 	# It is not added to the tree: GameplayRoot._ready() would start loading a
 	# song. The node's offsets are read without needing to instantiate it.
 	var root: Node = packed.instantiate()
-	var tl: Control = root.get_node("HUD/SongTimeline") as Control
+	var timeline_layer := root.get_node("TimelineLayer") as CanvasLayer
+	var hud := root.get_node("HUD") as CanvasLayer
+	var tl: Control = root.get_node("TimelineLayer/SongTimeline") as Control
+	_check("la barra tiene su propia capa", timeline_layer != null)
+	_check("la barra queda debajo de la autopista y del HUD",
+		timeline_layer != null and timeline_layer.layer < 0 and timeline_layer.layer < hud.layer)
 	_check("SongTimeline es un Control (no TextureProgressBar)", tl is Control and not (tl is TextureProgressBar))
 	_check("ancho completo", is_equal_approx(tl.anchor_left, 0.0) and is_equal_approx(tl.anchor_right, 1.0))
 	_check("no intercepta el raton", tl.mouse_filter == Control.MOUSE_FILTER_IGNORE)
