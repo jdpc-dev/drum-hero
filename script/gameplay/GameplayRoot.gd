@@ -332,6 +332,8 @@ func _show_result() -> void:
 	_is_result_shown = true
 	_result_pending = false
 	_is_paused = false
+	if _pause_button:
+		_pause_button.hide()
 	_hide_pause_overlay()
 	_hide_countdown()
 	# Notes still on screen never go through the miss window (without audio,
