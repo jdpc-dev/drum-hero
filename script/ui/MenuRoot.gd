@@ -1334,19 +1334,23 @@ func _show_quit_confirm() -> void:
 	message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_child(message)
 
+	var buttons: HBoxContainer = HBoxContainer.new()
+	buttons.add_theme_constant_override("separation", SettingsUI.px(10))
+	content.add_child(buttons)
+
 	var cancel_btn: Button = SettingsUI.button("CANCEL", "secondary")
 	cancel_btn.name = "CancelButton"
 	cancel_btn.custom_minimum_size = Vector2(0, SettingsUI.px(48))
 	cancel_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cancel_btn.pressed.connect(_hide_quit_confirm)
-	content.add_child(cancel_btn)
+	buttons.add_child(cancel_btn)
 
 	var exit_btn: Button = SettingsUI.button("EXIT", "primary")
 	exit_btn.name = "ExitButton"
 	exit_btn.custom_minimum_size = Vector2(0, SettingsUI.px(48))
 	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	exit_btn.pressed.connect(_confirm_quit)
-	content.add_child(exit_btn)
+	buttons.add_child(exit_btn)
 
 	add_child(_quit_confirm_overlay)
 
