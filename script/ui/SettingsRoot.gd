@@ -1555,7 +1555,10 @@ func _show_about() -> void:
 
 	var icon := TextureButton.new()
 	icon.name = "AppIcon"
-	icon.texture_normal = load("res://asset/textures/app_icon.png") as Texture2D
+	# Bake the rounded corners into the texture, like album art: the source
+	# bitmap is square and would otherwise read as a hard red tile on the panel.
+	var icon_texture: Texture2D = load("res://asset/textures/app_icon.png") as Texture2D
+	icon.texture_normal = SettingsUI.rounded_cover(icon_texture, SettingsUI.px(160))
 	icon.ignore_texture_size = true
 	icon.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	var icon_size: int = SettingsUI.px(80)
