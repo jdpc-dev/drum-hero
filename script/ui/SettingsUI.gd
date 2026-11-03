@@ -754,19 +754,12 @@ static func style_progress(bar: ProgressBar) -> void:
 
 static func style_scroll(scroll: ScrollContainer) -> void:
 	scroll.add_theme_stylebox_override("panel", StyleBoxEmpty.new())
-	_style_scroll_bar(scroll.get_v_scroll_bar())
-	_style_scroll_bar(scroll.get_h_scroll_bar())
-
-
-static func _style_scroll_bar(bar: ScrollBar) -> void:
-	if bar is VScrollBar:
-		bar.custom_minimum_size.x = px(10)
-	else:
-		bar.custom_minimum_size.y = px(10)
-	bar.add_theme_stylebox_override("scroll", flat(Color.TRANSPARENT, 4))
-	bar.add_theme_stylebox_override("grabber", flat(Palette.BORDER, 4))
-	bar.add_theme_stylebox_override("grabber_highlight", flat(Palette.BORDER_STRONG, 4))
-	bar.add_theme_stylebox_override("grabber_pressed", flat(Palette.BORDER_STRONG, 4))
+	# Keep the scroll area usable by touch, wheel and drag, but never draw a
+	# scrollbar on top of the content.
+	if scroll.horizontal_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO:
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
+	if scroll.vertical_scroll_mode == ScrollContainer.SCROLL_MODE_AUTO:
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_SHOW_NEVER
 
 
 # --- Inputs -----------------------------------------------------------------

@@ -1547,7 +1547,8 @@ icon is a generated switch texture), segmented choices, sliders with generated
 grabber textures, value badges, buttons (primary/secondary/ghost/quiet/danger),
 styled `LineEdit`/`OptionButton`/`ProgressBar` controls, matching OptionButton
 dropdowns (surface, typography, touch rows, a highlighted selected row and the
-same width as their selector) and custom scrollbars.
+same width as their selector). Scroll containers keep touch, wheel and drag
+scrolling but never draw a scrollbar.
 Selected states use the opaque `ACCENT_SURFACE` tokens and focus is expressed by
 a fill change rather than a border, so a rounded component never renders its
 corners in a different shade from its body. No new UI literal colors are
