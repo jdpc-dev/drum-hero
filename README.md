@@ -25,7 +25,7 @@ The game is built with Godot 4.7 and targets Android, with desktop builds used f
 ## Features
 
 - **8-lane drum highway** — Hi-Hat (closed/open), Crash, Snare, Kick, Tom 1, Tom 2, Tom 3 and Ride.
-- **Three control modes** — Default (all 8 lanes), Haptic (7 lanes plus a kick played by tilting the device) and Custom (reorder lanes, mirror the layout, left-handed mode).
+- **Three control modes** — Default (all 8 lanes), Haptic (7 lanes plus a kick played by tilting the device) and Custom (drag lanes into order, mirror the layout, left-handed mode).
 - **Clone Hero / YARG song support** — `notes.mid` and `notes.chart`, Rock Band drum mappings, Pro Drum tom markers, audio stems and `song.ini`.
 - **External song libraries** — scan Downloads or any custom folder in place; songs do not need to be copied into the app. The scanned library is cached, so launches do not walk the disks again until you ask for a rescan.
 - **Menu and progression** — search, arrow-key setlist navigation, album art, song previews, difficulty selection and per-song best scores.
@@ -65,7 +65,7 @@ On desktop, song folders can be placed in `user://DrumHero` or added through the
 | 6 | Tom 3 | `7` |
 | 7 | Ride | `8` |
 
-Tap the touch zone at the bottom of each lane on mobile, or press the matching number key on desktop. In **Haptic** mode the Kick lane is hidden and the kick is triggered by a short forward tilt of the device; **Custom** mode lets you reorder lanes and choose whether the kick is haptic.
+Tap the touch zone at the bottom of each lane on mobile, or press **1–8** on desktop for the lanes from left to right. In **Haptic** mode the Kick lane is hidden and the kick is triggered by a short forward tilt of the device; **Custom** mode lets you reorder lanes and choose whether the kick is haptic.
 
 Scoring uses six timing judgments: **Perfect** (±22.5 ms), **Excellent** (±45 ms), **Good** (±75 ms), **Late** (±100 ms), **Early** (±100 ms) and **Miss** (±135 ms). The windows can be inspected in **Settings → Gameplay → Judgement windows**.
 

@@ -56,8 +56,9 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
 		var key: int = event.keycode
 		if key >= KEY_1 and key <= KEY_8:
-			var lane_index: int = key - KEY_1
-			if lane_index < _lane_count:
+			var visual_idx: int = key - KEY_1
+			if visual_idx < _lane_count:
+				var lane_index: int = _lane_for_visual_index(visual_idx)
 				var did_hit: bool = _hit_detection != null and _hit_detection.try_hit_lane(lane_index, Vector2.ZERO)
 				if not did_hit:
 					DrumSfxManager.play_for_lane(lane_index)
@@ -122,6 +123,12 @@ func _get_highway_local_pos(screen_pos: Vector2) -> Vector2:
 func _touch_to_lane(position: Vector2) -> int:
 	var lane_w: float = _get_lane_width()
 	var visual_idx: int = clampi(int(position.x / lane_w), 0, _lane_count - 1)
+	return _lane_for_visual_index(visual_idx)
+
+
+# Number keys and touch columns both address the visual lane order, so they
+# keep pointing at the same pad after Haptic/Custom reorders the highway.
+func _lane_for_visual_index(visual_idx: int) -> int:
 	if _highway_ref and visual_idx < _highway_ref.lane_nodes.size():
 		return _highway_ref.lane_nodes[visual_idx].lane_index
 	return visual_idx

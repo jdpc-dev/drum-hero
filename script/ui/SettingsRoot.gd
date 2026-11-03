@@ -22,7 +22,7 @@ var _last_banana_sfx: String = ""
 # CONTROLS tab elements
 var _mode_buttons: Array[CheckBox] = []
 var _mode_desc_label: Label
-var _custom_lane_container: VBoxContainer
+var _custom_lane_row: LaneOrderRow
 var _haptic_enabled_check: CheckBox
 var _haptic_settings: VBoxContainer
 
@@ -68,11 +68,6 @@ var _padding_left_slider: HSlider
 var _padding_right_slider: HSlider
 var _padding_top_slider: HSlider
 var _padding_bottom_slider: HSlider
-
-const LANE_LABELS: PackedStringArray = [
-	"HH", "CRASH", "SNARE", "KICK",
-	"TOM 1", "TOM 2", "TOM 3", "RIDE",
-]
 
 const SONGS_TAB: int = 3
 const TAB_COUNT: int = 5
@@ -162,17 +157,6 @@ const MODE_DESCRIPTIONS: Array[String] = [
 const STORAGE_LOCATIONS: Array[Dictionary] = [
 	{"label": "Internal storage", "path": "/storage/emulated/0"},
 	{"label": "External storage", "path": "/sdcard"},
-]
-
-const LANE_COLORS: Array[Color] = [
-	Color(0.9, 0.8, 0.2),
-	Color(1.0, 0.6, 0.0),
-	Color(0.8, 0.2, 0.2),
-	Color(0.6, 0.4, 0.8),
-	Color(0.2, 0.7, 0.9),
-	Color(0.2, 0.9, 0.5),
-	Color(0.9, 0.3, 0.6),
-	Color(0.5, 0.8, 0.3),
 ]
 
 
@@ -664,7 +648,7 @@ func _build_tab_content() -> void:
 	_library_section = null
 	_permission_status = null
 	_permission_button = null
-	_custom_lane_container = null
+	_custom_lane_row = null
 	_custom_lane_card = null
 	_haptic_enabled_check = null
 	_haptic_settings = null
@@ -736,16 +720,18 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	mode_card.body.add_child(_mode_desc_label)
 	parent.add_child(mode_card)
 
-	var lane_card := SettingsUI.section("LANE ORDER", "Arrange the highway from left to right. The kick is a lane here too.")
+	var lane_card := SettingsUI.section("LANE ORDER", "Drag the drum parts into the order you want, from left to right. The kick is a lane here too.")
 	_custom_lane_card = lane_card
 	lane_card.visible = (SettingsManager.game_mode == 2)
 	parent.add_child(lane_card)
-	_custom_lane_container = VBoxContainer.new()
-	_custom_lane_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_custom_lane_container.mouse_filter = Control.MOUSE_FILTER_PASS
-	_custom_lane_container.add_theme_constant_override("separation", SettingsUI.px(8))
-	lane_card.body.add_child(_custom_lane_container)
-	_rebuild_custom_lane_ui(SettingsManager.custom_lanes)
+	_custom_lane_row = LaneOrderRow.new()
+	_custom_lane_row.set_order(SettingsManager.get_custom_lane_order())
+	_custom_lane_row.order_changed.connect(_on_lane_order_changed)
+	lane_card.body.add_child(_custom_lane_row)
+	var reset_btn := SettingsUI.button("Reset to Default", "ghost")
+	reset_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	reset_btn.pressed.connect(_on_reset_lanes)
+	lane_card.body.add_child(reset_btn)
 
 	var layout_card := SettingsUI.section("LAYOUT")
 	parent.add_child(layout_card)
@@ -1759,80 +1745,16 @@ func _on_mode_toggled(toggled: bool, mode: int) -> void:
 	_sync_haptic_toggle()
 
 
-func _rebuild_custom_lane_ui(lanes: Array) -> void:
-	if not is_instance_valid(_custom_lane_container):
-		return
-	for child in _custom_lane_container.get_children():
-		_custom_lane_container.remove_child(child)
-		child.queue_free()
-
-	var count: int = lanes.size()
-	if count == 0:
-		_custom_lane_container.add_child(SettingsUI.description("(no custom order set - using default)", Palette.MUTED))
-		return
-
-	for i in count:
-		var lane_idx: int = lanes[i]
-		var item := PanelContainer.new()
-		item.mouse_filter = Control.MOUSE_FILTER_PASS
-		var sb := SettingsUI.flat(Palette.SURFACE_2, 12)
-		SettingsUI.pad(sb, SettingsUI.px(10), SettingsUI.px(6))
-		item.add_theme_stylebox_override("panel", sb)
-		item.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		var hbox := HBoxContainer.new()
-		hbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hbox.mouse_filter = Control.MOUSE_FILTER_PASS
-		hbox.add_theme_constant_override("separation", SettingsUI.px(10))
-		item.add_child(hbox)
-
-		var color_chip := PanelContainer.new()
-		color_chip.mouse_filter = Control.MOUSE_FILTER_PASS
-		color_chip.custom_minimum_size = Vector2(SettingsUI.px(6), SettingsUI.px(28))
-		var chip_style := SettingsUI.flat(LANE_COLORS[lane_idx] if lane_idx < LANE_COLORS.size() else Color.WHITE, 3)
-		color_chip.add_theme_stylebox_override("panel", chip_style)
-		hbox.add_child(color_chip)
-
-		var lbl := SettingsUI.label(LANE_LABELS[lane_idx] if lane_idx < LANE_LABELS.size() else "Lane " + str(lane_idx), 17, Palette.BONE, 500)
-		lbl.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-		hbox.add_child(lbl)
-
-		var move_up := SettingsUI.icon_button("▲")
-		move_up.disabled = (i == 0)
-		move_up.pressed.connect(_on_move_lane.bind(i, -1))
-		hbox.add_child(move_up)
-
-		var move_down := SettingsUI.icon_button("▼")
-		move_down.disabled = (i == count - 1)
-		move_down.pressed.connect(_on_move_lane.bind(i, 1))
-		hbox.add_child(move_down)
-
-		_custom_lane_container.add_child(item)
-
-	var reset_btn := SettingsUI.button("Reset to Default", "ghost")
-	reset_btn.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
-	reset_btn.pressed.connect(_on_reset_lanes)
-	_custom_lane_container.add_child(reset_btn)
-
-
-func _on_move_lane(index: int, direction: int) -> void:
-	var lanes: Array = SettingsManager.custom_lanes.duplicate()
-	if lanes.is_empty():
-		return
-	var target: int = index + direction
-	if target < 0 or target >= lanes.size():
-		return
-	var tmp = lanes[index]
-	lanes[index] = lanes[target]
-	lanes[target] = tmp
-	SettingsManager.custom_lanes = lanes
+func _on_lane_order_changed(lanes: Array) -> void:
+	SettingsManager.custom_lanes = SettingsManager.normalize_lane_order(lanes)
 	SettingsManager.save_settings()
-	_rebuild_custom_lane_ui(lanes)
 
 
 func _on_reset_lanes() -> void:
-	SettingsManager.custom_lanes = [0, 1, 2, 3, 4, 5, 6, 7]
+	SettingsManager.custom_lanes = SettingsManager.DEFAULT_LANE_ORDER.duplicate()
 	SettingsManager.save_settings()
-	_rebuild_custom_lane_ui(SettingsManager.custom_lanes)
+	if is_instance_valid(_custom_lane_row):
+		_custom_lane_row.set_order(SettingsManager.get_custom_lane_order())
 
 
 func _on_reset_controls() -> void:

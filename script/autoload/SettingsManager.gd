@@ -3,6 +3,8 @@ extends Node
 signal preview_volume_changed(volume: float)
 
 const SETTINGS_PATH: String = "user://settings.cfg"
+const LANE_COUNT: int = 8
+const DEFAULT_LANE_ORDER: Array[int] = [0, 1, 2, 3, 4, 5, 6, 7]
 
 var note_speed: float = 1.0
 var lane_config: Dictionary = {}
@@ -35,7 +37,7 @@ var haptic_smoothing_strength: float = 0.4
 var haptic_calibration_duration: float = 1.5
 var haptic_show_debug: bool = false
 var game_mode: int = 0  # GameManager.GameMode.DEFAULT
-var custom_lanes: Array = []
+var custom_lanes: Array = DEFAULT_LANE_ORDER.duplicate()
 var mirrored: bool = false
 var left_handed: bool = false
 var screen_shake: bool = true
@@ -86,6 +88,35 @@ func _ready() -> void:
 	Engine.max_fps = max_fps
 
 
+# The customiser edits eight unique lane indices. A missing or malformed order
+# (for example a config from before the customiser existed) falls back to the
+# standard left-to-right layout instead of building a short highway.
+func is_valid_lane_order(lanes: Array) -> bool:
+	if lanes.size() != LANE_COUNT:
+		return false
+	var seen: Dictionary = {}
+	for lane in lanes:
+		if typeof(lane) != TYPE_INT:
+			return false
+		if lane < 0 or lane >= LANE_COUNT or seen.has(lane):
+			return false
+		seen[lane] = true
+	return true
+
+
+func normalize_lane_order(lanes: Array) -> Array[int]:
+	if not is_valid_lane_order(lanes):
+		return DEFAULT_LANE_ORDER.duplicate()
+	var order: Array[int] = []
+	for lane in lanes:
+		order.append(lane)
+	return order
+
+
+func get_custom_lane_order() -> Array[int]:
+	return normalize_lane_order(custom_lanes)
+
+
 func load_settings() -> void:
 	var cfg := ConfigFile.new()
 	var err := cfg.load(SETTINGS_PATH)
@@ -117,7 +148,7 @@ func load_settings() -> void:
 	haptic_smoothing_strength = cfg.get_value("haptic", "smoothing_strength", 0.4)
 	haptic_calibration_duration = cfg.get_value("haptic", "calibration_duration", 1.5)
 	haptic_show_debug = cfg.get_value("haptic", "show_debug", false)
-	custom_lanes = cfg.get_value("layout", "custom_lanes", [])
+	custom_lanes = normalize_lane_order(cfg.get_value("layout", "custom_lanes", DEFAULT_LANE_ORDER))
 	mirrored = cfg.get_value("layout", "mirrored", false)
 	left_handed = cfg.get_value("layout", "left_handed", false)
 	screen_shake = cfg.get_value("visual", "screen_shake", true)
@@ -142,7 +173,7 @@ func load_settings() -> void:
 
 func reset_controls_to_defaults() -> void:
 	game_mode = 0
-	custom_lanes = []
+	custom_lanes = DEFAULT_LANE_ORDER.duplicate()
 	haptic_enabled = false
 	haptic_sensitivity = 1.0
 	haptic_activation_threshold = 1.0

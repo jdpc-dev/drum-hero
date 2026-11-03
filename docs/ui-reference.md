@@ -94,7 +94,7 @@ Compact layout (< 1000 px physical width):
 ```
 ```
 Tabs and content:
-- CONTROLS: mode, lane order (Custom), layout, haptic kick, Free Mode, reset.
+- CONTROLS: mode, lane order (Custom; horizontal draggable lane strip), layout, haptic kick, Free Mode, reset.
 - GAMEPLAY: speed & pacing, feedback, performance, timing & calibration, reset.
 - AUDIO: master/music/drums/previews, drum samples, reset.
 - SONGS: need songs, storage access, library locations, extra folders, scan (progress in a modal), reset.

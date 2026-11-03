@@ -265,9 +265,7 @@ func _get_lane_order() -> Array[int]:
 		return [0, 1, 2, 4, 5, 6, 7]
 	match mode:
 		GameManager.GameMode.CUSTOM:
-			var custom: Array = SettingsManager.custom_lanes
-			if custom.size() > 0:
-				return custom
+			return SettingsManager.get_custom_lane_order()
 	return [0, 1, 2, 3, 4, 5, 6, 7]
 
 

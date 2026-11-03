@@ -81,8 +81,95 @@ func _ready() -> void:
 	_check("modo HAPTIC = 7 pistas", haptic_order.size() == 7)
 	_check("modo HAPTIC saca la pista del kick de la fila", not haptic_order.has(3))
 	_check("modo HAPTIC anade la pista de kick aparte", probe.get_kick_lane() != null)
+
+	var haptic_keys := TouchInput.new()
+	add_child(haptic_keys)
+	haptic_keys.setup(probe, null)
+	var haptic_key_hits: Array = []
+	haptic_keys.lane_pressed.connect(func(lane_index: int, _position: Vector2) -> void:
+		haptic_key_hits.append(lane_index)
+	)
+	for i in 8:
+		var key_event := InputEventKey.new()
+		key_event.keycode = KEY_1 + i
+		key_event.pressed = true
+		haptic_keys._unhandled_input(key_event)
+	_check("en HAPTIC las teclas 1-7 siguen las columnas visibles", haptic_key_hits == [0, 1, 2, 4, 5, 6, 7])
+	haptic_keys.queue_free()
 	probe.queue_free()
 	GameManager.mode = GameManager.GameMode.DEFAULT
+	await get_tree().process_frame
+
+	print("=== 4b. CUSTOM usa el orden editable y tolera datos invalidos ===")
+	var saved_lanes: Array = SettingsManager.custom_lanes.duplicate()
+	SettingsManager.custom_lanes = [3, 2, 1, 0, 7, 6, 5, 4]
+	GameManager.mode = GameManager.GameMode.CUSTOM
+	var custom_probe: Highway = (load(HIGHWAY_SCENE) as PackedScene).instantiate() as Highway
+	add_child(custom_probe)
+	await get_tree().process_frame
+	_check("modo CUSTOM respeta el orden guardado", _lane_order(custom_probe) == [3, 2, 1, 0, 7, 6, 5, 4])
+	_check("modo CUSTOM mantiene las 8 pistas", custom_probe.lane_nodes.size() == 8)
+
+	var key_input := TouchInput.new()
+	add_child(key_input)
+	key_input.setup(custom_probe, null)
+	var key_hits: Array = []
+	key_input.lane_pressed.connect(func(lane_index: int, _position: Vector2) -> void:
+		key_hits.append(lane_index)
+	)
+	for i in 8:
+		var key_event := InputEventKey.new()
+		key_event.keycode = KEY_1 + i
+		key_event.pressed = true
+		key_input._unhandled_input(key_event)
+	_check("las teclas 1-8 siguen el orden visual", key_hits == [3, 2, 1, 0, 7, 6, 5, 4])
+	key_input.queue_free()
+	custom_probe.queue_free()
+
+	SettingsManager.custom_lanes = []
+	var empty_probe: Highway = (load(HIGHWAY_SCENE) as PackedScene).instantiate() as Highway
+	add_child(empty_probe)
+	await get_tree().process_frame
+	_check("sin orden guardado usa el orden estandar", _lane_order(empty_probe) == [0, 1, 2, 3, 4, 5, 6, 7])
+	empty_probe.queue_free()
+
+	SettingsManager.custom_lanes = [0, 0, 1, 2, 3, 4, 5, 9]
+	var invalid_probe: Highway = (load(HIGHWAY_SCENE) as PackedScene).instantiate() as Highway
+	add_child(invalid_probe)
+	await get_tree().process_frame
+	_check("un orden invalido vuelve al orden estandar", _lane_order(invalid_probe) == [0, 1, 2, 3, 4, 5, 6, 7])
+	_check("no se construyen pistas de mas", invalid_probe.lane_nodes.size() == 8)
+	invalid_probe.queue_free()
+	_check("un orden con pistas repetidas no es valido",
+		not SettingsManager.is_valid_lane_order([0, 0, 1, 2, 3, 4, 5, 6]))
+	_check("una permutacion de las 8 pistas es valida",
+		SettingsManager.is_valid_lane_order([7, 6, 5, 4, 3, 2, 1, 0]))
+
+	SettingsManager.custom_lanes = saved_lanes
+	GameManager.mode = GameManager.GameMode.DEFAULT
+	await get_tree().process_frame
+
+	print("=== 4c. el editor horizontal reordena al arrastrar ===")
+	var row := LaneOrderRow.new()
+	add_child(row)
+	row.size = Vector2(800, 120)
+	row.set_order([0, 1, 2, 3, 4, 5, 6, 7])
+	var emitted: Array = []
+	row.order_changed.connect(func(order: Array) -> void: emitted.append(order))
+	row._begin(Vector2(50, 60))
+	row._update_drag(Vector2(250, 60))
+	row._end(Vector2(250, 60))
+	_check("arrastrar una pista la mueve a la posicion destino",
+		row.get_order() == [1, 2, 0, 3, 4, 5, 6, 7])
+	_check("el editor emite el orden una sola vez", emitted.size() == 1)
+
+	row.set_order([0, 1, 2, 3, 4, 5, 6, 7])
+	row._begin(Vector2(50, 60))
+	row._update_drag(Vector2(50, 110))
+	row._end(Vector2(50, 110))
+	_check("un gesto vertical no reordena (deja pasar el scroll)",
+		row.get_order() == [0, 1, 2, 3, 4, 5, 6, 7])
+	row.queue_free()
 	await get_tree().process_frame
 
 	print("=== 5. tocar un pad da feedback sin chart ===")
@@ -352,6 +439,24 @@ func _check_settings_entry() -> void:
 		settings.free_mode_requested.connect(func() -> void: seen.append(true), CONNECT_ONE_SHOT)
 		open_btn.pressed.emit()
 		_check("el boton pide abrir el modo libre", seen.size() == 1)
+
+	var custom_btn: Button = _find_button(settings, "Custom")
+	_check("hay opcion de modo Custom", custom_btn != null)
+	if custom_btn != null:
+		var saved_mode: int = SettingsManager.game_mode
+		var saved_lanes: Array = SettingsManager.custom_lanes.duplicate()
+		custom_btn.button_pressed = true
+		await get_tree().process_frame
+		_check("el modo Custom muestra el editor horizontal",
+			settings._custom_lane_card != null and settings._custom_lane_card.visible)
+		_check("el editor horizontal arranca con las 8 pistas",
+			settings._custom_lane_row != null and settings._custom_lane_row.get_order().size() == 8)
+		_check("el editor guarda el orden al soltar",
+			settings._custom_lane_row != null and settings._custom_lane_row.order_changed.is_connected(settings._on_lane_order_changed))
+		_check("hay boton para resetear el orden", _find_button(settings, "Reset to Default") != null)
+		SettingsManager.game_mode = saved_mode
+		SettingsManager.custom_lanes = saved_lanes
+		SettingsManager.save_settings()
 
 	var audio_tab: Button = _find_button(settings, "AUDIO")
 	_check("hay pestana AUDIO", audio_tab != null)

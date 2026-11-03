@@ -49,7 +49,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │   Each card is a SettingsUI.Section (rounded surface, kicker, body rows).
 │   CONTROLS tab:
 │       ├── CONTROL MODE (segmented Default / Haptic / Custom)
-│       ├── LANE ORDER (Custom only; colour chip + up/down buttons)
+│       ├── LANE ORDER (Custom only; horizontal draggable lane strip)
 │       ├── LAYOUT (Mirrored / Left Handed)
 │       ├── HAPTIC KICK (enable, sensitivity, advanced tuning disclosure)
 │       ├── FREE MODE (Open Free Mode)   — shortcut to the empty track
@@ -882,9 +882,13 @@ from `TouchInput` and avoids recalculating it.
 
 ### Keyboard (desktop)
 
-Keys **1–8** on the numeric row map to lanes **0–7**. Implemented in
-`TouchInput._input()` as `InputEventKey`, it calls
-`HitDetection.try_hit_lane()` exactly like touch input.
+Keys **1–8** on the numeric row address the **visual columns 0–7** (left to
+right), not the logical lane indices. Each key is resolved through
+`highway.lane_nodes[visual_idx].lane_index`, the same mapping used by touch, so
+the number keys follow Haptic/Custom lane order. In Haptic mode (7 lanes) key 8
+is ignored. Implemented in `TouchInput._unhandled_input()` as
+`InputEventKey`, it calls `HitDetection.try_hit_lane()` exactly like touch
+input.
 
 ### Optimized hit detection
 
@@ -1457,7 +1461,7 @@ values:
 | `haptic_calibration_duration` | 1.5 | Calibration duration without a gravity sensor (s) |
 | `haptic_show_debug` | false | On-screen debug overlay |
 | `game_mode` | 0 | Game mode (0=Default, 1=Haptic, 2=Custom) |
-| `custom_lanes` | [] | Custom lane order |
+| `custom_lanes` | `[0,1,2,3,4,5,6,7]` | Custom lane order (invalid or incomplete orders fall back to the standard order) |
 | `mirrored` | false | Mirrored layout |
 | `left_handed` | false | Left-handed mode |
 | `screen_shake` | true | Screen-space KICK/HH/SNARE feedback (`DrumPulse`) |
@@ -1521,9 +1525,14 @@ a fill change rather than a border, so a rounded component never renders its
 corners in a different shade from its body. No new UI literal colors are
 written outside `Palette.gd`.
 
+The Custom lane order card uses `LaneOrderRow`, a horizontal strip that mirrors
+the highway's lane colours and labels. Each block can be dragged left or right
+with mouse or touch; the blocks between shift as the lane moves. A vertical
+swipe is left untouched so it still scrolls the settings page.
+
 Pages:
 
-- **CONTROLS** — Control mode (Default/Haptic/Custom, segmented), lane order (Custom only), layout (mirrored/left handed), haptic kick with sensitivity and an advanced-tuning disclosure, Free Mode and a "Reset CONTROLS to Defaults" button.
+- **CONTROLS** — Control mode (Default/Haptic/Custom, segmented), lane order (Custom only, horizontal draggable lane strip), layout (mirrored/left handed), haptic kick with sensitivity and an advanced-tuning disclosure, Free Mode and a "Reset CONTROLS to Defaults" button.
 - **GAMEPLAY** — Speed and pacing, feedback (hit feedback/screen shake), performance (FPS counter/cap), timing and calibration (note offset, judgement windows), and a "Reset GAMEPLAY to Defaults" button.
 - **AUDIO** — Master, music, drums & effects and menu-preview volume (applied to the buses immediately), default sample velocity, and a "Reset AUDIO to Defaults" button.
 - **SONGS** — Need songs/Get songs, storage access, library locations, extra folders, explicit scan with progress and diagnostics, and a "Reset SONGS to Defaults" button.
