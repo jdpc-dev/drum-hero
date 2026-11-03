@@ -43,7 +43,7 @@ var left_handed: bool = false
 var screen_shake: bool = true
 var show_fps: bool = false
 var max_fps: int = 60
-var show_hit_feedback: bool = true
+var show_hit_feedback: bool = false
 var countdown_threshold: float = 5.0
 var use_guitar_fallback: bool = false
 var show_judgment_areas: bool = false
@@ -154,7 +154,7 @@ func load_settings() -> void:
 	screen_shake = cfg.get_value("visual", "screen_shake", true)
 	show_fps = cfg.get_value("visual", "show_fps", false)
 	max_fps = cfg.get_value("visual", "max_fps", 60)
-	show_hit_feedback = cfg.get_value("visual", "show_hit_feedback", true)
+	show_hit_feedback = cfg.get_value("visual", "show_hit_feedback", false)
 	countdown_threshold = cfg.get_value("gameplay", "countdown_threshold", 5.0)
 	use_guitar_fallback = cfg.get_value("gameplay", "use_guitar_fallback", false)
 	show_judgment_areas = cfg.get_value("visual", "show_judgment_areas", false)
@@ -192,7 +192,7 @@ func reset_hud_to_defaults() -> void:
 	show_fps = false
 	max_fps = 60
 	screen_shake = true
-	show_hit_feedback = true
+	show_hit_feedback = false
 	note_speed = 1.0
 	countdown_threshold = 5.0
 	audio_offset_ms = 0.0

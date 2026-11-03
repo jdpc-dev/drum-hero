@@ -1469,7 +1469,7 @@ values:
 | `left_handed` | false | Left-handed mode |
 | `screen_shake` | true | Screen-space KICK/HH/SNARE feedback (`DrumPulse`) |
 | `show_fps` | false | Show FPS counter on screen |
-| `show_hit_feedback` | true | Show judgement text at each hit line |
+| `show_hit_feedback` | false | Show judgement text at each hit line |
 | `countdown_threshold` | 5.0 | Minimum gap (s) to show the countdown |
 | `preview_volume` | 0.8 | Song preview volume in the main menu |
 | `use_guitar_fallback` | false | Use PART GUITAR as fallback if PART DRUMS is missing |
