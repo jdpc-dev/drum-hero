@@ -457,12 +457,16 @@ func _on_state_changed(new_state: GameManager.GameState) -> void:
 
 func _pause_game() -> void:
 	_is_paused = true
+	if _pause_button:
+		_pause_button.hide()
 	GameManager.set_state(GameManager.GameState.PAUSED)
 	_show_pause_overlay()
 
 
 func _resume_game() -> void:
 	_is_paused = false
+	if _pause_button:
+		_pause_button.show()
 	_hide_pause_overlay()
 	GameManager.set_state(GameManager.GameState.PLAYING)
 	TimingEngine.resume()
@@ -489,6 +493,8 @@ func _restart_song() -> void:
 # difficulty change, which also restarts the song from the beginning.
 func _reset_run_state() -> void:
 	_is_paused = false
+	if _pause_button:
+		_pause_button.show()
 	_hide_pause_overlay()
 	_hide_countdown()
 	_hide_result_overlay()
