@@ -1615,7 +1615,8 @@ shorter cues:
 
 `DrumPulse` lives at `CanvasLayer.layer = 4`, below the CRASH overlay at layer 5,
 so a crash hit always wins visually even when another lane is hit at the same
-time. The whole overlay is gated by `SettingsManager.screen_shake` (on by
+time. Its KICK/HH/SNARE screen motion respects the existing Screen shake
+setting; TOM/RIDE local feedback is independent of it. The whole overlay is gated by `SettingsManager.screen_shake` (on by
 default), so KICK, HH and SNARE screen motion can be disabled without affecting
 the other lane feedback.
 
@@ -1632,9 +1633,14 @@ buffer or creates the first effect nodes. `EffectManager._ready()` now:
 
 - pre-creates two `ParticleBurst` instances (with their 16 rects already built),
   one `CrashImpact`, one `LanePulse` and one `JudgementPopup`;
+- draws every pooled effect once at startup at `modulate.a = 0.01`, which
+  initialises its canvas/draw path and the judgement text glyphs;
 - draws `DrumPulse` and `CrashShockwave` once at startup with neutral uniforms
-  and a nearly transparent `ColorRect` (`modulate.a = 0.01`) so their shaders
-  and back-buffer path are compiled before gameplay.
+  and a nearly transparent `ColorRect`, waiting for the rendered frame so their
+  shaders and `BackBufferCopy` path are compiled before gameplay;
+- rasterises the score/combo/multiplier digits, the free-mode pad/counter glyphs
+  and all judgement strings at startup, so the first hit does not trigger a
+  font-atlas upload.
 
 Particle bursts and judgement popups are also triggered directly (no
 `call_deferred`), so the first hit does not lose a frame waiting for the next

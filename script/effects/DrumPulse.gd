@@ -48,8 +48,8 @@ func warm_up() -> void:
 	_copy.visible = true
 	_pulse.visible = true
 	_pulse.modulate.a = 0.01
-	await get_tree().process_frame
-	await get_tree().process_frame
+	await _wait_for_draw()
+	await _wait_for_draw()
 	_pulse.modulate.a = 1.0
 	if _warming_up:
 		_warming_up = false
@@ -80,6 +80,13 @@ func trigger(lane_index: int) -> void:
 		_pulse.visible = true
 		set_process(true)
 	_update_uniforms()
+
+
+func _wait_for_draw() -> void:
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
 
 
 func _process(delta: float) -> void:

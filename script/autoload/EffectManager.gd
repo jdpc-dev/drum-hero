@@ -163,10 +163,76 @@ func _prewarm_pool(pool: Array, scene: PackedScene, count: int) -> void:
 
 
 func _warm_up_overlays() -> void:
+	await _warm_up_effect_draws()
 	if _crash_shockwave:
 		await _crash_shockwave.warm_up()
 	if _drum_pulse:
 		await _drum_pulse.warm_up()
+
+
+func _warm_up_effect_draws() -> void:
+	# Draw every pooled effect once at 1% alpha. This initialises the additive
+	# canvas variants and text rasterisation that a first hit would otherwise
+	# have to do in the middle of gameplay.
+	var layer := CanvasLayer.new()
+	layer.layer = 20
+	add_child(layer)
+	var center: Vector2 = get_viewport().get_visible_rect().size * 0.5
+
+	var burst: Node = _borrow(_particle_pool, PARTICLE_BURST_SCENE)
+	if burst:
+		burst.modulate.a = 0.01
+		layer.add_child(burst)
+		burst.global_position = center
+		burst.call("play", Color.WHITE, "kick")
+		await _wait_for_draw()
+		if burst.get_parent() == layer:
+			layer.remove_child(burst)
+		burst.modulate.a = 1.0
+
+	var impact: Node = _borrow(_crash_impact_pool, CRASH_IMPACT_SCENE)
+	if impact:
+		impact.modulate.a = 0.01
+		layer.add_child(impact)
+		impact.global_position = center
+		impact.call("play", Color.WHITE)
+		await _wait_for_draw()
+		if impact.get_parent() == layer:
+			layer.remove_child(impact)
+		impact.modulate.a = 1.0
+
+	var pulse: Node = _borrow(_lane_pulse_pool, LANE_PULSE_SCENE)
+	if pulse:
+		pulse.modulate.a = 0.01
+		layer.add_child(pulse)
+		pulse.global_position = center
+		pulse.call("play", "ride", Color.WHITE)
+		await _wait_for_draw()
+		if pulse.get_parent() == layer:
+			layer.remove_child(pulse)
+		pulse.modulate.a = 1.0
+
+	var popup: Node = _borrow(_judgement_pool, JUDGEMENT_POPUP_SCENE)
+	if popup:
+		popup.modulate.a = 0.01
+		layer.add_child(popup)
+		popup.global_position = center
+		for accuracy in range(6):
+			popup.call("show_judgement", accuracy)
+			await _wait_for_draw()
+		if popup.get_parent() == layer:
+			layer.remove_child(popup)
+		popup.modulate.a = 1.0
+
+	remove_child(layer)
+	layer.queue_free()
+
+
+func _wait_for_draw() -> void:
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
 
 
 func _borrow(pool: Array, scene: PackedScene) -> Node:

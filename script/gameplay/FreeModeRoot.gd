@@ -116,6 +116,34 @@ func _on_lane_pressed(lane_index: int, _position: Vector2) -> void:
 			EffectManager.trigger_lane_pulse("ride", hit_position, highway, lane_color)
 
 
+func _wait_for_draw() -> void:
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
+
+
+func _warm_up_text() -> void:
+	# The pad name and hit counter first get text on the first hit. Rasterise
+	# their glyphs once at startup so that first hit stays smooth on Android.
+	var samples: Array[Label] = []
+	samples.append(_make_text_sample("HH CLOSED & OPEN TOM 1 2 3", 64, Palette.TEXT_DIM))
+	samples.append(_make_text_sample("0123456789 hits", 22, Palette.ASH))
+	await _wait_for_draw()
+	await _wait_for_draw()
+	for label in samples:
+		label.queue_free()
+
+
+func _make_text_sample(text: String, font_size: int, color: Color) -> Label:
+	var label := _make_label(text, font_size, color)
+	label.size = Vector2(1200, 120)
+	label.modulate.a = 0.01
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(label)
+	return label
+
+
 func _update_pad_readout(lane_index: int) -> void:
 	if _pad_name_label == null:
 		return

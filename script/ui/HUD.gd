@@ -15,6 +15,7 @@ func _ready() -> void:
 	if SettingsManager.show_fps:
 		_ensure_fps_label()
 	_apply_padding()
+	call_deferred("_warm_up_text")
 
 
 # ScoreLabel and MultiplierLabel bring label_settings, and in Godot that
@@ -32,6 +33,49 @@ func _tint_label(label: Label, color: Color) -> void:
 	var settings: LabelSettings = label.label_settings.duplicate()
 	settings.font_color = color
 	label.label_settings = settings
+
+
+func _wait_for_draw() -> void:
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
+
+
+func _warm_up_text() -> void:
+	# Rasterise the score/combo digits once, off-screen and almost transparent,
+	# so the first hit does not pay the font-atlas upload on Android.
+	var samples: Array[Label] = []
+	if score_label and score_label.label_settings:
+		samples.append(_make_text_sample(score_label.label_settings, "0123456789"))
+	if multiplier_label and multiplier_label.label_settings:
+		samples.append(_make_text_sample(multiplier_label.label_settings, "x0123456789"))
+	if combo_label:
+		var combo := Label.new()
+		combo.add_theme_font_override("font", combo_label.get_theme_font("font"))
+		combo.add_theme_font_size_override("font_size", combo_label.get_theme_font_size("font_size"))
+		combo.text = "0123456789x"
+		combo.size = Vector2(800, 120)
+		combo.modulate.a = 0.01
+		combo.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(combo)
+		samples.append(combo)
+
+	await _wait_for_draw()
+	await _wait_for_draw()
+	for label in samples:
+		label.queue_free()
+
+
+func _make_text_sample(settings: LabelSettings, text: String) -> Label:
+	var label := Label.new()
+	label.label_settings = settings.duplicate()
+	label.text = text
+	label.size = Vector2(800, 120)
+	label.modulate.a = 0.01
+	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(label)
+	return label
 
 
 func _process(_delta: float) -> void:

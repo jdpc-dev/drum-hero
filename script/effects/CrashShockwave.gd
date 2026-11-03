@@ -66,8 +66,8 @@ func warm_up() -> void:
 	_copy.visible = true
 	_ripple.visible = true
 	_ripple.modulate.a = 0.01
-	await get_tree().process_frame
-	await get_tree().process_frame
+	await _wait_for_draw()
+	await _wait_for_draw()
 	_ripple.modulate.a = 1.0
 	if _warming_up:
 		_warming_up = false
@@ -103,6 +103,13 @@ func trigger(global_position: Vector2, color: Color) -> void:
 		_ripple.visible = true
 		set_process(true)
 	_update_uniforms()
+
+
+func _wait_for_draw() -> void:
+	if DisplayServer.get_name() == "headless":
+		await get_tree().process_frame
+	else:
+		await RenderingServer.frame_post_draw
 
 
 func _process(delta: float) -> void:
