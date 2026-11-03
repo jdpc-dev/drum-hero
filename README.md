@@ -106,7 +106,7 @@ short description always visible next to the navigation:
 - **Gameplay** — Note speed, silence countdown, hit feedback, screen shake, FPS counter and cap, note offset and the timing windows.
 - **Audio** — Master, music, drums & effects and menu preview volume, plus the default sample velocity.
 - **Songs** — storage permission, Downloads preset, extra folders, scan depth, an explicit **Rescan now** (the only thing that walks the disks, with progress in a modal) and scan diagnostics, including why a rescan is pending.
-- **Advanced** — guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
+- **Advanced** — theme picker (Blood, Tear, Hacker), guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
 
 The version and credits live behind **About Drum Hero** in the sidebar (or the
 **About** button in the compact layout). On Android the panel always uses the
@@ -137,9 +137,10 @@ godot --headless --path . res://tools/test_lanes.tscn
 godot --headless --path . res://tools/test_menu_state.tscn
 godot --headless --path . res://tools/test_song_end.tscn
 godot --headless --path . res://tools/test_song_end_e2e.tscn
+godot --headless --path . res://tools/test_theme.tscn
 ```
 
-The full set is `test_encoding`, `test_freemode`, `test_highscores`, `test_lanes`, `test_libscan`, `test_library_cache`, `test_menu_state`, `test_metadata`, `test_song_end`, `test_song_end_e2e`, `test_songsui` and `test_timeline`.
+The full set is `test_encoding`, `test_freemode`, `test_highscores`, `test_lanes`, `test_libscan`, `test_library_cache`, `test_menu_state`, `test_metadata`, `test_song_end`, `test_song_end_e2e`, `test_songsui`, `test_theme` and `test_timeline`.
 
 ### Android export
 

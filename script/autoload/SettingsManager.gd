@@ -50,6 +50,7 @@ var countdown_threshold: float = 5.0
 var use_guitar_fallback: bool = false
 var show_judgment_areas: bool = false
 var show_menu_status: bool = false
+var theme: String = Palette.THEME_BLOOD
 var preview_volume: float = 0.8
 var gameplay_padding_enabled: bool = OS.get_name() == "Android"
 var gameplay_padding_left: float = 75.0   # dp
@@ -87,6 +88,7 @@ func dp_to_godot_px(dp_value: float) -> float:
 
 func _ready() -> void:
 	load_settings()
+	theme = Palette.apply_theme(theme)
 	Engine.max_fps = max_fps
 
 
@@ -161,6 +163,7 @@ func load_settings() -> void:
 	use_guitar_fallback = cfg.get_value("gameplay", "use_guitar_fallback", false)
 	show_judgment_areas = cfg.get_value("visual", "show_judgment_areas", false)
 	show_menu_status = cfg.get_value("visual", "show_menu_status", false)
+	theme = Palette.normalize_theme(str(cfg.get_value("visual", "theme", Palette.THEME_BLOOD)))
 	preview_volume = cfg.get_value("audio", "preview_volume", 0.8)
 	gameplay_padding_enabled = cfg.get_value("experimental", "gameplay_padding_enabled", _default_gameplay_padding_enabled())
 	gameplay_padding_left = cfg.get_value("experimental", "gameplay_padding_left", cfg.get_value("experimental", "gameplay_padding_amount", 75.0))
@@ -223,6 +226,7 @@ func reset_experimental_to_defaults() -> void:
 	use_guitar_fallback = false
 	show_judgment_areas = false
 	show_menu_status = false
+	theme = Palette.apply_theme(Palette.THEME_BLOOD)
 	haptic_show_debug = false
 	gameplay_padding_enabled = _default_gameplay_padding_enabled()
 	gameplay_padding_left = 75.0
@@ -230,6 +234,12 @@ func reset_experimental_to_defaults() -> void:
 	gameplay_padding_top = 0.0
 	gameplay_padding_bottom = 0.0
 	save_settings()
+
+
+func set_theme(value: String) -> String:
+	theme = Palette.apply_theme(value)
+	save_settings()
+	return theme
 
 
 func update_preview_volume(value: float) -> void:
@@ -273,6 +283,7 @@ func save_settings() -> void:
 	cfg.set_value("gameplay", "use_guitar_fallback", use_guitar_fallback)
 	cfg.set_value("visual", "show_judgment_areas", show_judgment_areas)
 	cfg.set_value("visual", "show_menu_status", show_menu_status)
+	cfg.set_value("visual", "theme", theme)
 	cfg.set_value("audio", "preview_volume", preview_volume)
 	cfg.set_value("experimental", "gameplay_padding_enabled", gameplay_padding_enabled)
 	cfg.set_value("experimental", "gameplay_padding_left", gameplay_padding_left)

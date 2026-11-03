@@ -25,6 +25,11 @@ func _ready() -> void:
 func _apply_label_colors() -> void:
 	_tint_label(score_label, Palette.TEXT)
 	_tint_label(multiplier_label, Palette.CHROME)
+	# ComboLabel has no LabelSettings, so it takes the accent directly. The
+	# scene used to carry a literal red override; keeping it here makes the
+	# combo follow the active theme.
+	combo_label.add_theme_color_override("font_color", Palette.ACCENT)
+	combo_label.add_theme_color_override("font_outline_color", Color(Palette.INK, 0.5))
 
 
 func _tint_label(label: Label, color: Color) -> void:

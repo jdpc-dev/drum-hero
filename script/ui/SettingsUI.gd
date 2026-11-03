@@ -65,6 +65,17 @@ static var _empty_icon: ImageTexture
 static var _grabber: ImageTexture
 
 
+# Generated textures bake the active accent color into their pixels. The theme
+# picker calls this before rebuilding the settings shell so switches and
+# sliders are not left in the previous theme.
+static func clear_theme_cache() -> void:
+	_switch_on = null
+	_switch_off = null
+	_switch_on_disabled = null
+	_switch_off_disabled = null
+	_grabber = null
+
+
 # --- Surfaces and type ------------------------------------------------------
 
 static func flat(bg: Color, radius: int = RADIUS_CONTROL, border: int = 0, border_color: Color = Color.TRANSPARENT) -> StyleBoxFlat:
@@ -280,8 +291,8 @@ static func button(text: String, kind: String = "secondary") -> Button:
 		"primary":
 			normal = pad(flat(Palette.ACCENT, RADIUS_CONTROL), px(22), px(12))
 			hover = pad(flat(Palette.ACCENT_BRIGHT, RADIUS_CONTROL), px(22), px(12))
-			pressed = pad(flat(Palette.BLOOD_BRIGHT, RADIUS_CONTROL), px(22), px(12))
-			font_color = Palette.BONE_HI
+			pressed = pad(flat(Palette.ACCENT_PRESSED, RADIUS_CONTROL), px(22), px(12))
+			font_color = Palette.ON_ACCENT
 		"ghost":
 			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), px(20), px(12))
 			hover = pad(flat(Palette.SURFACE_2, RADIUS_CONTROL), px(20), px(12))
@@ -296,7 +307,7 @@ static func button(text: String, kind: String = "secondary") -> Button:
 			normal = pad(flat(Palette.SURFACE_1, RADIUS_CONTROL), px(20), px(12))
 			hover = pad(flat(Palette.ACCENT_FAINT, RADIUS_CONTROL), px(20), px(12))
 			pressed = pad(flat(Palette.ACCENT_SOFT, RADIUS_CONTROL), px(20), px(12))
-			font_color = Palette.BLOOD_GLOW
+			font_color = Palette.ACCENT_GLOW
 		_:
 			normal = pad(flat(Palette.SURFACE_3, RADIUS_CONTROL), px(22), px(12))
 			hover = pad(flat(Palette.SURFACE_4, RADIUS_CONTROL), px(22), px(12))
@@ -310,8 +321,8 @@ static func button(text: String, kind: String = "secondary") -> Button:
 	node.add_theme_stylebox_override("disabled", disabled)
 	node.add_theme_stylebox_override("focus", hover)
 	node.add_theme_color_override("font_color", font_color)
-	node.add_theme_color_override("font_hover_color", Palette.BONE_HI)
-	node.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
+	node.add_theme_color_override("font_hover_color", Palette.ON_ACCENT if kind == "primary" else Palette.BONE_HI)
+	node.add_theme_color_override("font_pressed_color", Palette.ON_ACCENT if kind == "primary" else Palette.BONE_HI)
 	node.add_theme_color_override("font_focus_color", font_color)
 	node.add_theme_color_override("font_disabled_color", Palette.MUTED_DIM)
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
@@ -349,7 +360,7 @@ static func switch_check(text: String, pressed: bool) -> CheckBox:
 	node.add_theme_icon_override("unchecked", switch_texture(false, false))
 	node.add_theme_icon_override("checked_disabled", switch_texture(true, true))
 	node.add_theme_icon_override("unchecked_disabled", switch_texture(false, true))
-	node.add_theme_stylebox_override("focus", pad(flat(Color(1, 1, 1, 0.04), RADIUS_CONTROL), px(6), px(4)))
+	node.add_theme_stylebox_override("focus", pad(flat(Palette.BORDER_SOFT, RADIUS_CONTROL), px(6), px(4)))
 	node.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return node
 
@@ -447,7 +458,7 @@ static func switch_texture(on: bool, disabled: bool) -> ImageTexture:
 	var h: int = int(size.y)
 	var image := Image.create(w, h, false, Image.FORMAT_RGBA8)
 	var radius: float = h * 0.5
-	var track: Color = Palette.ACCENT if on else Color(0.220, 0.220, 0.245)
+	var track: Color = Palette.ACCENT if on else Palette.SURFACE_4
 	if disabled:
 		track = Color(track.r, track.g, track.b, track.a * 0.45)
 	var knob_center := Vector2(w - radius, radius) if on else Vector2(radius, radius)
@@ -653,7 +664,7 @@ static func slider(min_value: float, max_value: float, step: float, value: float
 	node.custom_minimum_size.y = px(44)
 	node.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	node.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	node.add_theme_stylebox_override("slider", pad(flat(Color(1, 1, 1, 0.10), 3), 0, px(3)))
+	node.add_theme_stylebox_override("slider", pad(flat(Palette.BORDER, 3), 0, px(3)))
 	node.add_theme_stylebox_override("grabber_area", pad(flat(Palette.ACCENT, 3), 0, px(3)))
 	node.add_theme_stylebox_override("grabber_area_highlight", pad(flat(Palette.ACCENT_BRIGHT, 3), 0, px(3)))
 	node.add_theme_icon_override("grabber", grabber_texture())
@@ -736,7 +747,7 @@ static func add_slider_row(parent: VBoxContainer, title_text: String, desc: Stri
 
 static func style_progress(bar: ProgressBar) -> void:
 	bar.mouse_filter = Control.MOUSE_FILTER_PASS
-	bar.add_theme_stylebox_override("background", pad(flat(Color(1, 1, 1, 0.08), 4), 0, px(4)))
+	bar.add_theme_stylebox_override("background", pad(flat(Palette.BORDER_SOFT, 4), 0, px(4)))
 	bar.add_theme_stylebox_override("fill", pad(flat(Palette.ACCENT, 4), 0, px(4)))
 	bar.custom_minimum_size.y = px(10)
 
@@ -753,9 +764,9 @@ static func _style_scroll_bar(bar: ScrollBar) -> void:
 	else:
 		bar.custom_minimum_size.y = px(10)
 	bar.add_theme_stylebox_override("scroll", flat(Color.TRANSPARENT, 4))
-	bar.add_theme_stylebox_override("grabber", flat(Color(1, 1, 1, 0.14), 4))
-	bar.add_theme_stylebox_override("grabber_highlight", flat(Color(1, 1, 1, 0.26), 4))
-	bar.add_theme_stylebox_override("grabber_pressed", flat(Color(1, 1, 1, 0.34), 4))
+	bar.add_theme_stylebox_override("grabber", flat(Palette.BORDER, 4))
+	bar.add_theme_stylebox_override("grabber_highlight", flat(Palette.BORDER_STRONG, 4))
+	bar.add_theme_stylebox_override("grabber_pressed", flat(Palette.BORDER_STRONG, 4))
 
 
 # --- Inputs -----------------------------------------------------------------

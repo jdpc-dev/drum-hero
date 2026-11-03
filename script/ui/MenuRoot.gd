@@ -1,7 +1,6 @@
 class_name MenuRoot
 extends CanvasLayer
 
-const BG_COLOR: Color = Palette.NIGHT_BG
 const OUTER_PADDING_WIDE := 16.0
 const OUTER_PADDING_COMPACT := 10.0
 const CONTENT_MAX_WIDTH := 1180.0
@@ -14,6 +13,7 @@ const DIFFICULTY_NAMES := {60: "Easy", 72: "Medium", 84: "Hard", 96: "Expert", 1
 
 var _selected_song_index: int = -1
 var _filtered_indices: Array[int] = []
+var _settings_theme_revision: int = 0
 var _search_text: String = ""
 var _back_press_time: float = 0.0
 var _back_cooldown: float = 2.0
@@ -87,7 +87,6 @@ const BOOT_INTRO_FRAMES: Array[String] = [
 const BOOT_INTRO_FRAME_TIME := 0.1
 const BOOT_INTRO_FADE_TIME := 0.35
 const BOOT_INTRO_LAYER := 30
-const BOOT_INTRO_BG: Color = Color(0.141176, 0, 0, 1)
 
 const PREVIEW_ANIM_FRAMES := [".", "..", "..."]
 const PREVIEW_ANIM_INTERVAL := 0.3
@@ -117,6 +116,9 @@ var _preview_fading_out: bool = false
 
 func _ready() -> void:
 	SettingsUI.setup_ui_scale(get_viewport().get_visible_rect().size.y)
+	# Also covers closing an overlay that was never opened through this instance
+	# (tests do this directly): only a theme chosen inside Settings should reload.
+	_settings_theme_revision = Palette.revision
 	GameManager.set_state(GameManager.GameState.MENU)
 	get_tree().auto_accept_quit = false
 	# A cached library is already in memory: the menu opens without a scan.
@@ -183,7 +185,7 @@ func _maybe_show_boot_intro() -> void:
 	overlay.add_child(root)
 
 	var bg := ColorRect.new()
-	bg.color = BOOT_INTRO_BG
+	bg.color = Palette.NIGHT_VOID
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(bg)
@@ -366,7 +368,7 @@ func _on_cancel_scan_pressed() -> void:
 
 func _build_ui() -> void:
 	var bg := ColorRect.new()
-	bg.color = BG_COLOR
+	bg.color = Palette.NIGHT_BG
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(bg)
@@ -522,7 +524,7 @@ func _show_transient_status(text: String) -> void:
 
 
 func _build_preview_status() -> void:
-	_preview_status_label = SettingsUI.label("", 14, Palette.BLOOD_BRIGHT, 400)
+	_preview_status_label = SettingsUI.label("", 14, Palette.ACCENT_GLOW, 400)
 	_preview_status_label.name = "PreviewStatusLabel"
 	_preview_status_label.custom_minimum_size.y = SettingsUI.px(28)
 	_preview_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1376,6 +1378,7 @@ func _settings_is_open() -> bool:
 func _on_settings_pressed() -> void:
 	if _settings_is_open():
 		return
+	_settings_theme_revision = Palette.revision
 	_old_guitar_fallback = SettingsManager.use_guitar_fallback
 	_old_menu_status = SettingsManager.show_menu_status
 	_old_library_state = [
@@ -1407,6 +1410,13 @@ func _on_settings_closed() -> void:
 	# only through "Rescan now"; this method just reflects what SongLoader
 	# already has in memory.
 	if _is_switching_scene or not is_inside_tree():
+		return
+	# A theme selected in Settings repainted the overlay in place. The menu
+	# underneath was hidden the whole time, so rebuild it through the normal
+	# scene path; `_exit_tree`/`_ready` already preserve search, selection and
+	# scroll position across this reload.
+	if Palette.revision != _settings_theme_revision:
+		get_tree().call_deferred("reload_current_scene")
 		return
 	if SettingsManager.show_menu_status != _old_menu_status:
 		_apply_status_visibility()

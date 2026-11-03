@@ -185,7 +185,7 @@ func _layout_hud() -> void:
 	var pt: float = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_top) if SettingsManager.gameplay_padding_enabled else 0.0
 	var content_w: float = vs.x - pl - pr
 
-	var title := _make_label("FREE MODE", 18, Palette.BLOOD_GLOW)
+	var title := _make_label("FREE MODE", 18, Palette.ACCENT_GLOW)
 	title.name = "TitleLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -314,7 +314,7 @@ func _show_debug(msg: String) -> void:
 		var pl: float = 0.0
 		if SettingsManager.gameplay_padding_enabled:
 			pl = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left)
-		_debug_label = _make_label(msg, 14, Palette.BLOOD_BRIGHT)
+		_debug_label = _make_label(msg, 14, Palette.ACCENT_GLOW)
 		_debug_label.name = "DebugLabel"
 		# Below the FPS readout and clear of the centred pause button.
 		_debug_label.position = Vector2(10.0 + pl, 100.0)
@@ -477,9 +477,9 @@ func _show_pause_overlay() -> void:
 	var exit_btn: Button = SettingsUI.button("EXIT", "secondary")
 	exit_btn.name = "ExitButton"
 	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	exit_btn.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
-	exit_btn.add_theme_color_override("font_hover_color", Palette.BLOOD_GLOW)
-	exit_btn.add_theme_color_override("font_pressed_color", Palette.BLOOD_GLOW)
+	exit_btn.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
+	exit_btn.add_theme_color_override("font_hover_color", Palette.ACCENT_GLOW)
+	exit_btn.add_theme_color_override("font_pressed_color", Palette.ACCENT_GLOW)
 	exit_btn.pressed.connect(_exit_to_menu)
 	vbox.add_child(exit_btn)
 
@@ -515,7 +515,7 @@ func _hide_pause_overlay() -> void:
 func _show_calibration_label() -> void:
 	if _calibration_label:
 		return
-	_calibration_label = _make_label("CALIBRATING...", 20, Palette.BLOOD_GLOW)
+	_calibration_label = _make_label("CALIBRATING...", 20, Palette.ACCENT_GLOW)
 	_calibration_label.name = "CalibrationLabel"
 	_calibration_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_calibration_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

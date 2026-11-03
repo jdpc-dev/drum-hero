@@ -63,6 +63,7 @@ var _field_touch_start: Vector2 = Vector2.ZERO
 var _field_scroll_start: int = 0
 
 # ADVANCED tab elements
+var _theme_buttons: Array[CheckBox] = []
 var _padding_check: CheckBox
 var _padding_left_slider: HSlider
 var _padding_right_slider: HSlider
@@ -381,6 +382,15 @@ func _on_viewport_resized() -> void:
 	# The navigation moves between the side and the top, so the shell is
 	# rebuilt rather than re-parented. The active tab survives.
 	_wide_layout = wide
+	_rebuild_shell()
+
+
+# The theme picker uses the same teardown as a breakpoint change: every
+# StyleBox and generated texture was built with the old palette, so the shell
+# is recreated from scratch while keeping the active tab.
+func _rebuild_shell() -> void:
+	if not is_inside_tree():
+		return
 	_about_overlay = null
 	for child in get_children():
 		remove_child(child)
@@ -464,7 +474,7 @@ func _build_sidebar() -> Control:
 	var brand := VBoxContainer.new()
 	brand.mouse_filter = Control.MOUSE_FILTER_PASS
 	brand.add_theme_constant_override("separation", 0)
-	var wordmark := SettingsUI.label("DRUM HERO", 11, Palette.ACCENT, 600)
+	var wordmark := SettingsUI.label("DRUM HERO", 11, Palette.ACCENT_GLOW, 600)
 	brand.add_child(wordmark)
 	brand.add_child(SettingsUI.label("Settings", 30, Palette.BONE_HI, 600))
 	var brand_pad := MarginContainer.new()
@@ -659,6 +669,8 @@ func _build_tab_content() -> void:
 	_padding_right_slider = null
 	_padding_top_slider = null
 	_padding_bottom_slider = null
+	_mode_buttons.clear()
+	_theme_buttons.clear()
 	_keyboard_settle_frames = 0
 	_field_touch_active = false
 	_field_touch_dragging = false
@@ -826,7 +838,79 @@ func _build_audio_content(parent: VBoxContainer) -> void:
 	_add_reset_section_button(parent, "AUDIO", _on_reset_audio)
 
 
+func _build_theme_card(parent: VBoxContainer) -> void:
+	var ids: Array[String] = Palette.THEME_IDS
+	var current: int = maxi(ids.find(SettingsManager.theme), 0)
+	var options: Array[String] = []
+	for id in ids:
+		options.append(Palette.theme_name(id))
+
+	var card := SettingsUI.section("THEME", "Repaints the app immediately. Lane colors are part of gameplay and never change.")
+	parent.add_child(card)
+
+	_theme_buttons.clear()
+	var segmented := SettingsUI.Segmented.new(options)
+	for i in ids.size():
+		segmented.buttons[i].button_pressed = (i == current)
+		segmented.buttons[i].toggled.connect(_on_theme_toggled.bind(i))
+		_theme_buttons.append(segmented.buttons[i])
+	card.body.add_child(segmented)
+	card.body.add_child(SettingsUI.description(Palette.theme_description(ids[current])))
+	card.body.add_child(_build_theme_swatches(ids[current]))
+
+
+func _build_theme_swatches(theme_id: String) -> Control:
+	var row := HBoxContainer.new()
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
+	row.add_theme_constant_override("separation", SettingsUI.px(8))
+	var colors: Array[Color] = Palette.theme_swatches(theme_id)
+	var captions: Array[String] = ["SURFACE", "ACCENT", "METAL"]
+	for i in colors.size():
+		var column := VBoxContainer.new()
+		column.mouse_filter = Control.MOUSE_FILTER_PASS
+		column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		column.add_theme_constant_override("separation", SettingsUI.px(6))
+
+		var block := PanelContainer.new()
+		block.custom_minimum_size.y = SettingsUI.px(36)
+		block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		block.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		block.add_theme_stylebox_override("panel", SettingsUI.flat(colors[i], 8, 1, Palette.BORDER))
+		column.add_child(block)
+
+		var caption := SettingsUI.label(captions[i], 11, Palette.ASH, 600)
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		column.add_child(caption)
+		row.add_child(column)
+	return row
+
+
+func _on_theme_toggled(toggled_on: bool, index: int) -> void:
+	if index < 0 or index >= Palette.THEME_IDS.size():
+		return
+	var current: int = maxi(Palette.THEME_IDS.find(SettingsManager.theme), 0)
+	if not toggled_on:
+		# A segmented control is a radio group: tapping the active theme must
+		# not leave the UI with no theme selected.
+		for i in _theme_buttons.size():
+			if is_instance_valid(_theme_buttons[i]):
+				_theme_buttons[i].set_pressed_no_signal(i == current)
+		return
+	for i in _theme_buttons.size():
+		if is_instance_valid(_theme_buttons[i]):
+			_theme_buttons[i].set_pressed_no_signal(i == index)
+	var theme_id: String = Palette.THEME_IDS[index]
+	if theme_id == SettingsManager.theme:
+		return
+	SettingsManager.set_theme(theme_id)
+	SettingsUI.clear_theme_cache()
+	# The CheckBox that emitted this is about to be freed with the old shell.
+	_rebuild_shell.call_deferred()
+
+
 func _build_advanced_content(parent: VBoxContainer) -> void:
+	_build_theme_card(parent)
+
 	var compatibility := SettingsUI.section("COMPATIBILITY")
 	parent.add_child(compatibility)
 	SettingsUI.add_toggle(compatibility.body, "Use PART GUITAR as fallback", "For songs without PART DRUMS, play the guitar chart as drums.", SettingsManager.use_guitar_fallback, _on_fallback_toggled)
@@ -934,7 +1018,7 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 	get_songs_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	get_songs_button.pressed.connect(_on_get_songs_pressed)
 	songs_card.body.add_child(get_songs_button)
-	_songs_link_status = SettingsUI.description("", Palette.BLOOD_GLOW)
+	_songs_link_status = SettingsUI.description("", Palette.ACCENT_GLOW)
 	_songs_link_status.visible = false
 	songs_card.body.add_child(_songs_link_status)
 
@@ -1074,7 +1158,7 @@ func _update_permission_section() -> void:
 		return
 	if not AndroidBridge.is_storage_plugin_available():
 		_permission_status.text = "Storage plugin missing from this build. The Android export did not include the AllFilesAccess plugin, so external folders cannot be read."
-		_permission_status.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+		_permission_status.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
 		_permission_button.text = "Unavailable"
 		_permission_button.disabled = true
 		return
@@ -1085,7 +1169,7 @@ func _update_permission_section() -> void:
 		_permission_button.text = "Open Android settings"
 		return
 	_permission_status.text = "Not granted. Grant access to choose the folders where songs are read from."
-	_permission_status.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+	_permission_status.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
 	_permission_button.text = "Grant access"
 
 
@@ -1097,7 +1181,7 @@ func _on_permission_pressed() -> void:
 		ok = AndroidBridge.request_all_files_access()
 	if not ok:
 		_permission_status.text = "Could not open Android settings (" + AndroidBridge.get_storage_last_error() + "). Grant \"All files access\" manually for Drum Hero in Android Settings > Apps."
-		_permission_status.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+		_permission_status.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
 		return
 	_update_permission_section()
 
@@ -1132,7 +1216,7 @@ func _rebuild_roots_list() -> void:
 		path_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		path_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 		if not DirAccess.dir_exists_absolute(path):
-			path_label.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+			path_label.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
 		hbox.add_child(path_label)
 
 		var remove_btn := SettingsUI.button("Remove", "quiet")
@@ -1577,7 +1661,7 @@ func _show_about() -> void:
 	column.add_child(app_name)
 
 	var app_version: String = str(ProjectSettings.get_setting("application/config/version", "1.0.0"))
-	var version := SettingsUI.label("VERSION " + app_version, 11, Palette.ACCENT, 600)
+	var version := SettingsUI.label("VERSION " + app_version, 11, Palette.ACCENT_GLOW, 600)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(version)
 
@@ -1711,7 +1795,8 @@ func _add_reset_section_button(parent: VBoxContainer, section_name: String, call
 func _load_current_settings() -> void:
 	var current_mode: int = SettingsManager.game_mode
 	for i in _mode_buttons.size():
-		_mode_buttons[i].set_pressed_no_signal(i == current_mode)
+		if is_instance_valid(_mode_buttons[i]):
+			_mode_buttons[i].set_pressed_no_signal(i == current_mode)
 	if is_instance_valid(_custom_lane_card):
 		_custom_lane_card.visible = (current_mode == 2)
 	_sync_haptic_toggle()
@@ -1780,7 +1865,8 @@ func _on_reset_audio() -> void:
 
 func _on_reset_experimental() -> void:
 	SettingsManager.reset_experimental_to_defaults()
-	_build_tab_content()
+	SettingsUI.clear_theme_cache()
+	_rebuild_shell.call_deferred()
 
 
 func _on_free_mode_pressed() -> void:

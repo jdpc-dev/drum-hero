@@ -129,7 +129,7 @@ func _show_debug(msg: String) -> void:
 		_debug_label.position = Vector2(20, 80)
 		_debug_label.z_index = 10
 		_debug_label.add_theme_font_size_override("font_size", 18)
-		_debug_label.add_theme_color_override("font_color", Palette.BLOOD_BRIGHT)
+		_debug_label.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
 		_debug_label.add_theme_color_override("font_shadow_color", Palette.INK)
 		_debug_label.add_theme_constant_override("shadow_offset_x", 2)
 		_debug_label.add_theme_constant_override("shadow_offset_y", 2)
@@ -242,7 +242,7 @@ func _show_calibration_label() -> void:
 	_calibration_label.name = "CalibrationLabel"
 	_calibration_label.text = "CALIBRATING..."
 	_calibration_label.add_theme_font_size_override("font_size", 18)
-	_calibration_label.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
+	_calibration_label.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
 	_calibration_label.add_theme_color_override("font_shadow_color", Palette.INK_SOFT)
 	_calibration_label.add_theme_constant_override("shadow_offset_x", 1)
 	_calibration_label.add_theme_constant_override("shadow_offset_y", 1)
@@ -640,9 +640,9 @@ func _build_pause_main_menu(difficulties: Array) -> Control:
 	var exit_btn: Button = SettingsUI.button("EXIT", "secondary")
 	exit_btn.name = "ExitButton"
 	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	exit_btn.add_theme_color_override("font_color", Palette.BLOOD_GLOW)
-	exit_btn.add_theme_color_override("font_hover_color", Palette.BLOOD_GLOW)
-	exit_btn.add_theme_color_override("font_pressed_color", Palette.BLOOD_GLOW)
+	exit_btn.add_theme_color_override("font_color", Palette.ACCENT_GLOW)
+	exit_btn.add_theme_color_override("font_hover_color", Palette.ACCENT_GLOW)
+	exit_btn.add_theme_color_override("font_pressed_color", Palette.ACCENT_GLOW)
 	exit_btn.pressed.connect(_exit_to_menu)
 	vbox.add_child(exit_btn)
 

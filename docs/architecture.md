@@ -76,6 +76,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │       └── Reset SONGS to Defaults
 │
 │   ADVANCED tab:
+│       ├── THEME (Blood / Tear / Hacker + swatches)
 │       ├── COMPATIBILITY (Use PART GUITAR)
 │       ├── DEBUG (Judgment Areas / Haptic Debug / Menu Status)
 │       ├── SCREEN PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-100dp)
@@ -1563,7 +1564,7 @@ Pages:
 - **GAMEPLAY** — Speed and pacing, feedback (hit feedback/screen shake), performance (FPS counter/cap), timing and calibration (note offset, judgement windows), and a "Reset GAMEPLAY to Defaults" button.
 - **AUDIO** — Master, music, drums & effects and menu-preview volume (applied to the buses immediately), default sample velocity, and a "Reset AUDIO to Defaults" button.
 - **SONGS** — Need songs/Get songs, storage access, library locations, extra folders, explicit scan with progress and diagnostics, and a "Reset SONGS to Defaults" button.
-- **ADVANCED** — Chart fallback, debug toggles, Android screen padding, and a "Reset ADVANCED to Defaults" button.
+- **ADVANCED** — Theme picker first, then chart fallback, debug toggles, Android screen padding, and a "Reset ADVANCED to Defaults" button. The theme card previews Blood, Tear and Hacker immediately; the reset restores Blood.
 
 **About** is not a tab: the sidebar footer (or the compact header) opens a modal
 with the version and credits. Back/Escape closes this modal first.
@@ -1575,7 +1576,23 @@ their defaults and rebuilds the active tab's UI.
 - `reset_controls_to_defaults()` — resets `game_mode`, `custom_lanes`, `haptic_*`, `mirrored`, `left_handed` and syncs `GameManager.mode`.
 - `reset_hud_to_defaults()` — resets `show_fps`, `max_fps`, `screen_shake`, `show_hit_feedback`, `note_speed`, `countdown_threshold`, `audio_offset_ms`.
 - `reset_audio_to_defaults()` — resets `master_volume`, `music_volume`, `sfx_volume`, `preview_volume`, `default_sample_velocity`.
-- `reset_experimental_to_defaults()` — resets `use_guitar_fallback`, `show_judgment_areas`, `show_menu_status`, `haptic_show_debug`, `gameplay_padding_*`.
+- `reset_experimental_to_defaults()` — resets `use_guitar_fallback`, `show_judgment_areas`, `show_menu_status`, `haptic_show_debug`, `gameplay_padding_*` and restores the Blood theme.
+
+**Themes.** `Palette.gd` exposes the three themes as `THEME_DATA` entries and
+copies the selected entry into static tokens accepted by the existing
+`Palette.*` call sites. Blood is the default and keeps the red identity; Tear
+uses a desaturated ocean-floor blue; Hacker uses terminal green with near-black
+text on the primary accent button (`ON_ACCENT`). Metallic-white text, borders,
+beat lines and the eight lane colours do not change, because they carry text
+contrast or gameplay meaning. `SettingsManager.theme` persists the id under
+`[visual] theme`, applies it during autoload startup and validates unknown
+values back to Blood. Selecting a theme in Settings applies the palette, clears
+`SettingsUI`'s generated switch/grabber textures and rebuilds the settings
+shell. When the overlay closes, `MenuRoot` compares `Palette.revision` and
+reloads the menu scene; its existing `_exit_tree`/`_ready` state restore keeps
+the search, selected song and scroll position. The engine boot splash and
+launcher icon are intentionally theme-independent: both are read before user
+settings exist. The icon is a metallic-white glyph on a black tile.
 
 **Technical note:** on Android, `Control` nodes that are children of a
 `CanvasLayer` and not inside a `ScrollContainer` do not render correctly. To fix
