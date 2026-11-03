@@ -49,20 +49,20 @@ const SURFACE_4: Color = Color("#242424")
 # --- Accent: theme-specific ramp ---
 # ACCENT is the fill; ACCENT_BRIGHT is hover; ACCENT_PRESSED is the pressed
 # button fill. ACCENT_GLOW is for accent-colored text on dark surfaces.
-static var ACCENT_DEEP: Color = Color("#5C0A12")
-static var ACCENT: Color = Color("#C1121F")
-static var ACCENT_BRIGHT: Color = Color("#D01A27")
-static var ACCENT_PRESSED: Color = Color("#8C1020")
-static var ACCENT_GLOW: Color = Color("#F26B73")
-static var ACCENT_SOFT: Color = Color(0.757, 0.071, 0.122, 0.14)
-static var ACCENT_FAINT: Color = Color(0.757, 0.071, 0.122, 0.07)
-static var ACCENT_EDGE: Color = Color(0.757, 0.071, 0.122, 0.42)
+static var ACCENT_DEEP: Color = Color("#5C0008")
+static var ACCENT: Color = Color("#BC000E")
+static var ACCENT_BRIGHT: Color = Color("#D40012")
+static var ACCENT_PRESSED: Color = Color("#7A0006")
+static var ACCENT_GLOW: Color = Color("#FF3B3B")
+static var ACCENT_SOFT: Color = Color(0.737, 0.000, 0.055, 0.14)
+static var ACCENT_FAINT: Color = Color(0.737, 0.000, 0.055, 0.07)
+static var ACCENT_EDGE: Color = Color(0.737, 0.000, 0.055, 0.42)
 
 # Opaque version of ACCENT_SOFT over the settings cards. Rounded pills use it
 # instead of the translucent token so their antialiased corners do not pick up
 # a different shade from whatever surface happens to sit behind them.
-static var ACCENT_SURFACE: Color = Color("#2E0B11")
-static var ACCENT_SURFACE_HOVER: Color = Color("#3C0F17")
+static var ACCENT_SURFACE: Color = Color("#3A0008")
+static var ACCENT_SURFACE_HOVER: Color = Color("#4F000C")
 
 # Fill color for text drawn on top of a primary accent button. Virus uses the
 # near-black ink so the bright green button keeps a strong contrast.
@@ -115,37 +115,37 @@ static var THEME_DATA: Dictionary = {
 	THEME_BLOOD: {
 		"name": "Blood",
 		"description": "Oxblood, black and bare steel. Gore, hate and pain.",
-		"accent_deep": Color("#5C0A12"),
-		"accent": Color("#C1121F"),
-		"accent_bright": Color("#D01A27"),
-		"accent_pressed": Color("#8C1020"),
-		"accent_glow": Color("#F26B73"),
-		"accent_surface": Color("#2E0B11"),
-		"accent_surface_hover": Color("#3C0F17"),
+		"accent_deep": Color("#5C0008"),
+		"accent": Color("#BC000E"),
+		"accent_bright": Color("#D40012"),
+		"accent_pressed": Color("#7A0006"),
+		"accent_glow": Color("#FF3B3B"),
+		"accent_surface": Color("#3A0008"),
+		"accent_surface_hover": Color("#4F000C"),
 		"on_accent": BONE_HI,
 	},
 	THEME_TEAR: {
 		"name": "Tear",
 		"description": "Deep-ocean blue, black and cold steel. Melancholy, sadness and depression.",
-		"accent_deep": Color("#0C3346"),
-		"accent": Color("#23718A"),
-		"accent_bright": Color("#1F6B82"),
-		"accent_pressed": Color("#17566B"),
-		"accent_glow": Color("#86CBE0"),
-		"accent_surface": Color("#0B2532"),
-		"accent_surface_hover": Color("#103141"),
+		"accent_deep": Color("#00245C"),
+		"accent": Color("#0052D9"),
+		"accent_bright": Color("#0066E6"),
+		"accent_pressed": Color("#002E73"),
+		"accent_glow": Color("#5AA9FF"),
+		"accent_surface": Color("#001E4D"),
+		"accent_surface_hover": Color("#002B6B"),
 		"on_accent": BONE_HI,
 	},
 	THEME_VIRUS: {
 		"name": "Virus",
 		"description": "Terminal green, black and steel. Systems, the underground and illegality.",
-		"accent_deep": Color("#063D1A"),
-		"accent": Color("#1FAF4B"),
-		"accent_bright": Color("#3ED36F"),
-		"accent_pressed": Color("#2BC15B"),
-		"accent_glow": Color("#7BE89B"),
-		"accent_surface": Color("#082615"),
-		"accent_surface_hover": Color("#0C341D"),
+		"accent_deep": Color("#005C1A"),
+		"accent": Color("#00E63C"),
+		"accent_bright": Color("#00FF41"),
+		"accent_pressed": Color("#00A82E"),
+		"accent_glow": Color("#66FF66"),
+		"accent_surface": Color("#00330F"),
+		"accent_surface_hover": Color("#004A17"),
 		"on_accent": INK,
 	},
 }

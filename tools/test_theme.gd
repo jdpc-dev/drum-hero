@@ -67,7 +67,7 @@ func _ready() -> void:
 	print("=== 1. las tres paletas aplican sus tokens ===")
 	var blood: String = Palette.apply_theme(Palette.THEME_BLOOD)
 	_check("Blood normalizado", blood == Palette.THEME_BLOOD)
-	_check("Blood usa el rojo oxblood", Palette.ACCENT == Color("#C1121F"))
+	_check("Blood usa el rojo sangre", Palette.ACCENT == Color("#BC000E"))
 	_check("Blood usa el fondo negro compartido", Palette.NIGHT_BG == Color.BLACK)
 	_check("Blood mantiene contraste en el botón primario", _primary_contrast_ok())
 	var metal: Color = Palette.BONE
@@ -75,7 +75,7 @@ func _ready() -> void:
 
 	var tear: String = Palette.apply_theme(Palette.THEME_TEAR)
 	_check("Tear normalizado", tear == Palette.THEME_TEAR)
-	_check("Tear usa el azul de fondo marino", Palette.ACCENT == Color("#23718A"))
+	_check("Tear usa el azul de fondo marino", Palette.ACCENT == Color("#0052D9"))
 	_check("Tear comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
 	_check("Tear conserva el metal", Palette.BONE == metal)
 	_check("Tear usa texto metal sobre el acento", Palette.ON_ACCENT == Palette.BONE_HI)
@@ -83,7 +83,7 @@ func _ready() -> void:
 
 	var virus: String = Palette.apply_theme(Palette.THEME_VIRUS)
 	_check("Virus normalizado", virus == Palette.THEME_VIRUS)
-	_check("Virus usa el verde terminal", Palette.ACCENT == Color("#1FAF4B"))
+	_check("Virus usa el verde terminal", Palette.ACCENT == Color("#00E63C"))
 	_check("Virus comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
 	_check("el launch comparte el mismo fondo negro",
 		ProjectSettings.get_setting("application/boot_splash/bg_color", Color.RED) == Color.BLACK)
