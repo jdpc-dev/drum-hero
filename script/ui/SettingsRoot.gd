@@ -779,7 +779,7 @@ func _build_gameplay_content(parent: VBoxContainer) -> void:
 	var feedback := SettingsUI.section("FEEDBACK")
 	parent.add_child(feedback)
 	SettingsUI.add_toggle(feedback.body, "Show hit feedback", "Judgement text (PERFECT, GOOD...) at the hit line.", SettingsManager.show_hit_feedback, _on_hit_feedback_toggled)
-	SettingsUI.add_toggle(feedback.body, "Screen shake", "Shake the highway on hard hits.", SettingsManager.screen_shake, _on_screen_shake_toggled)
+	SettingsUI.add_toggle(feedback.body, "Screen shake", "Screen motion on KICK, HH and SNARE hits.", SettingsManager.screen_shake, _on_screen_shake_toggled)
 
 	var performance := SettingsUI.section("PERFORMANCE")
 	parent.add_child(performance)

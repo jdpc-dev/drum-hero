@@ -1460,7 +1460,7 @@ values:
 | `custom_lanes` | [] | Custom lane order |
 | `mirrored` | false | Mirrored layout |
 | `left_handed` | false | Left-handed mode |
-| `screen_shake` | false | Screen shake effect |
+| `screen_shake` | true | Screen-space KICK/HH/SNARE feedback (`DrumPulse`) |
 | `show_fps` | false | Show FPS counter on screen |
 | `show_hit_feedback` | true | Show judgement text at each hit line |
 | `countdown_threshold` | 5.0 | Minimum gap (s) to show the countdown |
@@ -1589,7 +1589,7 @@ Implemented with pooling in `EffectManager` (max. 16 instances per type).
 | CrashImpact | `scene/UI/Effects/CrashImpact.tscn` | `trigger_crash_impact(pos, parent, color)` — soft light-band/spark burst on CRASH hits |
 | JudgementPopup | `scene/UI/Effects/JudgementPopup.tscn` | `show_judgement(accuracy, pos, parent)` — active on each hit (controlled by `show_hit_feedback`) |
 | CrashShockwave | `scene/UI/Effects/CrashShockwave.tscn` | `trigger_crash_shockwave(pos, color)` — active on CRASH hits only. Not pooled: one persistent `CanvasLayer` overlay (`BackBufferCopy` + shader) reused for every bubble. |
-| DrumPulse | `scene/UI/Effects/DrumPulse.tscn` | `trigger_drum_pulse(lane)` — subtle screen feedback for KICK, HH and SNARE. Not pooled: one persistent `CanvasLayer` overlay at layer 4. |
+| DrumPulse | `scene/UI/Effects/DrumPulse.tscn` | `trigger_drum_pulse(lane)` — subtle screen feedback for KICK, HH and SNARE (controlled by `screen_shake`). Not pooled: one persistent `CanvasLayer` overlay at layer 4. |
 | LanePulse | `scene/UI/Effects/LanePulse.tscn` | `trigger_lane_pulse("tom"/"ride", pos, parent, color)` — local TOM heartbeat or RIDE bell ping. |
 
 The CRASH shockwave lives above the HUD (`CanvasLayer.layer = 5`) so the
@@ -1615,7 +1615,9 @@ shorter cues:
 
 `DrumPulse` lives at `CanvasLayer.layer = 4`, below the CRASH overlay at layer 5,
 so a crash hit always wins visually even when another lane is hit at the same
-time.
+time. The whole overlay is gated by `SettingsManager.screen_shake` (on by
+default), so KICK, HH and SNARE screen motion can be disabled without affecting
+the other lane feedback.
 
 The local highway note-hit feedback follows the same personalities: the lane
 slash uses lane-tuned duration/intensity and `ParticleBurst` selects a profile

@@ -38,7 +38,7 @@ var game_mode: int = 0  # GameManager.GameMode.DEFAULT
 var custom_lanes: Array = []
 var mirrored: bool = false
 var left_handed: bool = false
-var screen_shake: bool = false
+var screen_shake: bool = true
 var show_fps: bool = false
 var max_fps: int = 60
 var show_hit_feedback: bool = true
@@ -120,7 +120,7 @@ func load_settings() -> void:
 	custom_lanes = cfg.get_value("layout", "custom_lanes", [])
 	mirrored = cfg.get_value("layout", "mirrored", false)
 	left_handed = cfg.get_value("layout", "left_handed", false)
-	screen_shake = cfg.get_value("visual", "screen_shake", false)
+	screen_shake = cfg.get_value("visual", "screen_shake", true)
 	show_fps = cfg.get_value("visual", "show_fps", false)
 	max_fps = cfg.get_value("visual", "max_fps", 60)
 	show_hit_feedback = cfg.get_value("visual", "show_hit_feedback", true)
@@ -160,7 +160,7 @@ func reset_controls_to_defaults() -> void:
 func reset_hud_to_defaults() -> void:
 	show_fps = false
 	max_fps = 60
-	screen_shake = false
+	screen_shake = true
 	show_hit_feedback = true
 	note_speed = 1.0
 	countdown_threshold = 5.0

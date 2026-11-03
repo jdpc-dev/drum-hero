@@ -117,8 +117,11 @@ func trigger_crash_shockwave(position: Vector2, color: Color) -> void:
 
 
 # Subtle screen-space feedback: KICK lifts the top edge, HH shakes the frame,
-# SNARE adds a short staccato jolt.
+# SNARE adds a short staccato jolt. The whole overlay is opt-in because every
+# pulse moves the rendered frame (accessibility / motion comfort).
 func trigger_drum_pulse(lane_index: int) -> void:
+	if not SettingsManager.screen_shake:
+		return
 	if _drum_pulse:
 		_drum_pulse.trigger(lane_index)
 
