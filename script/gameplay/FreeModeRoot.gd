@@ -301,7 +301,10 @@ func _update_haptic_debug() -> void:
 	if SettingsManager.haptic_show_debug:
 		_show_debug(InputManager.get_haptic_debug_string())
 	elif _debug_label:
-		_debug_label.text = ""
+		# Detach before the deferred free so a fast off/on toggle cannot leave
+		# two labels named "DebugLabel" in the HUD during the same frame.
+		if _debug_label.get_parent():
+			_debug_label.get_parent().remove_child(_debug_label)
 		_debug_label.queue_free()
 		_debug_label = null
 
