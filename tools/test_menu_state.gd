@@ -18,6 +18,15 @@ func _action_event(action: String) -> InputEventAction:
 	return event
 
 
+func _key_event(keycode: Key, echo: bool) -> InputEventKey:
+	var event := InputEventKey.new()
+	event.keycode = keycode
+	event.physical_keycode = keycode
+	event.pressed = true
+	event.echo = echo
+	return event
+
+
 func _populate_songs() -> void:
 	SongLoader.song_list.clear()
 	for i in 40:
@@ -100,6 +109,10 @@ func _ready() -> void:
 	_check("flecha arriba retrocede por el filtro", menu._selected_song_index == 3)
 	menu._input(_action_event("ui_up"))
 	_check("flecha arriba se detiene en el primer resultado", menu._selected_song_index == 3)
+	menu._input(_key_event(KEY_DOWN, true))
+	_check("la repeticion de flecha no mueve la seleccion", menu._selected_song_index == 3)
+	menu._input(_key_event(KEY_DOWN, false))
+	_check("una pulsacion nueva si avanza una cancion", menu._selected_song_index == 30)
 
 	# The ends clamp and an empty selection starts at the matching end.
 	menu._on_search_changed("Song 2")

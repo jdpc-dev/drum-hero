@@ -248,12 +248,12 @@ func _input(event: InputEvent) -> void:
 	if not _can_navigate_setlist():
 		return
 	# Up/Down are the built-in `ui_up`/`ui_down` actions: arrow keys on desktop
-	# and the D-pad on a gamepad. Key repeat is allowed so holding the key keeps
-	# moving through the list.
-	if event.is_action_pressed("ui_down", true):
+	# and the D-pad on a gamepad. Ignore key echo so holding an arrow moves one
+	# row instead of scrolling through the whole list.
+	if event.is_action_pressed("ui_down"):
 		_navigate_song(1)
 		get_viewport().set_input_as_handled()
-	elif event.is_action_pressed("ui_up", true):
+	elif event.is_action_pressed("ui_up"):
 		_navigate_song(-1)
 		get_viewport().set_input_as_handled()
 
