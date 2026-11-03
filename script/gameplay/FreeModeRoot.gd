@@ -96,7 +96,7 @@ func _on_lane_pressed(lane_index: int, _position: Vector2) -> void:
 	highway.flash_hit_line(lane_index)
 	var hit_position: Vector2 = highway.get_hit_global_position(lane_index)
 	var lane_color: Color = Highway._get_lane_colors()[lane_index]
-	EffectManager.call_deferred("trigger_particle_burst",
+	EffectManager.trigger_particle_burst(
 		hit_position,
 		lane_color,
 		highway,

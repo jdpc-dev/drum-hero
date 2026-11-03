@@ -135,7 +135,7 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 				_highlight()
 				var hit_position: Vector2 = highway_ref.get_hit_global_position(lane_index)
 				var lane_color: Color = Highway._get_lane_colors()[lane_index]
-				EffectManager.call_deferred("trigger_particle_burst",
+				EffectManager.trigger_particle_burst(
 					hit_position,
 					lane_color,
 					highway_ref,
@@ -159,7 +159,7 @@ func try_hit(current_time: float, touch_position: Vector2) -> bool:
 							"ride", hit_position, highway_ref, lane_color)
 
 				if SettingsManager.show_hit_feedback:
-					EffectManager.call_deferred("show_judgement",
+					EffectManager.show_judgement(
 						accuracy,
 						hit_position,
 						highway_ref)

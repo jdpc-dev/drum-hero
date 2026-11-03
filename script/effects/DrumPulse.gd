@@ -26,10 +26,34 @@ const SNARE_JOLT_PX: float = 3.0
 
 var _pulses: Array[Dictionary] = []
 var _viewport_size: Vector2 = Vector2(1280.0, 720.0)
+var _warming_up: bool = false
 
 
 func _ready() -> void:
 	_stop()
+
+
+# Draw one neutral frame at startup so the compiler/back-buffer path is ready
+# before the first KICK/HH/SNARE hit. The rect is nearly transparent.
+func warm_up() -> void:
+	if visible or _warming_up:
+		return
+	_warming_up = true
+	_viewport_size = get_viewport().get_visible_rect().size
+	_material.set_shader_parameter("viewport_size", _viewport_size)
+	_material.set_shader_parameter("screen_offset", Vector2.ZERO)
+	_material.set_shader_parameter("top_lift", 0.0)
+	_material.set_shader_parameter("top_glow", 0.0)
+	visible = true
+	_copy.visible = true
+	_pulse.visible = true
+	_pulse.modulate.a = 0.01
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_pulse.modulate.a = 1.0
+	if _warming_up:
+		_warming_up = false
+		_stop()
 
 
 func trigger(lane_index: int) -> void:
@@ -48,7 +72,9 @@ func trigger(lane_index: int) -> void:
 		_pulses.pop_front()
 	_pulses.append({"type": type, "age": 0.0})
 
-	if not visible:
+	if _warming_up:
+		_warming_up = false
+	if not visible or not is_processing():
 		visible = true
 		_copy.visible = true
 		_pulse.visible = true

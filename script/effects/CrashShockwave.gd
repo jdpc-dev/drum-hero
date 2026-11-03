@@ -44,10 +44,34 @@ var _max_radius: float = 1500.0
 var _viewport_size: Vector2 = Vector2(1280.0, 720.0)
 var _flash_elapsed: float = FLASH_DURATION
 var _flash_origin: Vector2 = Vector2.ZERO
+var _warming_up: bool = false
 
 
 func _ready() -> void:
 	_stop()
+
+
+# Draw one neutral frame at startup so the compiler/back-buffer path is ready
+# before the first real crash. The rect is nearly transparent, so this is
+# invisible even over the menu.
+func warm_up() -> void:
+	if visible or _warming_up:
+		return
+	_warming_up = true
+	_viewport_size = get_viewport().get_visible_rect().size
+	_waves.clear()
+	_flash_elapsed = FLASH_DURATION
+	_update_uniforms()
+	visible = true
+	_copy.visible = true
+	_ripple.visible = true
+	_ripple.modulate.a = 0.01
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_ripple.modulate.a = 1.0
+	if _warming_up:
+		_warming_up = false
+		_stop()
 
 
 # global_position is the crash lane origin in screen coordinates. color is the
@@ -71,7 +95,9 @@ func trigger(global_position: Vector2, color: Color) -> void:
 	_flash_elapsed = 0.0
 	_flash_origin = global_position
 
-	if not visible:
+	if _warming_up:
+		_warming_up = false
+	if not visible or not is_processing():
 		visible = true
 		_copy.visible = true
 		_ripple.visible = true

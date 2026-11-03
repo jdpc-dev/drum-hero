@@ -103,6 +103,10 @@ static func profile_for_lane(lane_index: int) -> String:
 			return ""
 
 
+func warm_up() -> void:
+	_init_particles()
+
+
 func _init_particles() -> void:
 	if _initialized:
 		return

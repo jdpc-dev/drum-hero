@@ -1622,6 +1622,22 @@ slash uses lane-tuned duration/intensity and `ParticleBurst` selects a profile
 from the lane index (heavy KICK debris, quick HH sparks, sharp SNARE spray,
 medium TOM debris, small upward RIDE sparkles, and the large CRASH burst).
 
+### First-hit warm-up
+
+On Android the first use of a custom canvas shader or a pooled effect could
+hitch while the driver compiles the shader, allocates the `BackBufferCopy`
+buffer or creates the first effect nodes. `EffectManager._ready()` now:
+
+- pre-creates two `ParticleBurst` instances (with their 16 rects already built),
+  one `CrashImpact`, one `LanePulse` and one `JudgementPopup`;
+- draws `DrumPulse` and `CrashShockwave` once at startup with neutral uniforms
+  and a nearly transparent `ColorRect` (`modulate.a = 0.01`) so their shaders
+  and back-buffer path are compiled before gameplay.
+
+Particle bursts and judgement popups are also triggered directly (no
+`call_deferred`), so the first hit does not lose a frame waiting for the next
+idle step.
+
 **Pooling mechanism (`_borrow`):**
 
 1. Walks the pool and removes invalid references with `is_instance_valid()`.

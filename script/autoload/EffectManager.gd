@@ -11,6 +11,8 @@ const CRASH_SHOCKWAVE_SCENE := preload("res://scene/UI/Effects/CrashShockwave.ts
 const CRASH_IMPACT_SCENE := preload("res://scene/UI/Effects/CrashImpact.tscn")
 const DRUM_PULSE_SCENE := preload("res://scene/UI/Effects/DrumPulse.tscn")
 const LANE_PULSE_SCENE := preload("res://scene/UI/Effects/LanePulse.tscn")
+const PARTICLE_BURST_SCENE := preload("res://scene/UI/Effects/ParticleBurst.tscn")
+const JUDGEMENT_POPUP_SCENE := preload("res://scene/UI/Effects/JudgementPopup.tscn")
 
 var _crash_shockwave: CrashShockwave
 var _drum_pulse: DrumPulse
@@ -42,6 +44,11 @@ func _ready() -> void:
 	_miss_sfx.name = "MissSFX"
 	_miss_sfx.volume_db = -9.0
 	add_child(_miss_sfx)
+
+	# Build the first instances and compile the full-screen shaders while the
+	# app is still starting, not on the player's first drum hit.
+	_prewarm_pools()
+	call_deferred("_warm_up_overlays")
 
 
 func play_hit_sfx() -> void:
@@ -78,7 +85,7 @@ static func _generate_beep(freq: float, duration: float) -> AudioStreamWAV:
 
 
 func trigger_particle_burst(position: Vector2, color: Color, parent: Node, lane_index: int = -1) -> void:
-	var burst: Node = _borrow(_particle_pool, preload("res://scene/UI/Effects/ParticleBurst.tscn"))
+	var burst: Node = _borrow(_particle_pool, PARTICLE_BURST_SCENE)
 	if burst:
 		parent.add_child(burst)
 		burst.global_position = position
@@ -126,11 +133,37 @@ func trigger_lane_pulse(mode: String, position: Vector2, parent: Node, color: Co
 
 
 func show_judgement(accuracy: int, position: Vector2, parent: Node) -> void:
-	var popup: Node = _borrow(_judgement_pool, preload("res://scene/UI/Effects/JudgementPopup.tscn"))
+	var popup: Node = _borrow(_judgement_pool, JUDGEMENT_POPUP_SCENE)
 	if popup:
 		parent.add_child(popup)
 		popup.global_position = position
 		popup.call("show_judgement", accuracy)
+
+
+func _prewarm_pools() -> void:
+	_prewarm_pool(_particle_pool, PARTICLE_BURST_SCENE, 2)
+	_prewarm_pool(_crash_impact_pool, CRASH_IMPACT_SCENE, 1)
+	_prewarm_pool(_lane_pulse_pool, LANE_PULSE_SCENE, 1)
+	_prewarm_pool(_judgement_pool, JUDGEMENT_POPUP_SCENE, 1)
+
+
+func _prewarm_pool(pool: Array, scene: PackedScene, count: int) -> void:
+	while pool.size() < count:
+		var instance: Node = scene.instantiate()
+		instance.visible = false
+		add_child(instance)
+		if instance.has_method("warm_up"):
+			instance.call("warm_up")
+		remove_child(instance)
+		instance.visible = true
+		pool.append(instance)
+
+
+func _warm_up_overlays() -> void:
+	if _crash_shockwave:
+		await _crash_shockwave.warm_up()
+	if _drum_pulse:
+		await _drum_pulse.warm_up()
 
 
 func _borrow(pool: Array, scene: PackedScene) -> Node:
