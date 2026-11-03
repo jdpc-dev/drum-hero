@@ -89,6 +89,8 @@ songs/<artist> - <song>/
 
 `notes.mid` takes priority over `notes.chart`. If a song has no drum track, enable **Settings → Advanced → Use PART GUITAR as fallback** to play the guitar chart as drums.
 
+Text metadata is read as UTF-8. Charts and `song.ini` files saved as Windows-1252/Latin-1 or UTF-16/UTF-32 (with a byte order mark) are detected and decoded automatically, so accented titles, currency/math symbols and other Unicode characters keep their original form. The scanned library cache is always written as UTF-8.
+
 The scanner also accepts `drums_1.ogg`, `drums_2.ogg`, etc. for multi-file stems. `.opus` audio plays on desktop (via `ffmpeg`), but not on Android — convert it to `.ogg` before loading it on a device:
 
 ```bash
@@ -137,7 +139,7 @@ godot --headless --path . res://tools/test_song_end.tscn
 godot --headless --path . res://tools/test_song_end_e2e.tscn
 ```
 
-The full set is `test_freemode`, `test_highscores`, `test_lanes`, `test_libscan`, `test_library_cache`, `test_menu_state`, `test_metadata`, `test_song_end`, `test_song_end_e2e`, `test_songsui` and `test_timeline`.
+The full set is `test_encoding`, `test_freemode`, `test_highscores`, `test_lanes`, `test_libscan`, `test_library_cache`, `test_menu_state`, `test_metadata`, `test_song_end`, `test_song_end_e2e`, `test_songsui` and `test_timeline`.
 
 ### Android export
 

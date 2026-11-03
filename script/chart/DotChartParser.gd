@@ -44,7 +44,7 @@ func load(path: String, root_path: String = "", difficulty_offset: int = -1, use
 	has_drum_track = false
 	using_guitar_fallback = false
 
-	var content: String = data.get_string_from_utf8()
+	var content: String = FileHelper.decode_text(data)
 	if content.is_empty():
 		push_error("DotChartParser: Empty or non-text file: ", path)
 		return false
@@ -529,7 +529,7 @@ static func detect_chart_info(path: String) -> Dictionary:
 	}
 	if data.is_empty():
 		return empty
-	var content: String = data.get_string_from_utf8()
+	var content: String = FileHelper.decode_text(data)
 	if content.is_empty():
 		return empty
 
@@ -583,7 +583,7 @@ static func parse_song_metadata(path: String) -> Dictionary:
 	var data: PackedByteArray = FileHelper.read_file(path)
 	if data.is_empty():
 		return result
-	var content: String = data.get_string_from_utf8()
+	var content: String = FileHelper.decode_text(data)
 	if content.is_empty():
 		return result
 	var start: int = content.find("[Song]")

@@ -9,7 +9,7 @@
 [ext_resource type="PackedScene" uid="uid://d2ycbv0bsfm54" path="res://scene/UI/Highway.tscn" id="10_5lqln"]
 [ext_resource type="Script" path="res://script/gameplay/GameplayRoot.gd" id="11_7md6q"]
 [ext_resource type="LabelSettings" path="res://asset/fonts/label_settings.tres" id="12_jn4yc"]
-[ext_resource type="FontFile" path="res://asset/fonts/main_font.ttf" id="13_font"]
+[ext_resource type="FontVariation" path="res://asset/fonts/main_font.tres" id="13_font"]
 
 [node name="Gameplay" type="Node2D"]
 script = ExtResource("11_7md6q")

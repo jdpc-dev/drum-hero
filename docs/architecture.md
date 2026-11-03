@@ -974,6 +974,26 @@ on the already-listed entries instead of probing with `FileAccess.open()`. This
 avoids up to 2 failed opens (and 2 more from `FileHelper`'s `content://` fallback
 on Android) for each folder of a deep tree.
 
+### Text encoding
+
+Community charts are not always UTF-8. `FileHelper.decode_text()` is the single
+entry point for text read from disk: it strips a UTF-8 BOM, decodes UTF-16 LE/BE
+and UTF-32 LE/BE (with BOM), and when the bytes are not valid UTF-8 it decodes
+the file as Windows-1252 (the encoding used by most legacy chart tools, and a
+superset of Latin-1). This avoids the `�` (U+FFFD) bytes that Godot produces
+when `get_string_from_utf8()` finds an invalid sequence. UTF-8 is kept
+byte-for-byte, including characters outside the Basic Multilingual Plane.
+
+`SongLoader` uses it for `song.ini`, `DotChartParser` for `.chart` headers and
+bodies, and `MidiParser` for text meta events. `FileHelper.read_text()` /
+`write_text()` wrap the same decoder and always write new files as UTF-8 without
+a BOM. The library cache (`user://song_library.json`) is therefore UTF-8 as
+well; `CACHE_SCHEMA` 4 invalidates caches created before legacy decoding existed.
+
+The UI keeps the decoded `String` unchanged through search, labels, scoring keys
+and the cache. `String.to_lower()` is Unicode-aware, so searching for an accented
+title matches it with its original case and accents.
+
 ### Cached library and rescan policy
 
 The walk is expensive (directory listings plus every chart and `song.ini`), so

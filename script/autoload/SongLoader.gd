@@ -49,7 +49,9 @@ const CACHE_PATH: String = "user://song_library.json"
 # DirAccess in exported builds), so they are discarded and rescanned once.
 # Schema 3 discards difficulty sets that treated MIDI fill markers 120-124 as
 # an Expert+ chart.
-const CACHE_SCHEMA: int = 3
+# Schema 4 discards metadata decoded before legacy encodings (Windows-1252 /
+# Latin-1 / UTF-16) were supported, so old caches cannot keep "Volc�n" titles.
+const CACHE_SCHEMA: int = 4
 const CHART_FILENAMES = ["notes.mid", "notes.chart"]
 const MAX_DIRS_PER_ROOT = 4000
 # Work ceiling per batch. The limit is directories, not time: a large library is
@@ -259,11 +261,10 @@ func apply_chart_options() -> void:
 func load_library_cache() -> bool:
 	if not FileAccess.file_exists(CACHE_PATH):
 		return false
-	var file := FileAccess.open(CACHE_PATH, FileAccess.READ)
-	if not file:
+	var content: String = FileHelper.read_text(CACHE_PATH)
+	if content.is_empty():
 		return false
-	var parsed: Variant = JSON.parse_string(file.get_as_text())
-	file.close()
+	var parsed: Variant = JSON.parse_string(content)
 	if typeof(parsed) != TYPE_DICTIONARY:
 		return false
 	var data: Dictionary = parsed
@@ -299,9 +300,6 @@ func load_library_cache() -> bool:
 
 
 func _save_library_cache() -> void:
-	var file := FileAccess.open(CACHE_PATH, FileAccess.WRITE)
-	if not file:
-		return
 	var data: Dictionary = {
 		"schema": CACHE_SCHEMA,
 		"app_version": _app_version(),
@@ -313,8 +311,7 @@ func _save_library_cache() -> void:
 		"unreadable_roots": _to_array(unreadable_roots),
 		"truncated_roots": _to_array(truncated_roots),
 	}
-	file.store_string(JSON.stringify(data))
-	file.close()
+	FileHelper.write_text(CACHE_PATH, JSON.stringify(data))
 
 
 func _normalize_cached_entry(entry: Dictionary) -> void:
@@ -790,10 +787,7 @@ func _detect_chart_info(notes_path: String) -> Dictionary:
 
 func _parse_ini(path: String) -> Dictionary:
 	var result: Dictionary = {}
-	var data: PackedByteArray = FileHelper.read_file(path)
-	if data.is_empty():
-		return result
-	var content: String = data.get_string_from_utf8()
+	var content: String = FileHelper.read_text(path)
 	if content.is_empty():
 		return result
 	var lines = content.split("\n", false)

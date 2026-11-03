@@ -8,7 +8,7 @@ extends RefCounted
 #
 # Colors come from Palette; no literal UI color is written outside of it.
 
-const FONT_PATH: String = "res://asset/fonts/main_font.ttf"
+const FONT_PATH: String = "res://asset/fonts/main_font.tres"
 
 const RADIUS_CARD: int = 18
 const RADIUS_CONTROL: int = 12
@@ -126,9 +126,13 @@ static func rounded_cover(texture: Texture2D, resolution: int = 192, radius_rati
 static func font_weight(weight: int) -> Font:
 	if _font_cache.has(weight):
 		return _font_cache[weight]
-	var base: FontFile = load(FONT_PATH)
+	var base: Font = load(FONT_PATH)
 	var variation := FontVariation.new()
 	variation.base_font = base
+	# Keep the bundled symbol fallback available through the weight variation
+	# as well; the base variation alone is enough on most platforms, but this
+	# also covers projects that swap the theme font at runtime.
+	variation.fallbacks = base.fallbacks.duplicate()
 	variation.variation_opentype = {"wght": float(weight)}
 	_font_cache[weight] = variation
 	return variation

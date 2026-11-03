@@ -116,7 +116,7 @@ func _parse_track(data: PackedByteArray, start: int) -> bool:
 			var meta_len: int = meta_len_result.value
 			offset = meta_len_result.next_offset
 			if meta_type == 0x03:
-				track_name = data.slice(offset, offset + meta_len).get_string_from_ascii()
+				track_name = FileHelper.decode_text(data.slice(offset, offset + meta_len))
 				is_drum_track = track_name.begins_with(_track_prefix)
 				is_2x_track = (
 					_track_prefix == "PART DRUMS"
@@ -496,7 +496,7 @@ static func detect_chart_info(path: String) -> Dictionary:
 						break
 				if mt == 0x03 and not is_drum and not is_guitar:
 					if pos + mlen <= track_end:
-						var name: String = data.slice(pos, pos + mlen).get_string_from_ascii()
+						var name: String = FileHelper.decode_text(data.slice(pos, pos + mlen))
 						if name.begins_with("PART DRUMS_2X"):
 							is_drum = true
 							is_2x_track = true
