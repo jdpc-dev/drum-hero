@@ -1582,8 +1582,9 @@ their defaults and rebuilds the active tab's UI.
 copies the selected entry into static tokens accepted by the existing
 `Palette.*` call sites. Blood is the default and keeps the red identity; Tear
 uses a desaturated ocean-floor blue; Hacker uses terminal green with near-black
-text on the primary accent button (`ON_ACCENT`). Metallic-white text, borders,
-beat lines and the eight lane colours do not change, because they carry text
+text on the primary accent button (`ON_ACCENT`). The black background, the
+surface layers, metallic-white text, borders, beat lines and the eight lane
+colours are shared across themes, because they carry the foundation, text
 contrast or gameplay meaning. `SettingsManager.theme` persists the id under
 `[visual] theme`, applies it during autoload startup and validates unknown
 values back to Blood. Selecting a theme in Settings applies the palette, clears
@@ -1592,7 +1593,8 @@ shell. When the overlay closes, `MenuRoot` compares `Palette.revision` and
 reloads the menu scene; its existing `_exit_tree`/`_ready` state restore keeps
 the search, selected song and scroll position. The engine boot splash and
 launcher icon are intentionally theme-independent: both are read before user
-settings exist. The icon is a metallic-white glyph on a black tile.
+settings exist. They share the same black as the app background, and the icon
+is a metallic-white glyph on a black tile.
 
 **Technical note:** on Android, `Control` nodes that are children of a
 `CanvasLayer` and not inside a `ScrollContainer` do not render correctly. To fix

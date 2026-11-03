@@ -98,7 +98,7 @@ Tabs and content:
 - GAMEPLAY: speed & pacing, feedback, performance, timing & calibration, reset.
 - AUDIO: master/music/drums/previews, drum samples, reset.
 - SONGS: need songs, storage access, library locations, extra folders, scan (progress in a modal), reset.
-- ADVANCED: theme first, then compatibility, debug, screen padding, reset.
+- ADVANCED: theme first (shared black background, accent-only palettes), then compatibility, debug, screen padding, reset.
 - About: modal with version and credits (opened from the sidebar/header).
 ```
 

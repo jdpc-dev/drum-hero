@@ -68,7 +68,7 @@ func _ready() -> void:
 	var blood: String = Palette.apply_theme(Palette.THEME_BLOOD)
 	_check("Blood normalizado", blood == Palette.THEME_BLOOD)
 	_check("Blood usa el rojo oxblood", Palette.ACCENT == Color("#C1121F"))
-	_check("Blood usa el fondo cálido", Palette.NIGHT_BG == Color("#0A0709"))
+	_check("Blood usa el fondo negro compartido", Palette.NIGHT_BG == Color.BLACK)
 	_check("Blood mantiene contraste en el botón primario", _primary_contrast_ok())
 	var metal: Color = Palette.BONE
 	_check("Blood conserva el metal", Palette.BONE == metal)
@@ -76,7 +76,7 @@ func _ready() -> void:
 	var tear: String = Palette.apply_theme(Palette.THEME_TEAR)
 	_check("Tear normalizado", tear == Palette.THEME_TEAR)
 	_check("Tear usa el azul de fondo marino", Palette.ACCENT == Color("#23718A"))
-	_check("Tear usa el fondo azul negro", Palette.NIGHT_BG == Color("#06090E"))
+	_check("Tear comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
 	_check("Tear conserva el metal", Palette.BONE == metal)
 	_check("Tear usa texto metal sobre el acento", Palette.ON_ACCENT == Palette.BONE_HI)
 	_check("Tear mantiene contraste en el botón primario", _primary_contrast_ok())
@@ -84,7 +84,9 @@ func _ready() -> void:
 	var hacker: String = Palette.apply_theme(Palette.THEME_HACKER)
 	_check("Hacker normalizado", hacker == Palette.THEME_HACKER)
 	_check("Hacker usa el verde terminal", Palette.ACCENT == Color("#1FAF4B"))
-	_check("Hacker usa el fondo verde negro", Palette.NIGHT_BG == Color("#050907"))
+	_check("Hacker comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
+	_check("el launch comparte el mismo fondo negro",
+		ProjectSettings.get_setting("application/boot_splash/bg_color", Color.RED) == Color.BLACK)
 	_check("Hacker conserva el metal", Palette.BONE == metal)
 	_check("Hacker usa tinta negra sobre el acento", Palette.ON_ACCENT == Palette.INK)
 	_check("Hacker mantiene contraste en el botón primario", _primary_contrast_ok())
@@ -93,7 +95,7 @@ func _ready() -> void:
 	_check("los ids ignoran espacios y mayúsculas", Palette.normalize_theme("  TeAr ") == Palette.THEME_TEAR)
 	var swatches: Array[Color] = Palette.theme_swatches(Palette.THEME_HACKER)
 	_check("la vista previa tiene superficie, acento y metal",
-		swatches.size() == 3 and swatches[2] == Palette.BONE)
+		swatches.size() == 3 and swatches[0] == Palette.NIGHT_BG and swatches[2] == Palette.BONE)
 	var base_keys: Array = Palette.THEME_DATA[Palette.THEME_BLOOD].keys()
 	base_keys.sort()
 	var same_keys: bool = true
@@ -142,7 +144,8 @@ func _ready() -> void:
 	_check("ADVANCED sigue activo tras reconstruir", int(root._current_tab) == 4)
 	_check("la tarjeta THEME sigue arriba", _text_dump(root).contains("THEME"))
 	var shell_bg := root.get_child(0) as ColorRect
-	_check("el fondo del panel usa la paleta nueva", shell_bg != null and shell_bg.color == Color("#06090E"))
+	_check("el fondo del panel sigue siendo el negro compartido",
+		shell_bg != null and shell_bg.color == Palette.NIGHT_BG and shell_bg.color == Color.BLACK)
 
 	root.queue_free()
 	await get_tree().process_frame
