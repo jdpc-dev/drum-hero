@@ -259,6 +259,12 @@ func get_lane_visual_index(lane_index: int) -> int:
 	return lane_index
 
 
+# In Haptic mode the KICK has no visible lane column: its notes and the slash
+# left by a hit span the whole highway instead of a single lane.
+func is_full_width_lane(lane_index: int) -> bool:
+	return lane_index == 3 and GameManager.mode == GameManager.GameMode.HAPTIC
+
+
 func _get_lane_order() -> Array[int]:
 	var mode: int = GameManager.mode
 	if mode == GameManager.GameMode.HAPTIC:

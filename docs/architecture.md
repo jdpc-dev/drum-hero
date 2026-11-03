@@ -616,6 +616,9 @@ the calculated position. Judgement uses `note_data.time - current_time` (the
 temporal delta from the note center), not visual overlap with the judgement
 bands.
 
+In **Haptic** mode the KICK has no visible lane column: its note and the slash
+left by a hit span the full highway width instead of a single `lane_w` column.
+
 ---
 
 ## Countdown between notes
@@ -1578,7 +1581,7 @@ When the player hits a note, the following visual effects fire simultaneously.
 exclusively from the song's drum stems (`drums_1`, `drums_2`, etc.).
 
 1. **HitLine flash** — The corresponding hit line's `ColorRect` turns white and returns to its original color (0.1s). Implemented in `HitLine.gd`.
-2. **Slash effect** — Two `ColorRect`s expand from the lane center toward the edges with the lane's characteristic color. Duration and intensity are lane-tuned: fast/light for HH, SNARE and RIDE, heavier for KICK and medium for TOMS (0.09–0.16s). Implemented in `Lane.gd` (`_configure_hit_feedback()`).
+2. **Slash effect** — Two `ColorRect`s expand from the lane center toward the edges with the lane's characteristic color (in Haptic mode the sensor KICK has no column, so its slash expands across the full highway width). Duration and intensity are lane-tuned: fast/light for HH, SNARE and RIDE, heavier for KICK and medium for TOMS (0.09–0.16s). Implemented in `Lane.gd` (`_configure_hit_feedback()`).
 3. **ParticleBurst** — A lane-profiled burst explodes from the impact point: heavy falling debris for KICK, quick small sparks for HH, a sharp fast spray for SNARE, medium debris for TOMS, small upward sparkles for RIDE and the original large burst for CRASH (8–16 particles, 0.20–0.40s). Pool in `EffectManager`.
 4. **JudgementPopup** — Judgement text ("PERFECT", "EXCELLENT", "GOOD", "LATE", "EARLY", "MISS") appears at the corresponding lane's hit line, floats upward and fades (0.6s). Pool in `EffectManager`. Controlled by `show_hit_feedback`.
 5. **Lane background highlight** — The lane's `bg_rect` briefly increases its alpha.

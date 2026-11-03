@@ -82,6 +82,23 @@ func _ready() -> void:
 	_check("modo HAPTIC saca la pista del kick de la fila", not haptic_order.has(3))
 	_check("modo HAPTIC anade la pista de kick aparte", probe.get_kick_lane() != null)
 
+	var haptic_kick_lane: Lane = probe.get_kick_lane()
+	haptic_kick_lane._highlight()
+	haptic_kick_lane._update_highlight(0.0)
+	var slash_left: float = haptic_kick_lane._slash_center_x - haptic_kick_lane._slash_lw * 0.5
+	var slash_right: float = haptic_kick_lane._slash_center_x + haptic_kick_lane._slash_lw * 0.5
+	_check("el slash del kick cubre toda la autopista",
+		is_zero_approx(slash_left) and is_equal_approx(slash_right, probe.screen_w))
+
+	var kick_note: Note = (load("res://scene/UI/Note.tscn") as PackedScene).instantiate() as Note
+	kick_note.lane_ref = haptic_kick_lane
+	haptic_kick_lane.add_child(kick_note)
+	var kick_event := ChartData.NoteEvent.new(0, 3, ChartData.NoteType.NORMAL)
+	kick_event.time = 0.0
+	kick_note.reset(kick_event)
+	_check("la nota del kick sigue ocupando toda la autopista", kick_note._is_kick_full_width)
+	kick_note.queue_free()
+
 	var haptic_keys := TouchInput.new()
 	add_child(haptic_keys)
 	haptic_keys.setup(probe, null)

@@ -29,7 +29,7 @@ func reset(event: ChartData.NoteEvent) -> void:
 	_rect.color = _get_color_for_lane(lane)
 
 	var hw: Node = lane_ref.highway_ref if lane_ref else null
-	_is_kick_full_width = (lane == 3 and hw != null and GameManager.mode == GameManager.GameMode.HAPTIC)
+	_is_kick_full_width = hw != null and hw.is_full_width_lane(lane)
 
 	if _is_kick_full_width:
 		_rect.size = Vector2(hw.screen_w, (hw.screen_w / float(hw.lane_nodes.size())) * 0.25)

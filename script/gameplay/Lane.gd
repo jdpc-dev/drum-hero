@@ -221,10 +221,14 @@ func _update_highlight(delta: float) -> void:
 		return
 
 	var total: int = highway_ref.active_lane_count
-	_slash_lw = highway_ref.screen_w / float(total)
 	_slash_bg_h = highway_ref.highway_bottom_y - highway_ref.highway_top_y
-	var vi: int = highway_ref.get_lane_visual_index(lane_index)
-	_slash_center_x = _slash_lw * vi + _slash_lw * 0.5
+	if highway_ref.is_full_width_lane(lane_index):
+		_slash_lw = highway_ref.screen_w
+		_slash_center_x = highway_ref.screen_w * 0.5
+	else:
+		_slash_lw = highway_ref.screen_w / float(total)
+		var vi: int = highway_ref.get_lane_visual_index(lane_index)
+		_slash_center_x = _slash_lw * vi + _slash_lw * 0.5
 	_slash_top_y = highway_ref.highway_top_y
 
 	var t: float = _slash_timer / _slash_duration
