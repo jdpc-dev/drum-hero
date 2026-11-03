@@ -15,8 +15,12 @@ extends RefCounted
 
 const THEME_BLOOD: String = "blood"
 const THEME_TEAR: String = "tear"
-const THEME_HACKER: String = "hacker"
-const THEME_IDS: Array[String] = [THEME_BLOOD, THEME_TEAR, THEME_HACKER]
+const THEME_VIRUS: String = "virus"
+const THEME_IDS: Array[String] = [THEME_BLOOD, THEME_TEAR, THEME_VIRUS]
+
+# Saved settings from before the rename. normalize_theme() maps it forward so
+# an existing selection survives the id change instead of falling back to Blood.
+const LEGACY_THEME_HACKER: String = "hacker"
 
 # The active theme and a counter the menu uses to notice that a theme was
 # selected while the settings overlay was open.
@@ -60,7 +64,7 @@ static var ACCENT_EDGE: Color = Color(0.757, 0.071, 0.122, 0.42)
 static var ACCENT_SURFACE: Color = Color("#2E0B11")
 static var ACCENT_SURFACE_HOVER: Color = Color("#3C0F17")
 
-# Fill color for text drawn on top of a primary accent button. Hacker uses the
+# Fill color for text drawn on top of a primary accent button. Virus uses the
 # near-black ink so the bright green button keeps a strong contrast.
 static var ON_ACCENT: Color = Color("#EEF0F4")
 
@@ -132,8 +136,8 @@ static var THEME_DATA: Dictionary = {
 		"accent_surface_hover": Color("#103141"),
 		"on_accent": BONE_HI,
 	},
-	THEME_HACKER: {
-		"name": "Hacker",
+	THEME_VIRUS: {
+		"name": "Virus",
 		"description": "Terminal green, black and steel. Systems, the underground and illegality.",
 		"accent_deep": Color("#063D1A"),
 		"accent": Color("#1FAF4B"),
@@ -149,6 +153,8 @@ static var THEME_DATA: Dictionary = {
 
 static func normalize_theme(theme_id: String) -> String:
 	var id: String = theme_id.strip_edges().to_lower()
+	if id == LEGACY_THEME_HACKER:
+		id = THEME_VIRUS
 	return id if THEME_DATA.has(id) else THEME_BLOOD
 
 

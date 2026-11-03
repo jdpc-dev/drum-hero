@@ -76,7 +76,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │       └── Reset SONGS to Defaults
 │
 │   ADVANCED tab:
-│       ├── THEME (Blood / Tear / Hacker + swatches)
+│       ├── THEME (Blood / Tear / Virus + swatches)
 │       ├── COMPATIBILITY (Use PART GUITAR)
 │       ├── DEBUG (Judgment Areas / Haptic Debug / Menu Status)
 │       ├── SCREEN PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-100dp)
@@ -1564,7 +1564,7 @@ Pages:
 - **GAMEPLAY** — Speed and pacing, feedback (hit feedback/screen shake), performance (FPS counter/cap), timing and calibration (note offset, judgement windows), and a "Reset GAMEPLAY to Defaults" button.
 - **AUDIO** — Master, music, drums & effects and menu-preview volume (applied to the buses immediately), default sample velocity, and a "Reset AUDIO to Defaults" button.
 - **SONGS** — Need songs/Get songs, storage access, library locations, extra folders, explicit scan with progress and diagnostics, and a "Reset SONGS to Defaults" button.
-- **ADVANCED** — Theme picker first, then chart fallback, debug toggles, Android screen padding, and a "Reset ADVANCED to Defaults" button. The theme card previews Blood, Tear and Hacker immediately; the reset restores Blood.
+- **ADVANCED** — Theme picker first, then chart fallback, debug toggles, Android screen padding, and a "Reset ADVANCED to Defaults" button. The theme card previews Blood, Tear and Virus immediately; the reset restores Blood.
 
 **About** is not a tab: the sidebar footer (or the compact header) opens a modal
 with the version and credits. Back/Escape closes this modal first.
@@ -1581,7 +1581,7 @@ their defaults and rebuilds the active tab's UI.
 **Themes.** `Palette.gd` exposes the three themes as `THEME_DATA` entries and
 copies the selected entry into static tokens accepted by the existing
 `Palette.*` call sites. Blood is the default and keeps the red identity; Tear
-uses a desaturated ocean-floor blue; Hacker uses terminal green with near-black
+uses a desaturated ocean-floor blue; Virus uses terminal green with near-black
 text on the primary accent button (`ON_ACCENT`). The black background, the
 surface layers, metallic-white text, borders, beat lines and the eight lane
 colours are shared across themes, because they carry the foundation, text
@@ -1589,7 +1589,7 @@ contrast or gameplay meaning. The gameplay clear color, the highway backdrop
 and the lane strips use the same black, so the track does not add a second
 background tone. `SettingsManager.theme` persists the id under
 `[visual] theme`, applies it during autoload startup and validates unknown
-values back to Blood. Selecting a theme in Settings applies the palette, clears
+values back to Blood (the legacy `hacker` id maps forward to `virus`). Selecting a theme in Settings applies the palette, clears
 `SettingsUI`'s generated switch/grabber textures and rebuilds the settings
 shell. When the overlay closes, `MenuRoot` compares `Palette.revision` and
 reloads the menu scene; its existing `_exit_tree`/`_ready` state restore keeps

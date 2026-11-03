@@ -81,21 +81,22 @@ func _ready() -> void:
 	_check("Tear usa texto metal sobre el acento", Palette.ON_ACCENT == Palette.BONE_HI)
 	_check("Tear mantiene contraste en el botón primario", _primary_contrast_ok())
 
-	var hacker: String = Palette.apply_theme(Palette.THEME_HACKER)
-	_check("Hacker normalizado", hacker == Palette.THEME_HACKER)
-	_check("Hacker usa el verde terminal", Palette.ACCENT == Color("#1FAF4B"))
-	_check("Hacker comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
+	var virus: String = Palette.apply_theme(Palette.THEME_VIRUS)
+	_check("Virus normalizado", virus == Palette.THEME_VIRUS)
+	_check("Virus usa el verde terminal", Palette.ACCENT == Color("#1FAF4B"))
+	_check("Virus comparte el mismo fondo negro", Palette.NIGHT_BG == Color.BLACK)
 	_check("el launch comparte el mismo fondo negro",
 		ProjectSettings.get_setting("application/boot_splash/bg_color", Color.RED) == Color.BLACK)
 	_check("el fondo de juego comparte el mismo negro",
 		ProjectSettings.get_setting("rendering/environment/defaults/default_clear_color", Color.RED) == Color.BLACK)
-	_check("Hacker conserva el metal", Palette.BONE == metal)
-	_check("Hacker usa tinta negra sobre el acento", Palette.ON_ACCENT == Palette.INK)
-	_check("Hacker mantiene contraste en el botón primario", _primary_contrast_ok())
+	_check("Virus conserva el metal", Palette.BONE == metal)
+	_check("Virus usa tinta negra sobre el acento", Palette.ON_ACCENT == Palette.INK)
+	_check("Virus mantiene contraste en el botón primario", _primary_contrast_ok())
 
 	_check("ids desconocidos caen en Blood", Palette.normalize_theme("nope") == Palette.THEME_BLOOD)
+	_check("el id heredado hacker apunta a Virus", Palette.normalize_theme("hacker") == Palette.THEME_VIRUS)
 	_check("los ids ignoran espacios y mayúsculas", Palette.normalize_theme("  TeAr ") == Palette.THEME_TEAR)
-	var swatches: Array[Color] = Palette.theme_swatches(Palette.THEME_HACKER)
+	var swatches: Array[Color] = Palette.theme_swatches(Palette.THEME_VIRUS)
 	_check("la vista previa tiene superficie, acento y metal",
 		swatches.size() == 3 and swatches[0] == Palette.NIGHT_BG and swatches[2] == Palette.BONE)
 	var base_keys: Array = Palette.THEME_DATA[Palette.THEME_BLOOD].keys()
@@ -136,7 +137,7 @@ func _ready() -> void:
 	_check("la primera tarjeta es THEME", first_card != null and _text_dump(first_card).contains("THEME"))
 	var dump: String = _text_dump(root).to_upper()
 	_check("las tres opciones están visibles",
-		dump.contains("BLOOD") and dump.contains("TEAR") and dump.contains("HACKER"))
+		dump.contains("BLOOD") and dump.contains("TEAR") and dump.contains("VIRUS"))
 	_check("la descripción del tema está visible", dump.contains("OXBLOOD"))
 
 	root._on_theme_toggled(true, 1)
