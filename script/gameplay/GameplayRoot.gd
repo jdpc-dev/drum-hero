@@ -13,6 +13,9 @@ const MAIN_SCENE := preload("res://scene/Main.tscn")
 # already frozen, so this time is only for the player to process how the song
 # ended instead of seeing a hard cut.
 const RESULT_TAIL_DELAY: float = 0.5
+# The centred pause button occupies y 38-86, so the calibration banner starts
+# just below it instead of overlapping the icon.
+const CALIBRATION_LABEL_TOP: float = 94.0
 
 var _is_initialized: bool = false
 var _debug_label: Label
@@ -247,7 +250,7 @@ func _show_calibration_label() -> void:
 	_calibration_label.add_theme_constant_override("shadow_offset_x", 1)
 	_calibration_label.add_theme_constant_override("shadow_offset_y", 1)
 	_calibration_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_calibration_label.position = Vector2(0, highway.highway_top_y + 20)
+	_calibration_label.position = Vector2(0, CALIBRATION_LABEL_TOP)
 	_calibration_label.size = Vector2(get_viewport_rect().size.x, 30)
 	add_child(_calibration_label)
 

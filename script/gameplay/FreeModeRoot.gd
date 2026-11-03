@@ -17,6 +17,9 @@ extends Node2D
 const MAIN_SCENE := preload("res://scene/Main.tscn")
 const BASE_LABEL_SETTINGS := preload("res://asset/fonts/label_settings.tres")
 const METRONOME_SCRIPT := preload("res://script/gameplay/Metronome.gd")
+# The centred pause button occupies y 38-86, so the calibration banner starts
+# just below it instead of overlapping the icon.
+const CALIBRATION_LABEL_TOP: float = 94.0
 
 @onready var highway = $Highway
 @onready var touch_input = $TouchInput
@@ -519,7 +522,7 @@ func _show_calibration_label() -> void:
 	_calibration_label.name = "CalibrationLabel"
 	_calibration_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	_calibration_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_calibration_label.position = Vector2(0, highway.highway_top_y + 20)
+	_calibration_label.position = Vector2(0, CALIBRATION_LABEL_TOP)
 	_calibration_label.size = Vector2(get_viewport_rect().size.x, 30)
 	# In the HUD, not at the root: this way the banner goes above the track
 	# instead of competing with the notes on the same drawing layer.
