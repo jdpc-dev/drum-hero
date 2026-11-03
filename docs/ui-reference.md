@@ -97,7 +97,7 @@ Tabs and content:
 - CONTROLS: mode, lane order (Custom), layout, haptic kick, Free Mode, reset.
 - GAMEPLAY: speed & pacing, feedback, performance, timing & calibration, reset.
 - AUDIO: master/music/drums/previews, drum samples, reset.
-- SONGS: need songs, storage access, library locations, extra folders, scan, reset.
+- SONGS: need songs, storage access, library locations, extra folders, scan (progress in a modal), reset.
 - ADVANCED: compatibility, debug, screen padding, reset.
 - About: modal with version and credits (opened from the sidebar/header).
 ```

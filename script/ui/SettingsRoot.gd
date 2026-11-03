@@ -34,6 +34,7 @@ var _permission_button: Button
 var _permission_was_granted: bool = false
 var _roots_container: VBoxContainer
 var _rescan_button: Button
+var _scan_modal: Control
 var _cancel_scan_button: Button
 var _scan_bar: ProgressBar
 var _scan_status: Label
@@ -193,8 +194,8 @@ func _exit_tree() -> void:
 
 func _process(delta: float) -> void:
 	_follow_path_edit_keyboard(delta)
-	# The walk advances from _process and not from an await: this way the panel
-	# can be closed in the middle of a batch without leaving anything hanging.
+	# The walk advances from _process and not from an await: this way the modal
+	# or the panel can be closed mid-batch without leaving anything hanging.
 	if not _scan_pump_active:
 		return
 	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
@@ -282,6 +283,10 @@ func _notification(what: int) -> void:
 	if what == NOTIFICATION_WM_GO_BACK_REQUEST:
 		if _about_is_open():
 			_close_about()
+		elif _scan_modal_is_open():
+			# The scan modal is a blocking operation: back cancels the walk
+			# instead of closing Settings underneath an open dialog.
+			_on_cancel_scan_pressed()
 		else:
 			_on_back()
 	elif what == NOTIFICATION_APPLICATION_FOCUS_IN or what == NOTIFICATION_WM_WINDOW_FOCUS_IN:
@@ -319,6 +324,8 @@ func _input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		if _about_is_open():
 			_close_about()
+		elif _scan_modal_is_open():
+			_on_cancel_scan_pressed()
 		else:
 			_on_back()
 		get_viewport().set_input_as_handled()
@@ -329,7 +336,7 @@ func _input(event: InputEvent) -> void:
 # on the folder field are therefore handled here, while horizontal swipes are
 # left to the field for caret placement.
 func _handle_field_scroll(event: InputEvent) -> bool:
-	if _about_is_open():
+	if _about_is_open() or _scan_modal_is_open():
 		_field_touch_active = false
 		_field_touch_dragging = false
 		return false
@@ -1011,40 +1018,14 @@ func _build_songs_content(parent: VBoxContainer) -> void:
 
 	var scan_card := SettingsUI.section("LIBRARY SCAN", "The list is cached, so scanning only runs when you ask for it.")
 	_library_section.add_child(scan_card)
-	var scan_buttons := HBoxContainer.new()
-	scan_buttons.add_theme_constant_override("separation", SettingsUI.px(10))
-	scan_buttons.mouse_filter = Control.MOUSE_FILTER_PASS
 	_rescan_button = SettingsUI.button("Rescan now", "primary")
 	_rescan_button.name = "RescanButton"
+	_rescan_button.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
 	_rescan_button.pressed.connect(_on_rescan_pressed)
-	scan_buttons.add_child(_rescan_button)
-	_cancel_scan_button = SettingsUI.button("Cancel", "ghost")
-	_cancel_scan_button.name = "CancelScanButton"
-	_cancel_scan_button.custom_minimum_size.x = SettingsUI.px(120)
-	_cancel_scan_button.pressed.connect(_on_cancel_scan_pressed)
-	scan_buttons.add_child(_cancel_scan_button)
-	scan_card.body.add_child(scan_buttons)
+	scan_card.body.add_child(_rescan_button)
 
-	# Scan indicator. The summary below only updates when the walk finishes, so
-	# without this the panel stays mute for the whole walk, which in a large
-	# library is several seconds with no feedback.
-	_scan_bar = ScanFeedback.make_progress_bar()
-	_scan_bar.name = "ScanBar"
-	SettingsUI.style_progress(_scan_bar)
-	scan_card.body.add_child(_scan_bar)
-
-	_scan_status = ScanFeedback.make_status_label()
-	_scan_status.name = "ScanStatus"
-	_scan_status.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_scan_status.add_theme_font_size_override("font_size", SettingsUI.px(15))
-	scan_card.body.add_child(_scan_status)
-
-	_scan_folder = ScanFeedback.make_folder_label()
-	_scan_folder.name = "ScanFolder"
-	_scan_folder.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
-	_scan_folder.add_theme_font_size_override("font_size", SettingsUI.px(14))
-	scan_card.body.add_child(_scan_folder)
-
+	# The walk itself is shown in a modal, not inline: a library scan can take
+	# several seconds on a phone and the card would already be scrolled away.
 	_scan_summary = SettingsUI.description("")
 	_scan_summary.add_theme_font_size_override("font_size", SettingsUI.px(13))
 	scan_card.body.add_child(_scan_summary)
@@ -1188,7 +1169,7 @@ func _update_scan_summary() -> void:
 	])
 	# Scanning is explicit: this is the only place that tells the player the
 	# cached list no longer matches the current roots/settings. While a scan is
-	# running the progress widgets already explain what is happening.
+	# running the modal already explains what is happening.
 	var stale_reason: String = "" if SongLoader.is_scanning else SongLoader.library_rescan_reason()
 	if not stale_reason.is_empty():
 		lines.append(stale_reason + " Press Rescan now to refresh the library.")
@@ -1354,6 +1335,10 @@ func _on_cancel_scan_pressed() -> void:
 	SongLoader.cancel_scan()
 	if is_instance_valid(_scan_status):
 		_scan_status.text = "Cancelling..."
+	if is_instance_valid(_cancel_scan_button):
+		# Cancellation is honored in the next batch: keep the button from
+		# queueing the same request on every tap while the modal waits.
+		_cancel_scan_button.disabled = true
 
 
 func _scan_summary_and_rescan() -> void:
@@ -1392,6 +1377,7 @@ func _finish_scan() -> void:
 
 func _abort_scan() -> void:
 	if not (_scan_pump_active or SongLoader.is_scanning):
+		_hide_scan_modal()
 		return
 	_scan_pump_active = false
 	# Only a walk started from this panel is cancelled: leaving Settings must
@@ -1403,26 +1389,108 @@ func _abort_scan() -> void:
 func _set_scan_widgets_visible(visible_state: bool) -> void:
 	if is_instance_valid(_rescan_button):
 		_rescan_button.disabled = visible_state
-	if is_instance_valid(_cancel_scan_button):
-		_cancel_scan_button.disabled = not visible_state
-	for widget in [_scan_bar, _scan_status, _scan_folder]:
-		if is_instance_valid(widget):
-			widget.visible = visible_state
-	if not visible_state:
-		if is_instance_valid(_scan_status):
-			_scan_status.text = ""
-		if is_instance_valid(_scan_folder):
-			_scan_folder.text = ""
-		if is_instance_valid(_scan_bar):
-			_scan_bar.value = 0.0
+	if visible_state:
+		_show_scan_modal()
+	else:
+		_hide_scan_modal()
+
+
+# The scan is a blocking operation, so it gets the same scrim and centered
+# panel as the other modals instead of a progress bar buried in the SONGS tab,
+# which may already be scrolled out of view when the walk starts.
+func _show_scan_modal() -> void:
+	if is_instance_valid(_scan_modal):
+		return
+	_scan_modal = Control.new()
+	_scan_modal.name = "ScanModal"
+	_scan_modal.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_scan_modal.mouse_filter = Control.MOUSE_FILTER_STOP
+	add_child(_scan_modal)
+
+	var scrim := ColorRect.new()
+	scrim.name = "ScanModalScrim"
+	scrim.color = Palette.SCRIM_STRONG
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# Tapping outside must not hide the modal while the walk keeps running:
+	# the only ways out are Cancel or leaving Settings.
+	scrim.mouse_filter = Control.MOUSE_FILTER_STOP
+	_scan_modal.add_child(scrim)
+
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_scan_modal.add_child(center)
+
+	var panel := PanelContainer.new()
+	panel.name = "ScanModalPanel"
+	panel.custom_minimum_size = Vector2(SettingsUI.px(440), 0)
+	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
+	SettingsUI.pad(panel_style, SettingsUI.px(28), SettingsUI.px(24))
+	panel.add_theme_stylebox_override("panel", panel_style)
+	center.add_child(panel)
+
+	var content := VBoxContainer.new()
+	content.add_theme_constant_override("separation", SettingsUI.px(10))
+	panel.add_child(content)
+
+	var title := SettingsUI.label("SCANNING SONGS", 26, Palette.BONE_HI, 600)
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	content.add_child(title)
+
+	_scan_status = ScanFeedback.make_status_label()
+	_scan_status.name = "ScanStatus"
+	_scan_status.add_theme_font_size_override("font_size", SettingsUI.px(16))
+	_scan_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	content.add_child(_scan_status)
+
+	_scan_folder = ScanFeedback.make_folder_label()
+	_scan_folder.name = "ScanFolder"
+	_scan_folder.custom_minimum_size = Vector2(SettingsUI.px(320), SettingsUI.px(18))
+	_scan_folder.add_theme_font_size_override("font_size", SettingsUI.px(13))
+	content.add_child(_scan_folder)
+
+	_scan_bar = ScanFeedback.make_progress_bar()
+	_scan_bar.name = "ScanBar"
+	_scan_bar.custom_minimum_size = Vector2(SettingsUI.px(320), 0)
+	SettingsUI.style_progress(_scan_bar)
+	content.add_child(_scan_bar)
+
+	_cancel_scan_button = SettingsUI.button("Cancel", "secondary")
+	_cancel_scan_button.name = "CancelScanButton"
+	_cancel_scan_button.custom_minimum_size = Vector2(SettingsUI.px(140), SettingsUI.px(46))
+	_cancel_scan_button.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	_cancel_scan_button.pressed.connect(_on_cancel_scan_pressed)
+	content.add_child(_cancel_scan_button)
+
+	_scan_modal.modulate.a = 0.0
+	var fade := create_tween()
+	fade.tween_property(_scan_modal, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+
+
+func _hide_scan_modal() -> void:
+	if is_instance_valid(_scan_modal):
+		# Detach before freeing so a rescan started in the same frame can reuse
+		# the "ScanModal" name and the scrim stops blocking input immediately.
+		remove_child(_scan_modal)
+		_scan_modal.queue_free()
+	_scan_modal = null
+	_scan_bar = null
+	_scan_status = null
+	_scan_folder = null
+	_cancel_scan_button = null
 
 
 func _refresh_scan_widgets() -> void:
-	# When rebuilding the tab mid-scan the widgets are new: they are re-pointed
-	# to the real state instead of waiting for the first event.
-	_set_scan_widgets_visible(SongLoader.is_scanning)
-	if SongLoader.is_scanning and is_instance_valid(_scan_status) and _scan_status.text.is_empty():
-		_scan_status.text = "Scanning..."
+	# Rebuilding the tab mid-scan destroys the card, not the modal, but the
+	# references point at nodes inside it: show it again with the live state.
+	if _scan_pump_active:
+		_show_scan_modal()
+		if is_instance_valid(_scan_status) and _scan_status.text.is_empty():
+			_scan_status.text = "Scanning..."
+	else:
+		_hide_scan_modal()
+	if is_instance_valid(_rescan_button):
+		_rescan_button.disabled = _scan_pump_active
 
 
 func _on_get_songs_pressed() -> void:
@@ -1445,6 +1513,10 @@ func _on_reset_songs() -> void:
 
 func _about_is_open() -> bool:
 	return is_instance_valid(_about_overlay)
+
+
+func _scan_modal_is_open() -> bool:
+	return is_instance_valid(_scan_modal)
 
 
 func _show_about() -> void:

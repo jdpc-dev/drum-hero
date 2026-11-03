@@ -2,7 +2,7 @@ class_name ScanFeedback
 extends RefCounted
 
 # Single source for the scan indicator's text and appearance. It is used by the
-# menu loading screen and the SONGS tab in Settings, so the player reads the
+# menu loading screen and the scan modal in Settings, so the player reads the
 # same thing wherever they are looking.
 #
 # The bar has no percentage: it is not known how many directories a library has

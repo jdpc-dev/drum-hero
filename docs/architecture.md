@@ -72,7 +72,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │       ├── STORAGE ACCESS (Android permission / desktop note)
 │       ├── LIBRARY LOCATIONS (Scan Download, subfolder depth, recursive)
 │       ├── EXTRA FOLDERS (saved roots + storage location form)
-│       ├── LIBRARY SCAN (Rescan now / Cancel, progress and summary)
+│       ├── LIBRARY SCAN (Rescan now opens a progress modal, plus summary)
 │       └── Reset SONGS to Defaults
 │
 │   ADVANCED tab:
@@ -1017,7 +1017,7 @@ counts the entire walk, so the last number the UI sees is the correct one.
 `script/ui/ScanFeedback.gd` is the single place where that progress is formatted,
 and both surfaces share it:
 
-- **Settings ▸ Songs** — `Rescan now` triggers `_scan_summary_and_rescan()`, which requests the scan and pumps it from `_process` (owner `settings`). The panel shows a bar, `i/N` with the songs found and the current folder, with `Cancel` next to it. When finished, `_update_scan_summary()` refreshes the "Last scan" line and the warnings for cancelled/unreachable roots.
+- **Settings ▸ Songs** — `Rescan now` triggers `_scan_summary_and_rescan()`, which requests the scan and pumps it from `_process` (owner `settings`). The walk is shown in a blocking modal (scrim, centered panel) with a bar, `i/N` with the songs found, the current folder and a `Cancel` button. When finished or cancelled, the modal closes and `_update_scan_summary()` refreshes the "Last scan" line and the warnings for cancelled/unreachable roots. Back/Escape while the modal is open cancels the walk instead of closing Settings underneath it.
 - **Menu** — `_refresh_song_list()` uses the same loading overlay (owner `menu`), but only when there is no cached library (first run). Closing Settings never scans: the menu applies the guitar fallback in memory and rebuilds the rows when `SongLoader.library_generation` changed (a scan ran inside the panel). The scan details, including why a rescan is pending, live in *Settings ▸ Songs*.
 
 The cancel button does not cut abruptly: it requests `cancel_scan()` and shows
@@ -1098,7 +1098,7 @@ every song during the scan, in exchange for purely decorative data.
 - **STORAGE ACCESS** — All Files Access status. On Android it shows *Grant access* while it has not been granted and *Open Android settings* once granted. On other platforms it shows that access is automatic.
 - **LIBRARY LOCATIONS** — `Download` check, maximum depth (0 = only that folder) and *Search subfolders*.
 - **EXTRA FOLDERS** — list of custom roots with a *Remove* button, plus a storage-location selector (on Android *Internal storage* = `/storage/emulated/0` and *External storage* = `/sdcard`; on desktop *Home* = `$HOME`), a folder field and *Add*. Pick a location and type the path inside it (`Download/RockBand`); the base is prepended automatically. An absolute path is still accepted as-is, so a path pasted from a file manager keeps working. Paths are normalized with `simplify_path()`, prefixed with `/` if missing and duplicates are discarded. Paths that do not exist are shown in red in the list.
-- **Rescan now** and **Cancel**, with a progress bar, `i/N` locations, songs found and current folder while the scan lasts (see *Progress and cancellation in the UI*).
+- **Rescan now**, which opens a blocking progress modal with a bar, `i/N` locations, songs found, current folder and **Cancel** while the scan lasts (see *Progress and cancellation in the UI*).
 - A summary of the last scan reporting when it ran, the number of songs, how many of the configured locations were actually visited (`visited of total`), the active `recursive`/`depth` values, and roots that were unreadable, truncated by depth, cancelled halfway or never reached. When `library_rescan_reason()` is not empty, a line explains what changed and asks the player to press **Rescan now**.
 - **Reset SONGS to Defaults**.
 

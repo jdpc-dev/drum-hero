@@ -431,15 +431,15 @@ func _ready() -> void:
 	root._on_tab_selected(root.SONGS_TAB)
 	await get_tree().process_frame
 	_check("hay boton de reescanear", is_instance_valid(root._rescan_button))
-	_check("hay boton de cancelar", is_instance_valid(root._cancel_scan_button))
-	_check("y barra, estado y carpeta", is_instance_valid(root._scan_bar) and is_instance_valid(root._scan_status) and is_instance_valid(root._scan_folder))
-	_check("en reposo el indicador esta oculto", not root._scan_bar.visible and not root._scan_status.visible and not root._scan_folder.visible)
+	_check("en reposo no hay modal de escaneo", not root._scan_modal_is_open())
+	_check("el indicador ya no vive en la tarjeta", not is_instance_valid(root._scan_bar) and not is_instance_valid(root._scan_status) and not is_instance_valid(root._scan_folder))
 	_check("y se puede reescanear", root._rescan_button.disabled == false)
-	_check("mientras que cancelar esta deshabilitado", root._cancel_scan_button.disabled)
 
 	root._scan_summary_and_rescan()
 	_check("el reescaneo es inmediato, sin await", SongLoader.is_scanning)
-	_check("el indicador se muestra", root._scan_bar.visible and root._scan_status.visible and root._scan_folder.visible)
+	_check("se abre el modal de escaneo", root._scan_modal_is_open())
+	_check("con barra, estado y carpeta", is_instance_valid(root._scan_bar) and is_instance_valid(root._scan_status) and is_instance_valid(root._scan_folder))
+	_check("y boton de cancelar", is_instance_valid(root._cancel_scan_button) and not root._cancel_scan_button.disabled)
 	_check("el estado dice que esta escaneando", root._scan_status.text.begins_with("Scanning"))
 	_check("reescanear se bloquea y cancelar se habilita", root._rescan_button.disabled and not root._cancel_scan_button.disabled)
 	for i in 300:
@@ -447,8 +447,8 @@ func _ready() -> void:
 			break
 		await get_tree().process_frame
 	_check("el escaneo termina solo", not SongLoader.is_scanning and not root._scan_pump_active)
-	_check("y el indicador se esconde", not root._scan_bar.visible and not root._scan_folder.visible)
-	_check("vuelve a poder reescanear", root._rescan_button.disabled == false and root._cancel_scan_button.disabled)
+	_check("y el modal se cierra", not root._scan_modal_is_open())
+	_check("vuelve a poder reescanear", root._rescan_button.disabled == false)
 	_check("el resumen cuenta las canciones de las raices indicadas", root._scan_summary.text.contains(str(expected_songs) + " songs"))
 	_check("y avisa de la raiz truncada por profundidad", root._scan_summary.text.contains("Too deep (raise max subfolder depth): " + SettingsManager.library_roots[0]))
 
@@ -480,11 +480,14 @@ func _ready() -> void:
 	_check("el escaneo llega a la raiz ancha", _reached_wide)
 	root._cancel_scan_button.emit_signal("pressed")
 	_check("pulsar cancelar no corta en seco", SongLoader.is_scanning)
+	_check("el estado del modal pide esperar", root._scan_status.text == "Cancelling...")
+	_check("y cancelar se deshabilita mientras tanto", root._cancel_scan_button.disabled)
 	for i in 300:
 		if not SongLoader.is_scanning:
 			break
 		await get_tree().process_frame
 	_check("se detiene en cuanto toca", not SongLoader.is_scanning and not root._scan_pump_active)
+	_check("el modal se cierra al cancelar", not root._scan_modal_is_open())
 	_check("se queda con lo que habia encontrado", SongLoader.song_list.size() >= 0)
 	_check("la raiz a medias queda anotada", SongLoader.cancelled_roots.size() == 1)
 	_check("el resumen avisa de la raiz cancelada", root._scan_summary.text.contains("Scan cancelled before finishing here, this location may have more songs: " + SongLoader.cancelled_roots[0]))
@@ -495,9 +498,11 @@ func _ready() -> void:
 	print("=== 15. salir de la pestana cancela el escaneo ===")
 	root._scan_summary_and_rescan()
 	_check("el escaneo esta en marcha", SongLoader.is_scanning)
+	_check("con el modal abierto", root._scan_modal_is_open())
 	root._on_tab_selected(root.SONGS_TAB - 1)
 	await get_tree().process_frame
 	_check("al cambiar de pestana se aborta", not SongLoader.is_scanning and not root._scan_pump_active)
+	_check("y el modal se cierra", not root._scan_modal_is_open())
 
 	print("=== 16. overlay del menu: con cancelar solo si es escaneo ===")
 	menu._show_loading_screen()
