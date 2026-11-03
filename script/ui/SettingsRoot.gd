@@ -752,11 +752,11 @@ func _build_controls_content(parent: VBoxContainer) -> void:
 	SettingsUI.add_slider_row(_haptic_settings, "Sensitivity", "How much movement is needed for kick detection.", 0.1, 3.0, 0.1, SettingsManager.haptic_sensitivity, _fmt_number, _on_haptic_sensitivity_changed, _on_haptic_sensitivity_drag_ended)
 
 	var tuning := _add_disclosure(_haptic_settings, "Advanced tuning", "Activation, release, cooldown and smoothing.")
-	SettingsUI.add_slider_row(tuning, "Activation", "Lift threshold before a kick is detected.", 0.5, 12.0, 0.5, SettingsManager.haptic_activation_threshold, _fmt_number, _on_haptic_activation_changed, _on_haptic_any_drag_ended)
-	SettingsUI.add_slider_row(tuning, "Release", "When the kick resets after firing.", 0.1, 8.0, 0.5, SettingsManager.haptic_release_threshold, _fmt_number, _on_haptic_release_changed, _on_haptic_any_drag_ended)
+	SettingsUI.add_slider_row(tuning, "Activation", "How firm the stomp must be before a kick is detected.", 0.5, 12.0, 0.5, SettingsManager.haptic_activation_threshold, _fmt_number, _on_haptic_activation_changed, _on_haptic_any_drag_ended)
+	SettingsUI.add_slider_row(tuning, "Release", "When the kick resets after firing.", 0.1, 8.0, 0.1, SettingsManager.haptic_release_threshold, _fmt_number, _on_haptic_release_changed, _on_haptic_any_drag_ended)
 	SettingsUI.add_slider_row(tuning, "Cooldown", "Minimum time between two kicks.", 0.05, 0.5, 0.01, SettingsManager.haptic_cooldown_duration, _fmt_seconds, _on_haptic_cooldown_changed, _on_haptic_any_drag_ended)
-	SettingsUI.add_slider_row(tuning, "Min interval", "Ignore taps closer together than this.", 0.02, 0.3, 0.01, SettingsManager.haptic_min_interval, _fmt_seconds, _on_haptic_min_interval_changed, _on_haptic_any_drag_ended)
-	SettingsUI.add_slider_row(tuning, "Smoothing", "Higher values are steadier but slower to react.", 0.01, 0.5, 0.01, SettingsManager.haptic_smoothing_strength, _fmt_number, _on_haptic_smoothing_changed, _on_haptic_any_drag_ended)
+	SettingsUI.add_slider_row(tuning, "Min interval", "Ignore kicks closer together than this.", 0.02, 0.3, 0.01, SettingsManager.haptic_min_interval, _fmt_seconds, _on_haptic_min_interval_changed, _on_haptic_any_drag_ended)
+	SettingsUI.add_slider_row(tuning, "Smoothing", "Higher values react faster but let more hand noise through.", 0.01, 0.5, 0.01, SettingsManager.haptic_smoothing_strength, _fmt_number, _on_haptic_smoothing_changed, _on_haptic_any_drag_ended)
 	tuning.add_child(SettingsUI.description("Activation is divided by the sensitivity above."))
 
 	var free_card := SettingsUI.section("FREE MODE", "Check the pads and the haptic pedal without loading a song.")

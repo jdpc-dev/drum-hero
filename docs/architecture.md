@@ -1478,11 +1478,11 @@ values:
 | `music_volume` | 1.0 | Music volume |
 | `haptic_enabled` | false | Sensor kick |
 | `haptic_sensitivity` | 1.0 | Sensor sensitivity (÷, higher = more sensitive) |
-| `haptic_activation_threshold` | 1.0 | Base activation threshold (÷ by sensitivity) |
-| `haptic_release_threshold` | 0.5 | Post-kick release threshold (÷ by sensitivity) |
+| `haptic_activation_threshold` | 2.0 | Base activation threshold (÷ by sensitivity) |
+| `haptic_release_threshold` | 1.0 | Post-kick release threshold (÷ by sensitivity) |
 | `haptic_smoothing_strength` | 0.4 | Exponential filter (0=max smoothing, 1=no filter) |
-| `haptic_cooldown_duration` | 0.15 | Minimum time in COOLDOWN (s) |
-| `haptic_min_interval` | 0.08 | Minimum interval between kicks (s) |
+| `haptic_cooldown_duration` | 0.05 | Minimum time in COOLDOWN (s) |
+| `haptic_min_interval` | 0.04 | Minimum interval between kicks (s) |
 | `haptic_calibration_duration` | 1.5 | Calibration duration without a gravity sensor (s) |
 | `haptic_show_debug` | false | On-screen debug overlay |
 | `game_mode` | 0 | Game mode (0=Default, 1=Haptic, 2=Custom) |

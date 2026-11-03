@@ -29,10 +29,12 @@ var default_sample_velocity: int = 100
 
 var haptic_sensitivity: float = 1.0
 var haptic_enabled: bool = false
-var haptic_activation_threshold: float = 1.0
-var haptic_release_threshold: float = 0.5
-var haptic_cooldown_duration: float = 0.15
-var haptic_min_interval: float = 0.08
+# Pedal-like defaults: require a firm, deliberate stomp and recover fast enough
+# for double-kick patterns instead of firing on light hand movement.
+var haptic_activation_threshold: float = 2.0
+var haptic_release_threshold: float = 1.0
+var haptic_cooldown_duration: float = 0.05
+var haptic_min_interval: float = 0.04
 var haptic_smoothing_strength: float = 0.4
 var haptic_calibration_duration: float = 1.5
 var haptic_show_debug: bool = false
@@ -141,10 +143,10 @@ func load_settings() -> void:
 	game_mode = cfg.get_value("gameplay", "mode", 0)
 	haptic_sensitivity = cfg.get_value("haptic", "sensitivity", 1.0)
 	haptic_enabled = cfg.get_value("haptic", "enabled", false)
-	haptic_activation_threshold = cfg.get_value("haptic", "activation_threshold", 1.0)
-	haptic_release_threshold = cfg.get_value("haptic", "release_threshold", 0.5)
-	haptic_cooldown_duration = cfg.get_value("haptic", "cooldown_duration", 0.15)
-	haptic_min_interval = cfg.get_value("haptic", "min_interval", 0.08)
+	haptic_activation_threshold = cfg.get_value("haptic", "activation_threshold", 2.0)
+	haptic_release_threshold = cfg.get_value("haptic", "release_threshold", 1.0)
+	haptic_cooldown_duration = cfg.get_value("haptic", "cooldown_duration", 0.05)
+	haptic_min_interval = cfg.get_value("haptic", "min_interval", 0.04)
 	haptic_smoothing_strength = cfg.get_value("haptic", "smoothing_strength", 0.4)
 	haptic_calibration_duration = cfg.get_value("haptic", "calibration_duration", 1.5)
 	haptic_show_debug = cfg.get_value("haptic", "show_debug", false)
@@ -176,10 +178,10 @@ func reset_controls_to_defaults() -> void:
 	custom_lanes = DEFAULT_LANE_ORDER.duplicate()
 	haptic_enabled = false
 	haptic_sensitivity = 1.0
-	haptic_activation_threshold = 1.0
-	haptic_release_threshold = 0.5
-	haptic_cooldown_duration = 0.15
-	haptic_min_interval = 0.08
+	haptic_activation_threshold = 2.0
+	haptic_release_threshold = 1.0
+	haptic_cooldown_duration = 0.05
+	haptic_min_interval = 0.04
 	haptic_smoothing_strength = 0.4
 	haptic_calibration_duration = 1.5
 	mirrored = false

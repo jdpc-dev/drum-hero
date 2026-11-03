@@ -122,7 +122,9 @@ While the detector remains inside KICK_DOWN or COOLDOWN, no additional KICK even
 
 The detector returns to IDLE only after the gesture has finished and the cooldown period has expired.
 
-Cooldown default: 0.15 s. Minimum interval between kicks: 0.08 s.
+Cooldown default: 0.05 s. Minimum interval between kicks: 0.04 s. The short
+recovery keeps fast double-kick patterns playable; the defaults are tuned like a
+pedal, so a firm stomp is required instead of light hand movement.
 
 ---
 
@@ -218,11 +220,11 @@ All detection parameters are externally configurable through the settings UI and
 | Parameter | Default | Description |
 |---|---|---|---|
 | `haptic_sensitivity` | 1.0 | Divisor for both effective thresholds (higher = more sensitive) |
-| `haptic_activation_threshold` | 1.0 | Base activation threshold (÷ by sensitivity → lift threshold) |
-| `haptic_release_threshold` | 0.5 | Base release threshold (÷ by sensitivity → abort & KICK_DOWN release) |
+| `haptic_activation_threshold` | 2.0 | Base activation threshold (÷ by sensitivity → lift threshold) |
+| `haptic_release_threshold` | 1.0 | Base release threshold (÷ by sensitivity → abort & KICK_DOWN release) |
 | `haptic_smoothing_strength` | 0.4 | Filter responsiveness (0 = max smoothing, 1 = no filter) |
-| `haptic_cooldown_duration` | 0.15 | Time in COOLDOWN state (s) |
-| `haptic_min_interval` | 0.08 | Minimum interval between consecutive KICK events (s) |
+| `haptic_cooldown_duration` | 0.05 | Time in COOLDOWN state (s) |
+| `haptic_min_interval` | 0.04 | Minimum interval between consecutive KICK events (s) |
 | `haptic_calibration_duration` | 1.5 | Calibration time without gravity sensor (s) |
 | `haptic_show_debug` | false | Show on-screen haptic debug overlay |
 
