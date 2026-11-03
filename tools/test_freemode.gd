@@ -216,6 +216,22 @@ func _ready() -> void:
 	_check("el HUD cambia a KICK", pad_label != null and pad_label.text == "KICK")
 	_check("el HUD muestra el contador", hits_label != null and hits_label.text.contains("2"))
 
+	print("=== 5a. el debug haptico sigue al ajuste ===")
+	var previous_debug: bool = SettingsManager.haptic_show_debug
+	SettingsManager.haptic_show_debug = false
+	_free_mode._process(0.0)
+	_check("apagado no hay overlay", _free_mode._debug_label == null)
+	SettingsManager.haptic_show_debug = true
+	_free_mode._process(0.0)
+	var debug_label: Label = _free_mode.find_child("DebugLabel", true, false) as Label
+	_check("encendido aparece el overlay", debug_label != null)
+	_check("el overlay muestra el estado haptico",
+		debug_label != null and debug_label.text.contains("HAPTIC DEBUG"))
+	SettingsManager.haptic_show_debug = false
+	_free_mode._process(0.0)
+	_check("al apagarlo el overlay se libera", _free_mode._debug_label == null)
+	SettingsManager.haptic_show_debug = previous_debug
+
 	print("=== 5b. el metronomo se alterna desde la esquina superior izquierda ===")
 	var metronome = _free_mode.get_node_or_null("Metronome")
 	var metronome_button: Button = _free_mode.find_child("MetronomeButton", true, false) as Button

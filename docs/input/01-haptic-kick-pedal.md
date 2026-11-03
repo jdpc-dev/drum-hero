@@ -240,6 +240,9 @@ All detection parameters are externally configurable through the settings UI and
 
 Toggleable via **Settings → Advanced → Show Haptic Debug** or `haptic_show_debug = true`.
 
+Shown in gameplay and in Free Mode (below the FPS readout), so the kick can be
+tuned without loading a song.
+
 Displays on screen:
 
 * State machine state (IDLE / KICK_DOWN / COOLDOWN)

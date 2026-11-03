@@ -171,6 +171,9 @@ Compared with `Gameplay.tscn`, free mode does **not** set up `HitDetection` or
   made if the kick is enabled (`SettingsManager.haptic_enabled` or `HAPTIC`
   mode) and `is_connected()` is checked before disconnecting in
   `_exit_to_menu()`.
+- `SettingsManager.haptic_show_debug` draws the same
+  `InputManager.get_haptic_debug_string()` overlay as gameplay, below the FPS
+  readout, so the kick can be tuned without loading a song.
 
 The button emits `SettingsRoot.free_mode_requested`; the scene change is done by
 `MenuRoot` (the Settings panel is an overlay of its own, not a scene):

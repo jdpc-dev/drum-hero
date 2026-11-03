@@ -31,6 +31,7 @@ var _is_paused: bool = false
 var _pad_name_label: Label
 var _hits_label: Label
 var _fps_label: Label
+var _debug_label: Label
 var _calibration_label: Label
 var _metronome
 var _metronome_button: Button
@@ -283,6 +284,7 @@ func _on_metronome_toggled(enabled: bool) -> void:
 
 
 func _process(_delta: float) -> void:
+	_update_haptic_debug()
 	if _is_paused:
 		return
 	_update_hits_label()
@@ -291,6 +293,31 @@ func _process(_delta: float) -> void:
 	elif _fps_label:
 		_fps_label.queue_free()
 		_fps_label = null
+
+
+# Free mode is where the haptic kick is tested, so the same accelerometer
+# readout shown in gameplay is available here whenever the setting is on.
+func _update_haptic_debug() -> void:
+	if SettingsManager.haptic_show_debug:
+		_show_debug(InputManager.get_haptic_debug_string())
+	elif _debug_label:
+		_debug_label.text = ""
+		_debug_label.queue_free()
+		_debug_label = null
+
+
+func _show_debug(msg: String) -> void:
+	if not _debug_label:
+		var pl: float = 0.0
+		if SettingsManager.gameplay_padding_enabled:
+			pl = SettingsManager.dp_to_godot_px(SettingsManager.gameplay_padding_left)
+		_debug_label = _make_label(msg, 14, Palette.BLOOD_BRIGHT)
+		_debug_label.name = "DebugLabel"
+		# Below the FPS readout and clear of the centred pause button.
+		_debug_label.position = Vector2(10.0 + pl, 100.0)
+		hud.add_child(_debug_label)
+	else:
+		_debug_label.text = msg
 
 
 func _ensure_fps_label() -> void:
