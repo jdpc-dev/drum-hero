@@ -85,6 +85,10 @@ static func _generate_beep(freq: float, duration: float) -> AudioStreamWAV:
 
 
 func trigger_particle_burst(position: Vector2, color: Color, parent: Node, lane_index: int = -1) -> void:
+	# In Haptic mode the KICK has no lane column, so its full-width slash is the
+	# only local feedback: a burst would pop from the bottom edge of the screen.
+	if lane_index == 3 and GameManager.mode == GameManager.GameMode.HAPTIC:
+		return
 	var burst: Node = _borrow(_particle_pool, PARTICLE_BURST_SCENE)
 	if burst:
 		parent.add_child(burst)
