@@ -1,0 +1,1 @@
+8.0.0: new Blood, Tear and Virus themes, animated boot intro, redesigned settings with lane-order customisation, faster song scanning and setlist previews, YARG and Clone Hero tom sets with layered samples, song restarts now rewind instead of reloading, plus many mobile, pause and results fixes.

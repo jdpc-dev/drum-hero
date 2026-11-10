@@ -78,3 +78,6 @@ GestureExclusionPlugin/.gradle/
 /addons/GestureExclusion/plugin-debug.aar
 *.aar
 *.jar
+
+# Godot import files for fastlane graphics are not needed by F-Droid
+metadata/en-US/images/*.import
