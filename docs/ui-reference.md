@@ -42,9 +42,6 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 +------------------------------------------------------------------------------+
 |  Easy        Medium        Hard        Expert        Expert+                 |
 +------------------------------------------------------------------------------+
-|  STATUS: chart OK - missing audio                                            |
-|  (hidden by default; enabled with "Show Menu Status" in Settings > Advanced) |
-+------------------------------------------------------------------------------+
 |                       ♫  Tap a song to preview                               |
 +------------------------------------------------------------------------------+
 ```

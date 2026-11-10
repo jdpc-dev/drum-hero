@@ -923,7 +923,6 @@ func _build_advanced_content(parent: VBoxContainer) -> void:
 	parent.add_child(debug_card)
 	SettingsUI.add_toggle(debug_card.body, "Show Judgment Areas", "Draw the timing windows on the hit line.", SettingsManager.show_judgment_areas, _on_judgment_areas_toggled)
 	SettingsUI.add_toggle(debug_card.body, "Show Haptic Debug", "Visualize accelerometer data and kick detection.", SettingsManager.haptic_show_debug, _on_haptic_debug_toggled)
-	SettingsUI.add_toggle(debug_card.body, "Show Menu Status", "Show the song and chart status line on the main menu.", SettingsManager.show_menu_status, _on_menu_status_toggled)
 
 	var padding_card := SettingsUI.section("SCREEN PADDING", "Condense gameplay and the HUD away from gesture edges.")
 	parent.add_child(padding_card)
@@ -1918,11 +1917,6 @@ func _on_fallback_toggled(toggled: bool) -> void:
 
 func _on_judgment_areas_toggled(toggled: bool) -> void:
 	SettingsManager.show_judgment_areas = toggled
-	SettingsManager.save_settings()
-
-
-func _on_menu_status_toggled(toggled: bool) -> void:
-	SettingsManager.show_menu_status = toggled
 	SettingsManager.save_settings()
 
 

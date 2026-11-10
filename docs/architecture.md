@@ -30,8 +30,6 @@ Main (CanvasLayer)                      ← MenuRoot.gd
 │           │       └── ...
 │           ├── DiffContainer (HBoxContainer) — Easy/Medium/Hard/Expert/Expert+
 │           │   └── [5 styled buttons]       — disabled if unavailable
-│           ├── StatusPanel (PanelContainer) → StatusLabel
-│           │   — "STATUS: chart OK - ..." (hidden by default; Show Menu Status in Settings > Advanced)
 │           └── PreviewStatusLabel — "♫ Artist - Song" | idle "♫ Tap a song to preview"
 
 Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
@@ -78,7 +76,7 @@ Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 │   ADVANCED tab:
 │       ├── THEME (Blood / Tear / Virus + swatches)
 │       ├── COMPATIBILITY (Use PART GUITAR)
-│       ├── DEBUG (Judgment Areas / Haptic Debug / Menu Status)
+│       ├── DEBUG (Judgment Areas / Haptic Debug)
 │       ├── SCREEN PADDING (Enable + 4 sliders: Left/Right/Top/Bottom 0-100dp)
 │       └── Reset ADVANCED to Defaults
 │
@@ -131,12 +129,9 @@ content height. Restoring the selection also relaunches the automatic preview,
 as if the player had just chosen the song. This is session state: it is not
 written to `settings.cfg`.
 
-Leaving the menu (Android back button or `ui_cancel`) depends on **Show Menu
-Status**. With the status line visible, the double tap is preserved ("Press
-again to exit" → "Closing..." if pressed within `_back_cooldown`). With the line
-hidden there is nowhere to show that warning, so the first back opens a
-confirmation modal (same scrim and centered VBox as the pause and results
-overlays) with CANCEL/EXIT; back on the modal closes it.
+Leaving the menu (Android back button or `ui_cancel`) opens a confirmation modal
+(same scrim and centered VBox as the pause and results overlays) with
+CANCEL/EXIT; back on the modal closes it.
 
 Test: `godot --headless --path . res://tools/test_menu_state.tscn`
 
@@ -273,7 +268,7 @@ the same path, and key repeat keeps the selection moving while they are held.
 Navigation clamps at both ends and only visits rows that pass the current search;
 if the selected song is hidden by the filter, the first press starts from the
 nearest visible end. It goes through `_select_song()`, so the highlight, album
-art, status line, difficulty buttons and preview follow the new song exactly as
+art, difficulty buttons and preview follow the new song exactly as
 if it had been tapped.
 
 ### Song previews in the menu
@@ -297,7 +292,6 @@ _user taps SongRow
       ├─ If the same song is already selected → _rewind_preview() (seek in place; loads only if nothing is buffered)
       ├─ _selected_song_index = original_index
       ├─ _update_selection_ui()          ← puts "► " on the selected row
-      ├─ _update_status_for_song()       ← "STATUS: chart OK - audio OK"
       ├─ _update_difficulty_visibility() ← enables/disables buttons
       ├─ _load_album_art(original_index) ← loads cover art into HeaderBar
       └─ _start_preview_animation(original_index)
@@ -1189,10 +1183,9 @@ sibling `song.ogg`/`preview.ogg`. A Clone Hero library with `song.opus` entered
 the list but **played as silence with no warning**.
 
 `SongLoader._detect_blocked_audio()` flags the entry with `audio_blocked: true`
-when `song.opus` exists and `song.ogg` does not. It is reported in two places:
-the SONGS tab summary ("N song(s) ... convert them with
-tools/convert_opus_to_ogg.sh") and the song list status bar, so it is visible
-without opening Settings. Converting with
+when `song.opus` exists and `song.ogg` does not. It is reported in the SONGS tab
+summary ("N song(s) ... convert them with
+tools/convert_opus_to_ogg.sh"). Converting with
 `tools/convert_opus_to_ogg.sh --remove-opus` brings the warning to zero, because
 when `song.ogg` exists the function returns `false` even if the `.opus` is still
 there.
@@ -1415,12 +1408,9 @@ Both parsers expose `detect_difficulties()`, which returns a dictionary with:
 }
 ```
 
-`SongLoader` stores these fields in each song-list entry, and `MenuRoot` shows
-them in the status label:
-
-- **No drum track and no fallback** → shows "no drum chart"
-- **No drum track but fallback active** → shows "using guitar chart"
-- **With drum track** → no additional message
+`SongLoader` stores these fields in each song-list entry. They record whether the
+chart came from PART DRUMS or from the guitar fallback, and the fallback is
+re-evaluated when `use_guitar_fallback` changes.
 
 **Note (MIDI):** if a MIDI has both tracks (PART DRUMS and PART GUITAR), PART
 DRUMS is always prioritized. The fallback only activates when PART DRUMS produces
@@ -1500,7 +1490,6 @@ values:
 | `use_guitar_fallback` | false | Use PART GUITAR as fallback if PART DRUMS is missing |
 | `note_speed` | 1.0 | Note scroll speed |
 | `show_judgment_areas` | false | Draw judgement zones on the hit line |
-| `show_menu_status` | false | Show the main menu status line (chart/audio of the selected song, songs found) |
 | `gameplay_padding_enabled` | true on Android, false elsewhere | Condense gameplay with padding to avoid edge touches |
 | `gameplay_padding_left` | 75.0 | Left padding in dp (0-100, Android only) |
 | `gameplay_padding_right` | 75.0 | Right padding in dp (0-100, Android only) |
@@ -1511,7 +1500,7 @@ values:
 
 `MenuRoot` reuses the same visual kit and outer-margin/cap rules as Settings.
 Its single column keeps the original order: header (album art, search, Settings),
-song list, difficulty buttons, optional status line, preview line. Rows are
+song list, difficulty buttons, preview line. Rows are
 rounded cards with an opaque accent surface for the current song, difficulty
 buttons are scaled action pills, and the loading/quit overlays use the same card
 and button styles. The album tile center-crops the cover and bakes the corner
@@ -1577,7 +1566,7 @@ their defaults and rebuilds the active tab's UI.
 - `reset_controls_to_defaults()` — resets `game_mode`, `custom_lanes`, `haptic_*`, `mirrored`, `left_handed` and syncs `GameManager.mode`.
 - `reset_hud_to_defaults()` — resets `show_fps`, `max_fps`, `screen_shake`, `show_hit_feedback`, `note_speed`, `countdown_threshold`, `audio_offset_ms`.
 - `reset_audio_to_defaults()` — resets `master_volume`, `music_volume`, `sfx_volume`, `preview_volume`, `default_sample_velocity`.
-- `reset_experimental_to_defaults()` — resets `use_guitar_fallback`, `show_judgment_areas`, `show_menu_status`, `haptic_show_debug`, `gameplay_padding_*` and restores the Blood theme.
+- `reset_experimental_to_defaults()` — resets `use_guitar_fallback`, `show_judgment_areas`, `haptic_show_debug`, `gameplay_padding_*` and restores the Blood theme.
 
 **Themes.** `Palette.gd` exposes the three themes as `THEME_DATA` entries and
 copies the selected entry into static tokens accepted by the existing

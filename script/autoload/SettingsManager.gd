@@ -49,7 +49,6 @@ var show_hit_feedback: bool = false
 var countdown_threshold: float = 5.0
 var use_guitar_fallback: bool = false
 var show_judgment_areas: bool = false
-var show_menu_status: bool = false
 var theme: String = Palette.THEME_BLOOD
 var preview_volume: float = 0.8
 var gameplay_padding_enabled: bool = OS.get_name() == "Android"
@@ -162,7 +161,6 @@ func load_settings() -> void:
 	countdown_threshold = cfg.get_value("gameplay", "countdown_threshold", 5.0)
 	use_guitar_fallback = cfg.get_value("gameplay", "use_guitar_fallback", false)
 	show_judgment_areas = cfg.get_value("visual", "show_judgment_areas", false)
-	show_menu_status = cfg.get_value("visual", "show_menu_status", false)
 	theme = Palette.normalize_theme(str(cfg.get_value("visual", "theme", Palette.THEME_BLOOD)))
 	preview_volume = cfg.get_value("audio", "preview_volume", 0.8)
 	gameplay_padding_enabled = cfg.get_value("experimental", "gameplay_padding_enabled", _default_gameplay_padding_enabled())
@@ -225,7 +223,6 @@ func reset_library_to_defaults() -> void:
 func reset_experimental_to_defaults() -> void:
 	use_guitar_fallback = false
 	show_judgment_areas = false
-	show_menu_status = false
 	theme = Palette.apply_theme(Palette.THEME_BLOOD)
 	haptic_show_debug = false
 	gameplay_padding_enabled = _default_gameplay_padding_enabled()
@@ -282,7 +279,6 @@ func save_settings() -> void:
 	cfg.set_value("gameplay", "countdown_threshold", countdown_threshold)
 	cfg.set_value("gameplay", "use_guitar_fallback", use_guitar_fallback)
 	cfg.set_value("visual", "show_judgment_areas", show_judgment_areas)
-	cfg.set_value("visual", "show_menu_status", show_menu_status)
 	cfg.set_value("visual", "theme", theme)
 	cfg.set_value("audio", "preview_volume", preview_volume)
 	cfg.set_value("experimental", "gameplay_padding_enabled", gameplay_padding_enabled)

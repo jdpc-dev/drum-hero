@@ -5,7 +5,6 @@ const OUTER_PADDING_WIDE := 16.0
 const OUTER_PADDING_COMPACT := 10.0
 const CONTENT_MAX_WIDTH := 1180.0
 const BAR_HEIGHT := 70.0
-const STATUS_HEIGHT := 45.0
 const DIFF_HEIGHT := 55.0
 const DRAG_THRESHOLD := 8.0
 const DIFFICULTY_OFFSETS := [60, 72, 84, 96, 120]
@@ -15,8 +14,6 @@ var _selected_song_index: int = -1
 var _filtered_indices: Array[int] = []
 var _settings_theme_revision: int = 0
 var _search_text: String = ""
-var _back_press_time: float = 0.0
-var _back_cooldown: float = 2.0
 var _back_handled_time: float = 0.0
 
 var _root: VBoxContainer
@@ -24,8 +21,6 @@ var _header_bar: PanelContainer
 var _search_input: LineEdit
 var _song_list_scroll: ScrollContainer
 var _song_list_container: VBoxContainer
-var _status_panel: PanelContainer
-var _status_label: Label
 var _diff_container: HBoxContainer
 var _settings_button: Button
 var _difficulty_buttons: Dictionary = {}
@@ -47,7 +42,6 @@ var _scan_pump_active: bool = false
 static var _boot_intro_shown: bool = false
 
 var _old_guitar_fallback: bool = false
-var _old_menu_status: bool = false
 var _old_library_state: Array = []
 # Generation of SongLoader.song_list shown by this menu. A scan run inside
 # Settings bumps it; the rows are rebuilt without walking the disks again.
@@ -144,7 +138,7 @@ func _ready() -> void:
 		_show_loading_screen()
 		call_deferred("_refresh_song_list")
 	elif _selected_song_index < 0:
-		_update_status_text()
+		_update_preview_idle_text()
 	_update_difficulty_visibility()
 	_update_selection_ui()
 	_maybe_show_boot_intro()
@@ -396,9 +390,7 @@ func _build_ui() -> void:
 	_build_header_bar()
 	_build_song_list()
 	_build_difficulty_bar()
-	_build_status_bar()
 	_build_preview_status()
-	_apply_status_visibility()
 
 
 func _build_header_bar() -> void:
@@ -488,46 +480,6 @@ func _build_song_list() -> void:
 	_song_list_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	_song_list_container.add_theme_constant_override("separation", SettingsUI.px(8))
 	_song_list_scroll.add_child(_song_list_container)
-
-
-func _build_status_bar() -> void:
-	_status_panel = PanelContainer.new()
-	_status_panel.name = "StatusPanel"
-	_status_panel.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_status_panel.mouse_filter = Control.MOUSE_FILTER_PASS
-	var status_style := SettingsUI.flat(Palette.SURFACE_1, 10)
-	SettingsUI.pad(status_style, SettingsUI.px(12), SettingsUI.px(4))
-	_status_panel.add_theme_stylebox_override("panel", status_style)
-	_root.add_child(_status_panel)
-
-	_status_label = SettingsUI.label("Select a song", 14, Palette.ASH, 400)
-	_status_label.name = "StatusLabel"
-	_status_label.custom_minimum_size.y = SettingsUI.px(STATUS_HEIGHT)
-	_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_status_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
-	_status_panel.add_child(_status_label)
-
-
-func _apply_status_visibility() -> void:
-	if not is_instance_valid(_status_label):
-		return
-	var shown: bool = SettingsManager.show_menu_status
-	if is_instance_valid(_status_panel):
-		_status_panel.visible = shown
-	_status_label.visible = shown
-	_status_label.custom_minimum_size.y = SettingsUI.px(STATUS_HEIGHT) if shown else 0
-
-
-func _show_transient_status(text: String) -> void:
-	if not is_instance_valid(_status_label):
-		return
-	_status_label.text = text
-	_status_label.visible = true
-	_status_label.custom_minimum_size.y = SettingsUI.px(STATUS_HEIGHT)
-	if is_instance_valid(_status_panel):
-		_status_panel.visible = true
 
 
 func _build_preview_status() -> void:
@@ -711,7 +663,6 @@ func _select_song(original_index: int) -> void:
 		return
 	_selected_song_index = original_index
 	_update_selection_ui()
-	_update_status_for_song(original_index)
 	_update_difficulty_visibility()
 	_load_album_art(original_index)
 	_start_preview_animation(original_index)
@@ -836,46 +787,6 @@ func _update_selection_ui() -> void:
 		row.add_theme_stylebox_override("panel", _song_row_style(selected, false))
 
 
-func _update_status_for_song(original_index: int) -> void:
-	if original_index < 0 or original_index >= SongLoader.song_list.size():
-		_status_label.text = "Select a song"
-		_apply_status_visibility()
-		return
-	var song: Dictionary = SongLoader.song_list[original_index]
-	var parts: Array[String] = []
-	if not song.notes_path.is_empty():
-		parts.append("chart OK")
-	else:
-		parts.append("missing notes.mid")
-	if SongLoader.get_stem_path(song.path, "song").is_empty():
-		parts.append("missing audio")
-	else:
-		parts.append("audio OK")
-	if not song.get("has_drum_chart", true):
-		if song.get("guitar_fallback_used", false):
-			parts.append("using guitar chart")
-		else:
-			parts.append("no drum chart")
-	_status_label.text = "STATUS: " + " - ".join(parts)
-	_apply_status_visibility()
-
-
-func _update_status_text() -> void:
-	if SongLoader.song_list.size() > 0:
-		# Visited, not configured: a cancelled scan that never reached a root
-		# must not claim it checked it.
-		var locations: int = SongLoader.visited_roots.size()
-		if locations <= 0:
-			locations = SongLoader.get_scan_roots().size()
-		_status_label.text = "%d songs found from %d location(s)" % [
-			SongLoader.song_list.size(), locations
-		]
-	else:
-		_status_label.text = ""
-	_apply_status_visibility()
-	_update_preview_idle_text()
-
-
 func _update_difficulty_visibility() -> void:
 	var available_offsets: Dictionary = {}
 	if _selected_song_index >= 0 and _selected_song_index < SongLoader.song_list.size():
@@ -891,7 +802,6 @@ func _update_difficulty_visibility() -> void:
 
 func _on_difficulty_pressed(offset: int) -> void:
 	if _selected_song_index < 0 or _selected_song_index >= SongLoader.song_list.size():
-		_show_transient_status("Select a song first")
 		return
 	var song: Dictionary = SongLoader.song_list[_selected_song_index]
 	var difficulties: Array = song.get("difficulties", [])
@@ -1006,13 +916,11 @@ func _finish_song_list_refresh() -> void:
 	# previous scan's result.
 	var final_text: String = ScanFeedback.cancelled_text(kept) if not SongLoader.cancelled_roots.is_empty() else ScanFeedback.finished_text(kept)
 	_update_loading(1.0, final_text)
-	_update_status_text()
 	_rebuild_filtered_list()
 	_update_difficulty_visibility()
 	_update_selection_ui()
+	_update_preview_idle_text()
 	_hide_loading_screen()
-	if not SongLoader.cancelled_roots.is_empty():
-		_show_transient_status(final_text)
 
 
 func _show_loading_screen(allow_cancel: bool = false) -> void:
@@ -1280,21 +1188,10 @@ func _cache_stream(path: String, stream: AudioStream) -> void:
 
 
 func _handle_back() -> void:
-	# With the status line hidden there is nowhere to show "Press again to
-	# exit", so confirmation is requested in a modal. Back on the modal cancels it.
 	if _quit_confirm_is_open():
 		_hide_quit_confirm()
 		return
-	if not SettingsManager.show_menu_status:
-		_show_quit_confirm()
-		return
-	var now: float = Time.get_ticks_msec() / 1000.0
-	if now - _back_press_time < _back_cooldown:
-		_show_transient_status("Closing...")
-		get_tree().quit()
-	else:
-		_back_press_time = now
-		_show_transient_status("Press again to exit")
+	_show_quit_confirm()
 
 
 func _quit_confirm_is_open() -> bool:
@@ -1387,7 +1284,6 @@ func _on_settings_pressed() -> void:
 		return
 	_settings_theme_revision = Palette.revision
 	_old_guitar_fallback = SettingsManager.use_guitar_fallback
-	_old_menu_status = SettingsManager.show_menu_status
 	_old_library_state = [
 		SettingsManager.library_roots,
 		SettingsManager.library_preset_downloads,
@@ -1425,8 +1321,6 @@ func _on_settings_closed() -> void:
 	if Palette.revision != _settings_theme_revision:
 		get_tree().call_deferred("reload_current_scene")
 		return
-	if SettingsManager.show_menu_status != _old_menu_status:
-		_apply_status_visibility()
 	_root.show()
 	_library_changed()
 	var fallback_changed: bool = SettingsManager.use_guitar_fallback != _old_guitar_fallback
@@ -1439,7 +1333,7 @@ func _on_settings_closed() -> void:
 	if fallback_changed or library_changed:
 		_rebuild_from_library()
 	else:
-		_update_status_text()
+		_update_preview_idle_text()
 
 
 func _rebuild_from_library() -> void:
@@ -1455,7 +1349,7 @@ func _rebuild_from_library() -> void:
 			if SongLoader.song_list[i].path == selected_path and _filtered_indices.has(i):
 				_selected_song_index = i
 				break
-	_update_status_text()
+	_update_preview_idle_text()
 	_update_difficulty_visibility()
 	_update_selection_ui()
 

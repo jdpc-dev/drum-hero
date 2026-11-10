@@ -154,7 +154,7 @@ func _ready() -> void:
 		await get_tree().process_frame
 	_check("no hay escaneo en marcha", not SongLoader.is_scanning and not menu._scan_pump_active)
 	_check("las filas salen de la cache", menu._filtered_indices.size() == SongLoader.song_list.size())
-	_check("el estado menciona las canciones", menu._status_label.text.contains(str(SongLoader.song_list.size()) + " songs"))
+	_check("el hint de preview ve las canciones", menu._preview_status_label.text.contains("Tap a song to preview"))
 	menu.queue_free()
 	await get_tree().process_frame
 

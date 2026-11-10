@@ -106,7 +106,7 @@ short description always visible next to the navigation:
 - **Gameplay** — Note speed, silence countdown, hit feedback, screen shake, FPS counter and cap, note offset and the timing windows.
 - **Audio** — Master, music, drums & effects and menu preview volume, plus the default sample velocity.
 - **Songs** — storage permission, Downloads preset, extra folders, scan depth, an explicit **Rescan now** (the only thing that walks the disks, with progress in a modal) and scan diagnostics, including why a rescan is pending.
-- **Advanced** — theme picker (Blood, Tear, Virus), guitar-chart fallback, judgment areas, menu status, haptic debug overlay and Android gameplay padding.
+- **Advanced** — theme picker (Blood, Tear, Virus), guitar-chart fallback, judgment areas, haptic debug overlay and Android gameplay padding.
 
 The version and credits live behind **About Drum Hero** in the sidebar (or the
 **About** button in the compact layout). On Android the panel always uses the
