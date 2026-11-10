@@ -30,7 +30,7 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 +------------------------------------------------------------------------------+
 | [ ♪ ]  Search songs                                             [ Settings ] |
 +------------------------------------------------------------------------------+
-| ● 03:35  Through the Fire and Flames - DragonForce              12,000 pts   |
+| ● 03:35  Through the Fire and Flames - DragonForce  ..          12,000 pts   |
 |   02:51  Everlong - Foo Fighters                                 8,000 pts   |
 |   05:12  Battery - Metallica                                   --,---pts     |
 |   03:30  Chop Suey! - System of a Down                         60,000 pts    |
@@ -41,8 +41,6 @@ ASCII references for the gameplay screen, main menu, settings tabs and Free Mode
 |                                                                              |
 +------------------------------------------------------------------------------+
 |  Easy        Medium        Hard        Expert        Expert+                 |
-+------------------------------------------------------------------------------+
-|                       ♫  Tap a song to preview                               |
 +------------------------------------------------------------------------------+
 ```
 

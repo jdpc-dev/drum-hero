@@ -55,7 +55,9 @@ var _album_placeholder: Label
 var _preview_player: AudioStreamPlayer
 var _preview_song_path: String = ""
 var _preview_loaded_stream: AudioStream = null
-var _preview_status_label: Label
+# Label of the selected row's title, where the loading dots are appended.
+var _preview_title_label: Label
+var _preview_dots_text: String = ""
 
 const SCAN_OWNER: String = "menu"
 
@@ -137,8 +139,6 @@ func _ready() -> void:
 	if SongLoader.song_list.is_empty() and not SongLoader.cache_loaded:
 		_show_loading_screen()
 		call_deferred("_refresh_song_list")
-	elif _selected_song_index < 0:
-		_update_preview_idle_text()
 	_update_difficulty_visibility()
 	_update_selection_ui()
 	_maybe_show_boot_intro()
@@ -258,7 +258,7 @@ func _process(delta: float) -> void:
 		if _preview_anim_timer >= PREVIEW_ANIM_INTERVAL:
 			_preview_anim_timer -= PREVIEW_ANIM_INTERVAL
 			_preview_anim_frame = (_preview_anim_frame + 1) % PREVIEW_ANIM_FRAMES.size()
-			_preview_status_label.text = PREVIEW_ANIM_FRAMES[_preview_anim_frame]
+			_set_preview_dots(PREVIEW_ANIM_FRAMES[_preview_anim_frame])
 		if _preview_needs_load:
 			_preview_needs_load = false
 			_preview_loaded_stream = _get_cached_stream(_preview_pending_path)
@@ -293,7 +293,7 @@ func _process(delta: float) -> void:
 				_preview_load_timeout -= delta
 				if _preview_load_timeout <= 0.0:
 					_preview_animating = false
-					_preview_status_label.text = "Preview unavailable"
+					_set_preview_dots("")
 				else:
 					_preview_anim_delay = 0.0
 	if _preview_player.playing:
@@ -390,7 +390,6 @@ func _build_ui() -> void:
 	_build_header_bar()
 	_build_song_list()
 	_build_difficulty_bar()
-	_build_preview_status()
 
 
 func _build_header_bar() -> void:
@@ -482,27 +481,20 @@ func _build_song_list() -> void:
 	_song_list_scroll.add_child(_song_list_container)
 
 
-func _build_preview_status() -> void:
-	_preview_status_label = SettingsUI.label("", 14, Palette.ACCENT_GLOW, 400)
-	_preview_status_label.name = "PreviewStatusLabel"
-	_preview_status_label.custom_minimum_size.y = SettingsUI.px(28)
-	_preview_status_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_preview_status_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_preview_status_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-	_preview_status_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_root.add_child(_preview_status_label)
-	_update_preview_idle_text()
+# The dots live in the selected row's own title so they sit right next to the
+# song they refer to, instead of in a separate status line under the setlist.
+func _set_preview_dots(text: String) -> void:
+	_preview_dots_text = text
+	_paint_preview_dots()
 
 
-func _update_preview_idle_text() -> void:
-	if not is_instance_valid(_preview_status_label):
+func _paint_preview_dots() -> void:
+	if not is_instance_valid(_preview_title_label):
+		_preview_title_label = null
 		return
-	if _preview_animating or _preview_player.playing:
-		return
-	if SongLoader.song_list.size() > 0:
-		_preview_status_label.text = "♫  Tap a song to preview"
-	else:
-		_preview_status_label.text = ""
+	var base_text: String = str(_preview_title_label.get_meta("base_text", ""))
+	var dots: String = "" if _preview_dots_text.is_empty() else "  " + _preview_dots_text
+	_preview_title_label.text = base_text + dots
 
 
 func _build_difficulty_bar() -> void:
@@ -602,7 +594,10 @@ func _create_song_row(original_index: int, song: Dictionary) -> PanelContainer:
 
 	var song_length: int = int(song.get("song_length", 0))
 	var prefix: String = (_format_duration(song_length) + "  ") if song_length > 0 else ""
-	var song_label := SettingsUI.label(prefix + song.artist + " - " + song.name, 18, Palette.BONE, 500)
+	var title_text: String = prefix + song.artist + " - " + song.name
+	var song_label := SettingsUI.label(title_text, 18, Palette.BONE, 500)
+	song_label.name = "SongTitle"
+	song_label.set_meta("base_text", title_text)
 	song_label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	song_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	song_label.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
@@ -708,7 +703,7 @@ func _rewind_preview(original_index: int) -> void:
 		else:
 			player.play(seek_pos)
 	_preview_elapsed = 0.0
-	_preview_status_label.text = "♫  " + song.artist + " - " + song.name
+	_set_preview_dots("")
 
 
 func _can_navigate_setlist() -> bool:
@@ -777,6 +772,7 @@ func _load_external_texture(path: String) -> Texture2D:
 
 
 func _update_selection_ui() -> void:
+	var selected_title: Label = null
 	for i in _song_list_container.get_child_count():
 		var row = _song_list_container.get_child(i)
 		if not row is PanelContainer:
@@ -785,6 +781,10 @@ func _update_selection_ui() -> void:
 		var selected: bool = original_index == _selected_song_index
 		row.set_meta("selected", selected)
 		row.add_theme_stylebox_override("panel", _song_row_style(selected, false))
+		if selected:
+			selected_title = row.find_child("SongTitle", true, false) as Label
+	_preview_title_label = selected_title
+	_paint_preview_dots()
 
 
 func _update_difficulty_visibility() -> void:
@@ -919,7 +919,6 @@ func _finish_song_list_refresh() -> void:
 	_rebuild_filtered_list()
 	_update_difficulty_visibility()
 	_update_selection_ui()
-	_update_preview_idle_text()
 	_hide_loading_screen()
 
 
@@ -1033,7 +1032,7 @@ func _start_preview_animation(original_index: int) -> void:
 	_preview_anim_timer = 0.0
 	_preview_anim_delay = PREVIEW_ANIM_DELAY
 	_preview_load_timeout = PREVIEW_LOAD_TIMEOUT
-	_preview_status_label.text = PREVIEW_ANIM_FRAMES[0]
+	_set_preview_dots(PREVIEW_ANIM_FRAMES[0])
 	var song_preview_path: String = song.get("preview_path", "")
 	if song_preview_path.is_empty():
 		_preview_stem_paths.clear()
@@ -1045,11 +1044,11 @@ func _start_preview_animation(original_index: int) -> void:
 
 func _play_preview(original_index: int) -> void:
 	if original_index < 0 or original_index >= SongLoader.song_list.size():
-		_preview_status_label.text = ""
+		_set_preview_dots("")
 		return
 	var song: Dictionary = SongLoader.song_list[original_index]
 	if not _preview_loaded_stream:
-		_preview_status_label.text = ""
+		_set_preview_dots("")
 		return
 	if _preview_player.playing:
 		_preview_player.stop()
@@ -1078,7 +1077,8 @@ func _play_preview(original_index: int) -> void:
 		_preview_player.play()
 	_preview_fade_tween = create_tween()
 	_preview_fade_tween.tween_property(_preview_player, "volume_db", linear_to_db(SettingsManager.preview_volume), PREVIEW_FADE_IN_DURATION).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
-	_preview_status_label.text = "♫  " + song.artist + " - " + song.name
+	# Playback started: the dots were only a loading indicator.
+	_set_preview_dots("")
 
 
 func _on_preview_volume_changed(volume: float) -> void:
@@ -1131,7 +1131,7 @@ func _stop_preview() -> void:
 		_preview_stem_thread = null
 	_preview_song_path = ""
 	_preview_elapsed = 0.0
-	_update_preview_idle_text()
+	_set_preview_dots("")
 
 
 func _start_preview_fade_out() -> void:
@@ -1152,7 +1152,6 @@ func _on_preview_fade_out_finished() -> void:
 	if not _preview_fading_out:
 		return
 	_preview_fading_out = false
-	_preview_status_label.text = "Preview ended"
 	_stop_preview()
 
 
@@ -1332,8 +1331,6 @@ func _on_settings_closed() -> void:
 	_library_generation = SongLoader.library_generation
 	if fallback_changed or library_changed:
 		_rebuild_from_library()
-	else:
-		_update_preview_idle_text()
 
 
 func _rebuild_from_library() -> void:
@@ -1349,7 +1346,6 @@ func _rebuild_from_library() -> void:
 			if SongLoader.song_list[i].path == selected_path and _filtered_indices.has(i):
 				_selected_song_index = i
 				break
-	_update_preview_idle_text()
 	_update_difficulty_visibility()
 	_update_selection_ui()
 

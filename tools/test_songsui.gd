@@ -304,18 +304,21 @@ func _ready() -> void:
 	menu._handle_back()
 	_check("atras cancela el modal", not menu._quit_confirm_is_open())
 
-	print("=== 11c. hint contextual en la linea de preview ===")
+	print("=== 11c. los puntos de carga van junto al titulo de la fila ===")
+	_check("no queda la linea de texto de preview", menu.find_child("PreviewStatusLabel", true, false) == null)
+	menu._stop_preview()
 	SongLoader.song_list.clear()
-	menu._update_preview_idle_text()
-	_check("sin canciones -> linea vacia", menu._preview_status_label.text == "")
 	SongLoader.song_list.append({"path": "/tmp/x", "name": "Test", "artist": "Artist"})
-	menu._update_preview_idle_text()
-	_check("con canciones -> muestra hint", menu._preview_status_label.text.contains("Tap a song to preview"))
-	menu._preview_animating = true
-	menu._preview_status_label.text = "."
-	menu._update_preview_idle_text()
-	_check("mientras carga no toca el texto", menu._preview_status_label.text == ".")
-	menu._preview_animating = false
+	menu._rebuild_filtered_list()
+	menu._selected_song_index = 0
+	menu._update_selection_ui()
+	var dots_title: Label = menu.find_child("SongTitle", true, false)
+	menu._set_preview_dots(".")
+	_check("la fila seleccionada muestra los puntos junto al nombre",
+		dots_title != null and dots_title.text == "Artist - Test  .")
+	menu._set_preview_dots("")
+	_check("sin carga no quedan puntos en el titulo",
+		dots_title != null and dots_title.text == "Artist - Test")
 
 	print("=== 12. MenuRoot detecta cambios de biblioteca al cerrar Ajustes ===")
 	menu._old_library_state = [

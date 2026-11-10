@@ -26,11 +26,10 @@ Main (CanvasLayer)                      ← MenuRoot.gd
 │           ├── SongListScroll (ScrollContainer, styled) — scrollable list
 │           │   └── SongListContainer (VBoxContainer, 8px gap)
 │           │       ├── SongRow_N (PanelContainer card) — selected highlight + dot,
-│           │       │   duration, artist - title      --,---pts
+│           │       │   duration, artist - title [loading dots]  --,---pts
 │           │       └── ...
-│           ├── DiffContainer (HBoxContainer) — Easy/Medium/Hard/Expert/Expert+
-│           │   └── [5 styled buttons]       — disabled if unavailable
-│           └── PreviewStatusLabel — "♫ Artist - Song" | idle "♫ Tap a song to preview"
+│           └── DiffContainer (HBoxContainer) — Easy/Medium/Hard/Expert/Expert+
+│               └── [5 styled buttons]       — disabled if unavailable
 
 Settings (CanvasLayer, layer 10)       ← SettingsRoot.gd
 ├── Background (ColorRect)
@@ -291,7 +290,7 @@ _user taps SongRow
   └─ _select_song(original_index)
       ├─ If the same song is already selected → _rewind_preview() (seek in place; loads only if nothing is buffered)
       ├─ _selected_song_index = original_index
-      ├─ _update_selection_ui()          ← puts "► " on the selected row
+      ├─ _update_selection_ui()          ← marks the selected row and points the dots there
       ├─ _update_difficulty_visibility() ← enables/disables buttons
       ├─ _load_album_art(original_index) ← loads cover art into HeaderBar
       └─ _start_preview_animation(original_index)
@@ -312,7 +311,7 @@ _start_preview_animation()
   ├─ _preview_animating = true
   ├─ _preview_anim_frame = 0            ← "."
   ├─ _preview_anim_delay = 1.5          ← 1.5s before actual play
-  └─ PreviewStatusLabel.text = "."
+  └─ _set_preview_dots(".")             ← appended to the selected row's title
 ```
 
 **Frame-by-frame processing (`_process()`):**
@@ -343,11 +342,11 @@ _process(delta)
   │           ├─ stream != null → _play_preview()
   │           └─ stream == null:
   │               ├─ timeout > 0 → timeout -= delta, delay = 0.0
-  │               └─ timeout <= 0 → "Preview unavailable"
+  │               └─ timeout <= 0 → clear the dots
   │
   └─ IF _preview_player.playing:
       ├─ _preview_elapsed += delta
-      └─ If elapsed >= 30s → _stop_preview() + "Preview ended"
+      └─ If elapsed >= 30s → _stop_preview()
 ```
 
 **Playback (`_play_preview()`):**
@@ -368,7 +367,7 @@ _play_preview()
   │       └─ On finish: creates an AudioStreamPlayer for each stem
   │           with volume_db = linear_to_db(preview_volume * 0.5),
   │           play() and seek() synchronized to the current playback_position
-  └─ PreviewStatusLabel.text = "♫  Queen - Bohemian Rhapsody"
+  └─ _set_preview_dots("")                 ← playback started: dots disappear
 ```
 
 **Stopping:**
@@ -383,14 +382,14 @@ _stop_preview()                              ← called when:
   ├─ _preview_player.stop()                   ├─ preview > 30s (duration limit)
   ├─ _preview_player.stream = null            └─ explicit _stop_preview()
   ├─ _preview_elapsed = 0.0
-  └─ PreviewStatusLabel.text = ""
+  └─ _set_preview_dots("")
 ```
 
 **Preview node tree:**
 
 ```
 MenuRoot (CanvasLayer)
-  ├── PreviewStatusLabel (Label)    ← ". → .. → ... → ♫  Artist - Song"
+  ├── SongRow_N/SongTitle (Label)   ← selected row title; dots are appended while loading
   ├── PreviewPlayer (AudioStreamPlayer)  ← bus = "Music"
   ├── StemPlayer_n (AudioStreamPlayer)   ← bus = "Music" (0..N, for each loaded stem)
   ├── Thread (_preview_thread)      ← async load of the main preview
@@ -410,10 +409,10 @@ MenuRoot (CanvasLayer)
 - **Seek by preview_start_time:** when `song.ogg` is used as fallback (no `preview.ogg`), `_preview_player.seek()` is applied to the `preview_start_time` value from `song.ini` divided by 1000 (it is in milliseconds, seek uses seconds). If the value is -1, 0 or null, it seeks to second 30. With `preview.ogg` it plays from the beginning (0s).
 - **Stems in fallback:** when using `song.ogg` as fallback, individual stems (`drums.ogg`, `guitar.ogg`, `bass.ogg`, `keys.ogg`, `rhythm.ogg`, `vocals.ogg`) are also loaded if they exist. An `AudioStreamPlayer` is created for each stem found on the `"Music"` bus with volume at 0.5× `preview_volume`. Loading is asynchronous (thread on desktop, synchronous on Android). The stems are synchronized with `_preview_player.get_playback_position()` to keep them temporally coherent.
 - **Android .opus skip:** on Android, `_resolve_preview_path()` ignores `preview.opus` files (ffmpeg unavailable) and falls back to `song.ogg` via `get_stem_path()`. On desktop, `.opus` is decoded normally. `SongLoader.get_stem_path()` uses `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in external storage and in packaged `res://`.
-- **Load timeout:** if the stream does not load within `PREVIEW_LOAD_TIMEOUT = 5s`, the animation stops and shows "Preview unavailable". This avoids an infinite dots loop on error.
+- **Load timeout:** if the stream does not load within `PREVIEW_LOAD_TIMEOUT = 5s`, the animation stops and the dots are cleared. This avoids an infinite dots loop on error.
 - **Re-selection rewinds:** tapping the already-selected row calls `_rewind_preview()`. If the stream is already loaded it seeks back to the preview start (or `preview_start_time`/30s for the `song.ogg` fallback) and keeps playing, without stopping, reloading or replaying the dots animation. A rewind during the 30s fade-out cancels the fade. If nothing is loaded (preview ended, failed or still loading) it either starts the normal load path or leaves the in-flight load alone. `_on_song_row_input()` uses `InputEventScreenTouch` to distinguish tap from drag (8px threshold).
-- **Dots animation:** 3 frames (`.`, `..`, `...`) alternating every 0.3s. Minimum delay of 0.3s (one frame) for visual feedback, maximum 1.5s.
-- **Fallback:** on desktop, `preview.opus` is used if it exists (decoded via ffmpeg). On Android, `preview.opus` is ignored and `song.ogg` is used. If the stream does not load, the 5s timeout shows "Preview unavailable".
+- **Dots animation:** 3 frames (`.`, `..`, `...`) alternating every 0.3s, appended to the selected row's title. Minimum delay of 0.3s (one frame) for visual feedback, maximum 1.5s.
+- **Fallback:** on desktop, `preview.opus` is used if it exists (decoded via ffmpeg). On Android, `preview.opus` is ignored and `song.ogg` is used. If the stream does not load, the 5s timeout clears the dots.
 - **Volume:** controlled by `SettingsManager.preview_volume` (default 0.8), applied as `linear_to_db()`.
 - **Cleanup:** `_exit_tree()` calls `_stop_preview()`, which waits for the thread (if it exists) and releases all resources when the app closes.
 
@@ -1500,7 +1499,8 @@ values:
 
 `MenuRoot` reuses the same visual kit and outer-margin/cap rules as Settings.
 Its single column keeps the original order: header (album art, search, Settings),
-song list, difficulty buttons, preview line. Rows are
+song list, difficulty buttons. Loading dots are appended to the selected row's
+title while its preview is being prepared. Rows are
 rounded cards with an opaque accent surface for the current song, difficulty
 buttons are scaled action pills, and the loading/quit overlays use the same card
 and button styles. The album tile center-crops the cover and bakes the corner
