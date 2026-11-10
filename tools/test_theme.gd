@@ -60,6 +60,17 @@ func _primary_contrast_ok() -> bool:
 		and _contrast(Palette.ACCENT_PRESSED, Palette.ON_ACCENT) >= 4.5
 
 
+func _beat_lines_follow_accent() -> bool:
+	# Same RGB as the accent glow, with the measure line kept stronger than the
+	# beat line.
+	var measure_rgb: Color = Color(Palette.BEAT_MEASURE.r, Palette.BEAT_MEASURE.g, Palette.BEAT_MEASURE.b)
+	var beat_rgb: Color = Color(Palette.BEAT_BEAT.r, Palette.BEAT_BEAT.g, Palette.BEAT_BEAT.b)
+	return measure_rgb.is_equal_approx(Palette.ACCENT_GLOW) \
+		and beat_rgb.is_equal_approx(Palette.ACCENT_GLOW) \
+		and Palette.BEAT_MEASURE.a > Palette.BEAT_BEAT.a \
+		and Palette.BEAT_BEAT.a > 0.0
+
+
 func _ready() -> void:
 	_backup_settings()
 	var original_theme: String = SettingsManager.theme
@@ -70,6 +81,7 @@ func _ready() -> void:
 	_check("Blood usa el rojo sangre", Palette.ACCENT == Color("#BC000E"))
 	_check("Blood usa el fondo negro compartido", Palette.NIGHT_BG == Color.BLACK)
 	_check("Blood mantiene contraste en el botón primario", _primary_contrast_ok())
+	_check("Blood tiñe las líneas del highway con su acento", _beat_lines_follow_accent())
 	var metal: Color = Palette.BONE
 	_check("Blood conserva el metal", Palette.BONE == metal)
 
@@ -80,6 +92,7 @@ func _ready() -> void:
 	_check("Tear conserva el metal", Palette.BONE == metal)
 	_check("Tear usa texto metal sobre el acento", Palette.ON_ACCENT == Palette.BONE_HI)
 	_check("Tear mantiene contraste en el botón primario", _primary_contrast_ok())
+	_check("Tear tiñe las líneas del highway con su acento", _beat_lines_follow_accent())
 
 	var virus: String = Palette.apply_theme(Palette.THEME_VIRUS)
 	_check("Virus normalizado", virus == Palette.THEME_VIRUS)
@@ -92,6 +105,7 @@ func _ready() -> void:
 	_check("Virus conserva el metal", Palette.BONE == metal)
 	_check("Virus usa tinta negra sobre el acento", Palette.ON_ACCENT == Palette.INK)
 	_check("Virus mantiene contraste en el botón primario", _primary_contrast_ok())
+	_check("Virus tiñe las líneas del highway con su acento", _beat_lines_follow_accent())
 
 	_check("ids desconocidos caen en Blood", Palette.normalize_theme("nope") == Palette.THEME_BLOOD)
 	_check("el id heredado hacker apunta a Virus", Palette.normalize_theme("hacker") == Palette.THEME_VIRUS)

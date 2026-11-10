@@ -13,14 +13,14 @@ These lines are purely visual references and do not participate in hit detection
 Two types of timing markers are rendered:
 
 ### Measure Lines
-Indicate the **first beat of every measure (bar)**. Rendered at 2px height, white at 65% opacity, full screen width.
+Indicate the **first beat of every measure (bar)**. Rendered at 2px height, in the selected theme's accent glow at 65% opacity, full screen width.
 
 ```
 ══════════════════════════════
 ```
 
 ### Beat Lines
-Represent the remaining beats within the current measure. Rendered at 1px height, white at 30% opacity, full screen width.
+Represent the remaining beats within the current measure. Rendered at 1px height, in the selected theme's accent glow at 30% opacity, full screen width.
 
 ```
 ──────────────────────────────

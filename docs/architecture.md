@@ -1606,9 +1606,11 @@ copies the selected entry into static tokens accepted by the existing
 `Palette.*` call sites. Blood is the default and keeps the red identity; Tear
 uses a desaturated ocean-floor blue; Virus uses terminal green with near-black
 text on the primary accent button (`ON_ACCENT`). The black background, the
-surface layers, metallic-white text, borders, beat lines and the eight lane
-colours are shared across themes, because they carry the foundation, text
-contrast or gameplay meaning. The gameplay clear color, the highway backdrop
+surface layers, metallic-white text, borders and the eight lane colours are
+shared across themes, because they carry the foundation, text contrast or
+gameplay meaning. The highway beat lines are the exception on the track: they
+follow the theme accent glow so the highway matches the selected theme. The
+gameplay clear color, the highway backdrop
 and the lane strips use the same black, so the track does not add a second
 background tone; the hit line and input pads sit on a white backing so their
 translucent lane colours keep the intended tone. `SettingsManager.theme` persists the id under

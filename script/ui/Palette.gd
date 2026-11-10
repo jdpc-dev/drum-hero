@@ -101,11 +101,13 @@ const SCRIM_SOFT: Color = Color(0.0, 0.0, 0.0, 0.6)
 const SCRIM_RESULT: Color = Color(0.0, 0.0, 0.0, 0.8)
 
 # --- Highway beat lines ---
-# These sit on the shared black, so low alpha reads as a near-black grey.
-# Keep both above the black canvas and the measure line clearly stronger than
-# the beat line so the bar structure stays legible at a glance.
-const BEAT_MEASURE: Color = Color(0.847, 0.863, 0.890, 0.65)
-const BEAT_BEAT: Color = Color(0.847, 0.863, 0.890, 0.30)
+# They follow the theme accent (the glow tone, which keeps its readability on
+# black) instead of the shared metal, so the highway picks up the selected
+# theme. The alphas keep both above the black canvas and the measure line
+# clearly stronger than the beat line so the bar structure stays legible.
+# Defaults mirror Blood and are replaced by apply_theme() at startup.
+static var BEAT_MEASURE: Color = Color(1.0, 0.231, 0.231, 0.65)
+static var BEAT_BEAT: Color = Color(1.0, 0.231, 0.231, 0.30)
 
 # --- Hit line ---
 # Neutral base for the hit zone (hit lanes + note input pads). Their colors are
@@ -192,6 +194,11 @@ static func apply_theme(theme_id: String) -> String:
 	ACCENT_SURFACE = data["accent_surface"]
 	ACCENT_SURFACE_HOVER = data["accent_surface_hover"]
 	ON_ACCENT = data["on_accent"]
+
+	# The highway beat lines are chrome, not gameplay lane colour: they follow
+	# the accent so the track matches the selected theme.
+	BEAT_MEASURE = _with_alpha(ACCENT_GLOW, 0.65)
+	BEAT_BEAT = _with_alpha(ACCENT_GLOW, 0.30)
 
 	# Re-applying the same theme (for example the ADVANCED reset while Blood is
 	# already active) must not make the menu think the palette changed.
