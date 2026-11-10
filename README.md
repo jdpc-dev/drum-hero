@@ -135,13 +135,14 @@ Headless test scenes live in `tools/`:
 ```bash
 godot --headless --path . res://tools/test_lanes.tscn
 godot --headless --path . res://tools/test_menu_state.tscn
+godot --headless --path . res://tools/test_preview_async.tscn
 godot --headless --path . res://tools/test_modal_fit.tscn
 godot --headless --path . res://tools/test_song_end.tscn
 godot --headless --path . res://tools/test_song_end_e2e.tscn
 godot --headless --path . res://tools/test_theme.tscn
 ```
 
-The full set is `test_encoding`, `test_freemode`, `test_highscores`, `test_lanes`, `test_libscan`, `test_library_cache`, `test_menu_state`, `test_metadata`, `test_modal_fit`, `test_song_end`, `test_song_end_e2e`, `test_songsui`, `test_theme` and `test_timeline`.
+The full set is `test_encoding`, `test_freemode`, `test_highscores`, `test_lanes`, `test_libscan`, `test_library_cache`, `test_menu_state`, `test_metadata`, `test_modal_fit`, `test_preview_async`, `test_song_end`, `test_song_end_e2e`, `test_songsui`, `test_theme` and `test_timeline`.
 
 ### Android export
 

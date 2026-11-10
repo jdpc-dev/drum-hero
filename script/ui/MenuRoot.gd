@@ -56,6 +56,14 @@ var _row_drag_start: Vector2 = Vector2.ZERO
 
 var _album_art: TextureRect
 var _album_placeholder: Label
+var _album_art_cache: Dictionary = {}
+var _album_art_cache_order: Array[String] = []
+var _album_art_thread: Thread
+var _album_art_thread_path: String = ""
+# Latest album the selected row asked for. A load in flight for an older song
+# is allowed to finish; its result is cached and then discarded.
+var _album_art_pending_path: String = ""
+
 var _preview_player: AudioStreamPlayer
 var _preview_song_path: String = ""
 var _preview_loaded_stream: AudioStream = null
@@ -67,12 +75,10 @@ const SCAN_OWNER: String = "menu"
 const SCAN_START_DELAY_FRAMES: int = 1
 
 const PREVIEW_STEM_NAMES := ["drums", "bass", "guitar", "keys", "rhythm", "vocals"]
-var _preview_stem_paths: Array[String] = []
-var _preview_stem_streams: Dictionary = {}
 var _preview_stem_players: Array[AudioStreamPlayer] = []
 var _preview_stem_thread: Thread
-var _preview_stem_load_done: bool = false
-var _preview_stem_load_result: Dictionary = {}
+var _preview_stem_thread_song_path: String = ""
+var _preview_stem_needs_load: bool = false
 
 # The engine boot splash can only draw one still image, so its frame is reused
 # as the first frame of this short intro. It is played by the menu itself, right
@@ -97,6 +103,7 @@ const PREVIEW_FADE_IN_DURATION := 1.5
 const PREVIEW_FADE_OUT_DURATION := 1.0
 const PREVIEW_CACHE_MAX := 5
 const PREVIEW_LOAD_TIMEOUT := 5.0
+const ALBUM_ART_CACHE_MAX: int = 8
 var _preview_anim_frame: int = 0
 var _preview_anim_timer: float = 0.0
 var _preview_anim_delay: float = 0.0
@@ -109,8 +116,7 @@ var _preview_load_timeout: float = 0.0
 var _preview_cache: Dictionary = {}
 var _preview_cache_order: Array[String] = []
 var _preview_thread: Thread
-var _preview_load_result: AudioStream = null
-var _preview_load_done: bool = false
+var _preview_thread_path: String = ""
 var _preview_fade_tween: Tween
 var _preview_fading_out: bool = false
 
@@ -230,7 +236,10 @@ func _notification(what: int) -> void:
 
 func _exit_tree() -> void:
 	_save_menu_state()
-	_stop_preview()
+	# Joining here is the only blocking wait: the Node is about to disappear and
+	# a worker must not outlive it. Normal selection/cancellation never waits.
+	_stop_preview(true)
+	_join_album_art_load()
 	_abort_scan()
 	_hide_quit_confirm()
 
@@ -258,37 +267,19 @@ func _input(event: InputEvent) -> void:
 
 
 func _process(delta: float) -> void:
+	# Reaping only waits when the worker has already finished. Doing it at the
+	# top of the frame also releases threads whose selection was replaced.
+	_reap_preview_load()
+	_reap_stem_load()
+	_reap_album_art()
+	_maybe_start_album_art()
 	if _preview_animating:
 		_preview_anim_timer += delta
 		if _preview_anim_timer >= PREVIEW_ANIM_INTERVAL:
 			_preview_anim_timer -= PREVIEW_ANIM_INTERVAL
 			_preview_anim_frame = (_preview_anim_frame + 1) % PREVIEW_ANIM_FRAMES.size()
 			_set_preview_dots(PREVIEW_ANIM_FRAMES[_preview_anim_frame])
-		if _preview_needs_load:
-			_preview_needs_load = false
-			_preview_loaded_stream = _get_cached_stream(_preview_pending_path)
-			if not _preview_loaded_stream:
-				if OS.get_name() == "Android":
-					_preview_loaded_stream = AudioManager._load_audio_stream(_preview_pending_path)
-					if _preview_loaded_stream:
-						_cache_stream(_preview_pending_path, _preview_loaded_stream)
-					if _preview_loaded_stream and _preview_anim_delay > PREVIEW_ANIM_INTERVAL:
-						_preview_anim_delay = PREVIEW_ANIM_INTERVAL
-				else:
-					_preview_load_result = null
-					_preview_load_done = false
-					_preview_thread = Thread.new()
-					_preview_thread.start(_preview_load_func.bind(_preview_pending_path))
-		if _preview_load_done:
-			_preview_loaded_stream = _preview_load_result
-			_preview_load_done = false
-			if _preview_thread:
-				_preview_thread.wait_to_finish()
-				_preview_thread = null
-			if _preview_loaded_stream:
-				_cache_stream(_preview_pending_path, _preview_loaded_stream)
-			if _preview_loaded_stream and _preview_anim_delay > PREVIEW_ANIM_INTERVAL:
-				_preview_anim_delay = PREVIEW_ANIM_INTERVAL
+		_maybe_start_preview_load()
 		_preview_anim_delay -= delta
 		if _preview_anim_delay <= 0.0:
 			if _preview_loaded_stream:
@@ -305,34 +296,171 @@ func _process(delta: float) -> void:
 		_preview_elapsed += delta
 		if _preview_elapsed >= PREVIEW_MAX_DURATION - PREVIEW_FADE_OUT_DURATION and not _preview_fading_out:
 			_start_preview_fade_out()
-		if _preview_stem_load_done and not _preview_stem_load_result.is_empty():
-			_preview_stem_load_done = false
-			if _preview_stem_thread and _preview_stem_thread.is_started():
-				_preview_stem_thread.wait_to_finish()
-				_preview_stem_thread = null
-			for path in _preview_stem_load_result:
-				var stream: AudioStream = _preview_stem_load_result[path]
-				if not stream:
-					continue
-				var current_pos: float = _preview_player.get_playback_position()
-				var player := AudioStreamPlayer.new()
-				player.stream = stream
-				player.bus = "Music"
-				player.volume_db = linear_to_db(SettingsManager.preview_volume)
-				add_child(player)
-				player.play(current_pos)
-				_preview_stem_players.append(player)
-				if _preview_elapsed < PREVIEW_FADE_IN_DURATION:
-					player.volume_db = _preview_player.volume_db
-					var remaining_fade_in: float = PREVIEW_FADE_IN_DURATION - _preview_elapsed
-					var fade_tween := create_tween()
-					fade_tween.tween_property(player, "volume_db", linear_to_db(SettingsManager.preview_volume), remaining_fade_in).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
-			_preview_stem_load_result = {}
+		_maybe_start_stem_load()
 	if _scan_pump_active:
 		if _scan_start_delay > 0:
 			_scan_start_delay -= 1
 		else:
 			_pump_scan()
+
+
+# The preview, its fallback stems and album art are all loaded on worker
+# threads. Android used to decode on the main thread: selecting a song with no
+# preview.ogg then froze the setlist while six stems were read. The worker
+# returns its result instead of writing shared flags, and the main thread only
+# calls wait_to_finish() after is_alive() is already false.
+func _maybe_start_preview_load() -> void:
+	if not _preview_animating or not _preview_needs_load:
+		return
+	if _preview_thread != null:
+		# A load for a previous selection is still running. The latest path is
+		# kept pending and starts as soon as that thread is reaped.
+		return
+	_preview_needs_load = false
+	var path: String = _preview_pending_path
+	if path.is_empty():
+		return
+	var cached: AudioStream = _get_cached_stream(path)
+	if cached != null:
+		_preview_loaded_stream = cached
+		if _preview_anim_delay > PREVIEW_ANIM_INTERVAL:
+			_preview_anim_delay = PREVIEW_ANIM_INTERVAL
+		return
+	_preview_thread_path = path
+	_preview_thread = Thread.new()
+	if _preview_thread.start(_preview_load_func.bind(path)) != OK:
+		_preview_thread = null
+		_preview_thread_path = ""
+
+
+func _reap_preview_load() -> void:
+	if _preview_thread == null:
+		return
+	if _preview_thread.is_started() and _preview_thread.is_alive():
+		return
+	var path: String = _preview_thread_path
+	var raw: Variant = null
+	if _preview_thread.is_started():
+		raw = _preview_thread.wait_to_finish()
+	_preview_thread = null
+	_preview_thread_path = ""
+	var stream: AudioStream = raw if raw is AudioStream else null
+	if stream != null:
+		_cache_stream(path, stream)
+	# The player may have selected another song while this was loading: cache
+	# the old stream for a later visit, but never apply it to the new selection.
+	if not _preview_animating or path != _preview_pending_path:
+		return
+	_preview_loaded_stream = stream
+	_preview_needs_load = false
+	if stream != null and _preview_anim_delay > PREVIEW_ANIM_INTERVAL:
+		_preview_anim_delay = PREVIEW_ANIM_INTERVAL
+
+
+func _maybe_start_stem_load() -> void:
+	if not _preview_stem_needs_load:
+		return
+	if _preview_stem_thread != null:
+		return
+	if not _preview_player.playing or _preview_fading_out or _preview_song_path.is_empty():
+		_preview_stem_needs_load = false
+		return
+	_preview_stem_needs_load = false
+	_preview_stem_thread_song_path = _preview_song_path
+	_preview_stem_thread = Thread.new()
+	# The worker resolves the stem paths itself: probing every extension on the
+	# main thread was another avoidable hitch on external mobile storage.
+	if _preview_stem_thread.start(_preview_load_stems_func.bind(_preview_song_path)) != OK:
+		_preview_stem_thread = null
+		_preview_stem_thread_song_path = ""
+
+
+func _reap_stem_load() -> void:
+	if _preview_stem_thread == null:
+		return
+	if _preview_stem_thread.is_started() and _preview_stem_thread.is_alive():
+		return
+	var song_path: String = _preview_stem_thread_song_path
+	var raw: Variant = null
+	if _preview_stem_thread.is_started():
+		raw = _preview_stem_thread.wait_to_finish()
+	_preview_stem_thread = null
+	_preview_stem_thread_song_path = ""
+	if not (raw is Dictionary):
+		return
+	# The fallback stems are an enhancement layered on song.ogg. If the player
+	# has already moved to another song, drop them instead of playing the old
+	# song's stems over the new preview.
+	if song_path.is_empty() or song_path != _preview_song_path:
+		return
+	if not _preview_player.playing or _preview_fading_out:
+		return
+	_apply_stem_streams(raw)
+
+
+func _apply_stem_streams(results: Dictionary) -> void:
+	for path in results:
+		var stream: AudioStream = results[path]
+		if not stream:
+			continue
+		var current_pos: float = _preview_player.get_playback_position()
+		var player := AudioStreamPlayer.new()
+		player.stream = stream
+		player.bus = "Music"
+		player.volume_db = linear_to_db(SettingsManager.preview_volume)
+		add_child(player)
+		player.play(current_pos)
+		_preview_stem_players.append(player)
+		if _preview_elapsed < PREVIEW_FADE_IN_DURATION:
+			player.volume_db = _preview_player.volume_db
+			var remaining_fade_in: float = PREVIEW_FADE_IN_DURATION - _preview_elapsed
+			var fade_tween := create_tween()
+			fade_tween.tween_property(player, "volume_db", linear_to_db(SettingsManager.preview_volume), remaining_fade_in).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
+
+
+func _maybe_start_album_art() -> void:
+	if _album_art_thread != null:
+		return
+	var path: String = _album_art_pending_path
+	if path.is_empty():
+		return
+	if _album_art_cache.has(path):
+		_set_album_texture(_album_art_cache[path])
+		_touch_album_cache(path)
+		_album_art_pending_path = ""
+		return
+	_album_art_thread_path = path
+	_album_art_thread = Thread.new()
+	if _album_art_thread.start(_album_art_load_func.bind(path)) != OK:
+		_album_art_thread = null
+		_album_art_thread_path = ""
+		_cache_album_texture(path, null)
+		if path == _album_art_pending_path:
+			_set_album_texture(null)
+			_album_art_pending_path = ""
+
+
+func _reap_album_art() -> void:
+	if _album_art_thread == null:
+		return
+	if _album_art_thread.is_started() and _album_art_thread.is_alive():
+		return
+	var path: String = _album_art_thread_path
+	var raw: Variant = null
+	if _album_art_thread.is_started():
+		raw = _album_art_thread.wait_to_finish()
+	_album_art_thread = null
+	_album_art_thread_path = ""
+	var rounded: Image = raw if raw is Image else null
+	var texture: Texture2D = null
+	if rounded != null:
+		# Only the GPU upload is on the main thread; decode/crop/rounding ran
+		# in _album_art_load_func().
+		texture = ImageTexture.create_from_image(rounded)
+	_cache_album_texture(path, texture)
+	if path == _album_art_pending_path:
+		_set_album_texture(texture)
+		_album_art_pending_path = ""
 
 
 # The library scan advances from here and not from an await: this way the menu
@@ -756,25 +884,61 @@ func _scroll_selected_song_into_view() -> void:
 
 func _load_album_art(index: int) -> void:
 	if index < 0 or index >= SongLoader.song_list.size():
+		_album_art_pending_path = ""
 		_set_album_texture(null)
 		return
 	var song: Dictionary = SongLoader.song_list[index]
 	var album_path: String = song.get("album_path", "")
+	_album_art_pending_path = album_path
 	if album_path.is_empty():
 		_set_album_texture(null)
 		return
-	var tex: Texture2D = ResourceLoader.load(album_path)
-	if tex == null:
-		tex = _load_external_texture(album_path)
-	_set_album_texture(tex)
+	if _album_art_cache.has(album_path):
+		# A failed cover is cached as null too, so it is probed only once.
+		_set_album_texture(_album_art_cache[album_path])
+		_touch_album_cache(album_path)
+		_album_art_pending_path = ""
+		return
+	_maybe_start_album_art()
 
 
 func _set_album_texture(tex: Texture2D) -> void:
-	var rounded: Texture2D = SettingsUI.rounded_cover(tex)
 	if is_instance_valid(_album_art):
-		_album_art.texture = rounded
+		_album_art.texture = tex
 	if is_instance_valid(_album_placeholder):
-		_album_placeholder.visible = rounded == null
+		_album_placeholder.visible = tex == null
+
+
+func _album_art_load_func(path: String) -> Image:
+	# ResourceLoader handles imported res:// art; external folders are read as
+	# raw images. Both the decode and the rounded-corner pixel pass stay here,
+	# off the main thread.
+	var texture: Texture2D = null
+	if ResourceLoader.exists(path):
+		texture = ResourceLoader.load(path) as Texture2D
+	if texture != null:
+		return SettingsUI.rounded_cover_image(texture)
+	if not FileAccess.file_exists(path):
+		return null
+	var image := Image.new()
+	if image.load(path) != OK:
+		return null
+	return SettingsUI.rounded_image(image)
+
+
+func _cache_album_texture(path: String, texture: Texture2D) -> void:
+	if path.is_empty() or _album_art_cache.has(path):
+		return
+	if _album_art_cache_order.size() >= ALBUM_ART_CACHE_MAX:
+		var old_path: String = _album_art_cache_order.pop_front()
+		_album_art_cache.erase(old_path)
+	_album_art_cache[path] = texture
+	_album_art_cache_order.append(path)
+
+
+func _touch_album_cache(path: String) -> void:
+	_album_art_cache_order.erase(path)
+	_album_art_cache_order.append(path)
 
 
 func _load_external_texture(path: String) -> Texture2D:
@@ -794,10 +958,15 @@ func _update_selection_ui() -> void:
 			continue
 		var original_index: int = int(row.name.replace("SongRow_", ""))
 		var selected: bool = original_index == _selected_song_index
-		row.set_meta("selected", selected)
-		row.add_theme_stylebox_override("panel", _song_row_style(selected, false))
 		if selected:
 			selected_title = row.find_child("SongTitle", true, false) as Label
+		# Repainting every row on every tap allocates a StyleBoxFlat per song
+		# and shows up as a hitch on large mobile libraries. Only the rows whose
+		# state changed need a new style.
+		if bool(row.get_meta("selected", false)) == selected:
+			continue
+		row.set_meta("selected", selected)
+		row.add_theme_stylebox_override("panel", _song_row_style(selected, false))
 	_preview_title_label = selected_title
 	_paint_preview_dots()
 
@@ -1049,13 +1218,6 @@ func _start_preview_animation(original_index: int) -> void:
 	_preview_anim_delay = PREVIEW_ANIM_DELAY
 	_preview_load_timeout = PREVIEW_LOAD_TIMEOUT
 	_set_preview_dots(PREVIEW_ANIM_FRAMES[0])
-	var song_preview_path: String = song.get("preview_path", "")
-	if song_preview_path.is_empty():
-		_preview_stem_paths.clear()
-		for stem in PREVIEW_STEM_NAMES:
-			var stem_path: String = SongLoader.get_stem_path(song.path, stem)
-			if not stem_path.is_empty():
-				_preview_stem_paths.append(stem_path)
 
 
 func _play_preview(original_index: int) -> void:
@@ -1081,14 +1243,9 @@ func _play_preview(original_index: int) -> void:
 		var start_time: int = song.get("preview_start_time", -1)
 		var seek_pos: float = 30.0 if start_time < 0 else float(start_time) / 1000.0
 		_preview_player.play(seek_pos)
-		if not _preview_stem_paths.is_empty():
-			_preview_stem_load_done = false
-			_preview_stem_load_result = {}
-			if OS.get_name() == "Android":
-				_preview_load_stems_func(_preview_stem_paths)
-			else:
-				_preview_stem_thread = Thread.new()
-				_preview_stem_thread.start(_preview_load_stems_func.bind(_preview_stem_paths.duplicate()))
+		# _process() starts the stem worker on this same frame, once the player
+		# reports that it is actually playing. The worker resolves the paths.
+		_preview_stem_needs_load = true
 	else:
 		_preview_player.play()
 	_preview_fade_tween = create_tween()
@@ -1114,7 +1271,10 @@ func _on_preview_volume_changed(volume: float) -> void:
 			player.volume_db = target_db
 
 
-func _stop_preview() -> void:
+# join_threads is only true from _exit_tree(). During normal use an in-flight
+# load is left alone and reaped by _process when it finishes, so selecting a
+# new song or leaving the menu never blocks on disk/decoding.
+func _stop_preview(join_threads: bool = false) -> void:
 	if _preview_fade_tween:
 		_preview_fade_tween.kill()
 		_preview_fade_tween = null
@@ -1124,11 +1284,9 @@ func _stop_preview() -> void:
 	_preview_pending_path = ""
 	_preview_needs_load = false
 	_preview_loaded_stream = null
-	if _preview_thread and _preview_thread.is_started():
-		_preview_thread.wait_to_finish()
-		_preview_thread = null
-	_preview_load_result = null
-	_preview_load_done = false
+	if join_threads:
+		_join_preview_load()
+		_join_stem_load()
 	if _preview_player.playing:
 		_preview_player.stop()
 	_preview_player.stream = null
@@ -1138,16 +1296,44 @@ func _stop_preview() -> void:
 		remove_child(player)
 		player.queue_free()
 	_preview_stem_players.clear()
-	_preview_stem_paths.clear()
-	_preview_stem_streams.clear()
-	_preview_stem_load_result = {}
-	_preview_stem_load_done = false
-	if _preview_stem_thread and _preview_stem_thread.is_started():
-		_preview_stem_thread.wait_to_finish()
-		_preview_stem_thread = null
+	_preview_stem_needs_load = false
+	# Invalidate an in-flight stem load: its result belongs to the song that was
+	# just deselected and must not be layered over the next preview.
+	_preview_stem_thread_song_path = ""
 	_preview_song_path = ""
 	_preview_elapsed = 0.0
 	_set_preview_dots("")
+
+
+func _join_preview_load() -> void:
+	if _preview_thread == null:
+		return
+	var path: String = _preview_thread_path
+	var raw: Variant = null
+	if _preview_thread.is_started():
+		raw = _preview_thread.wait_to_finish()
+	_preview_thread = null
+	_preview_thread_path = ""
+	if raw is AudioStream and raw != null:
+		_cache_stream(path, raw)
+
+
+func _join_stem_load() -> void:
+	if _preview_stem_thread == null:
+		return
+	if _preview_stem_thread.is_started():
+		_preview_stem_thread.wait_to_finish()
+	_preview_stem_thread = null
+	_preview_stem_thread_song_path = ""
+
+
+func _join_album_art_load() -> void:
+	if _album_art_thread == null:
+		return
+	if _album_art_thread.is_started():
+		_album_art_thread.wait_to_finish()
+	_album_art_thread = null
+	_album_art_thread_path = ""
 
 
 func _start_preview_fade_out() -> void:
@@ -1171,17 +1357,20 @@ func _on_preview_fade_out_finished() -> void:
 	_stop_preview()
 
 
-func _preview_load_func(path: String) -> void:
-	_preview_load_result = AudioManager._load_audio_stream(path)
-	_preview_load_done = true
+func _preview_load_func(path: String) -> AudioStream:
+	return AudioManager._load_audio_stream(path)
 
 
-func _preview_load_stems_func(paths: Array[String]) -> void:
+func _preview_load_stems_func(song_path: String) -> Dictionary:
 	var results: Dictionary = {}
-	for path in paths:
-		results[path] = AudioManager._load_audio_stream(path)
-	_preview_stem_load_result = results
-	_preview_stem_load_done = true
+	for stem in PREVIEW_STEM_NAMES:
+		var path: String = SongLoader.get_stem_path(song_path, stem)
+		if path.is_empty():
+			continue
+		var stream: AudioStream = AudioManager._load_audio_stream(path)
+		if stream != null:
+			results[path] = stream
+	return results
 
 
 func _get_cached_stream(path: String) -> AudioStream:

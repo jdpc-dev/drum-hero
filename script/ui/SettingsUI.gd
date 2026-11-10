@@ -132,17 +132,32 @@ static func trimmed_square(texture: Texture2D) -> Texture2D:
 static func rounded_cover(texture: Texture2D, resolution: int = 192, radius_ratio: float = 14.0 / 64.0) -> Texture2D:
 	if texture == null:
 		return null
-	var image: Image = texture.get_image()
+	var image: Image = rounded_cover_image(texture, resolution, radius_ratio)
 	if image == null:
 		return texture
+	return ImageTexture.create_from_image(image)
+
+
+# The decode/crop/rounding half of rounded_cover(), without touching the
+# rendering server. It can run on a worker thread; the caller creates the
+# ImageTexture on the main thread.
+static func rounded_cover_image(texture: Texture2D, resolution: int = 192, radius_ratio: float = 14.0 / 64.0) -> Image:
+	if texture == null:
+		return null
+	return rounded_image(texture.get_image(), resolution, radius_ratio)
+
+
+static func rounded_image(source: Image, resolution: int = 192, radius_ratio: float = 14.0 / 64.0) -> Image:
+	if source == null:
+		return null
+	var image: Image = source.duplicate()
 	if image.is_compressed():
 		if image.decompress() != OK:
-			return texture
-	image = image.duplicate()
+			return null
 	var width: int = image.get_width()
 	var height: int = image.get_height()
 	if width <= 0 or height <= 0:
-		return texture
+		return null
 	var side: int = mini(width, height)
 	var origin := Vector2i((width - side) / 2, (height - side) / 2)
 	image = image.get_region(Rect2i(origin, Vector2i(side, side)))
@@ -159,7 +174,7 @@ static func rounded_cover(texture: Texture2D, resolution: int = 192, radius_rati
 			var color := image.get_pixel(x, y)
 			color.a *= coverage
 			image.set_pixel(x, y, color)
-	return ImageTexture.create_from_image(image)
+	return image
 
 
 static func font_weight(weight: int) -> Font:

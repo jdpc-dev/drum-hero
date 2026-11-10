@@ -293,7 +293,7 @@ _user taps SongRow
       ├─ _selected_song_index = original_index
       ├─ _update_selection_ui()          ← marks the selected row and points the dots there
       ├─ _update_difficulty_visibility() ← enables/disables buttons
-      ├─ _load_album_art(original_index) ← loads cover art into HeaderBar
+      ├─ _load_album_art(original_index) ← queues cover art for HeaderBar (worker)
       └─ _start_preview_animation(original_index)
 ```
 
@@ -301,7 +301,8 @@ _user taps SongRow
 
 ```
 _start_preview_animation()
-  ├─ _stop_preview()                    ← stops any previous preview + thread
+  ├─ _stop_preview()                    ← stops playback; an in-flight load is
+  │                                       left to finish and is reaped later
   ├─ _resolve_preview_path(song)
   │   ├─ If the song has "preview_path" → use it
   │   └─ Otherwise → SongLoader.get_stem_path(song.path, "song")
@@ -320,22 +321,19 @@ _start_preview_animation()
 ```
 _process(delta)
   │
+  ├─ _reap_preview_load()               ← only joins a worker that is NOT alive
+  ├─ _reap_stem_load()
+  ├─ _reap_album_art()
+  ├─ _maybe_start_album_art()           ← starts the latest pending cover
+  │
   ├─ IF _preview_animating:
   │   ├─ Dots animation: timer += delta, advances frame every 0.3s
   │   │
-  │   ├─ If _preview_needs_load:
+  │   ├─ _maybe_start_preview_load()
+  │   │   ├─ If a worker is still running → leave the new path pending
   │   │   ├─ Look in _preview_cache (LRU) → on hit, stream is ready
-  │   │   └─ On miss:
-  │   │       ├─ Android: AudioManager._load_audio_stream() synchronously
-  │   │       │   (same pattern as GameplayRoot, which already works)
-  │   │       └─ Desktop: Thread.new().start(_preview_load_func)
-  │   │           (asynchronous load, does NOT block the main thread)
-  │   │
-  │   ├─ If _preview_load_done (thread finished, desktop only):
-  │   │   ├─ _preview_loaded_stream = _preview_load_result
-  │   │   ├─ _preview_thread.wait_to_finish()
-  │   │   ├─ _cache_stream(path, stream)  ← adds to LRU cache
-  │   │   └─ Adaptive delay: if delay > 0.3s → reduce to 0.3s
+  │   │   └─ On miss: Thread.new().start(_preview_load_func)
+  │   │       (same path on Android and desktop: never on the main thread)
   │   │
   │   └─ _preview_anim_delay -= delta
   │       ├─ delay > 0.0: wait (dots keep animating)
@@ -347,7 +345,8 @@ _process(delta)
   │
   └─ IF _preview_player.playing:
       ├─ _preview_elapsed += delta
-      └─ If elapsed >= 30s → _stop_preview()
+      ├─ If elapsed >= 30s → start fade-out
+      └─ _maybe_start_stem_load()       ← one stem worker at a time
 ```
 
 **Playback (`_play_preview()`):**
@@ -362,28 +361,32 @@ _play_preview()
   ├─ If there is no preview_path (using song.ogg):
   │   ├─ preview_start_time > 0 → seek to preview_start_time / 1000 (ms→s)
   │   ├─ preview_start_time <= 0 or null → seek to second 30
-  │   └─ Starts asynchronous stem loading (drums, bass, guitar, keys, rhythm, vocals)
-  │       ├─ Desktop: in a separate Thread
-  │       ├─ Android: synchronously
-  │       └─ On finish: creates an AudioStreamPlayer for each stem
-  │           with volume_db = linear_to_db(preview_volume * 0.5),
-  │           play() and seek() synchronized to the current playback_position
+  │   └─ Marks the fallback stems as pending (drums, bass, guitar, keys,
+  │       rhythm, vocals). _process() starts them in a Thread on every
+  │       platform; on finish it creates one AudioStreamPlayer per stem,
+  │       synchronized to the current playback_position. A result whose song
+  │       path no longer matches the current preview is discarded.
   └─ _set_preview_dots("")                 ← playback started: dots disappear
 ```
 
 **Stopping:**
 
 ```
-_stop_preview()                              ← called when:
+_stop_preview(join_threads = false)          ← called when:
   ├─ _preview_animating = false               ├─ switching to another song
   ├─ _preview_pending_index = -1              ├─ opening settings
   ├─ _preview_needs_load = false              ├─ changing the search text
   ├─ _preview_loaded_stream = null            ├─ pressing a difficulty (starting the game)
-  ├─ Thread.wait_to_finish() if active        ├─ _exit_tree() (closing the app)
+  ├─ If join_threads: wait_to_finish()        ├─ _exit_tree() (closing the app, join=true)
   ├─ _preview_player.stop()                   ├─ preview > 30s (duration limit)
   ├─ _preview_player.stream = null            └─ explicit _stop_preview()
   ├─ _preview_elapsed = 0.0
   └─ _set_preview_dots("")
+
+A normal stop never joins a worker. The thread is reaped by _process() once
+it finishes, so quickly selecting another song keeps the setlist responsive.
+Only _exit_tree() calls _stop_preview(true), because the Node is about to be
+freed and the worker must not outlive it.
 ```
 
 **Preview node tree:**
@@ -394,28 +397,33 @@ MenuRoot (CanvasLayer)
   ├── PreviewPlayer (AudioStreamPlayer)  ← bus = "Music"
   ├── StemPlayer_n (AudioStreamPlayer)   ← bus = "Music" (0..N, for each loaded stem)
   ├── Thread (_preview_thread)      ← async load of the main preview
-  └── Thread (_preview_stem_thread) ← async stem load (fallback only)
+  ├── Thread (_preview_stem_thread) ← async stem load (fallback only)
+  └── Thread (_album_art_thread)    ← async decode/crop/rounding of the cover
 ```
 
 **Technical considerations:**
 
 - **Android `res://` fix:** in exported Android builds, files under `res://songs/` are packed into the PCK. `FileHelper.file_exists()` (based on `FileAccess.open()`) cannot read them directly. `SongLoader.get_stem_path()` and `_scan_song()` use `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in external storage (`FileAccess`) and in packaged `res://` (`ResourceLoader`). `AudioManager._find_stem_file()` already used both; the fix unifies the pattern in `SongLoader` so previews and metadata detection work the same as gameplay.
 - **Lazy loading:** songs are not preloaded at startup. Each preview is loaded on demand when selected, avoiding OOM on Android with 30+ songs.
-- **Per-platform loading:** on desktop, `_load_audio_stream()` runs in a separate `Thread` via `_preview_load_func()` (does not block the main thread). On Android, it runs synchronously in `_process()` (same pattern as `GameplayRoot._start_loading()`, which already works on Android).
+- **Background loading:** `AudioManager._load_audio_stream()` always runs in a `Thread` via `_preview_load_func()`, on Android and desktop alike. The worker returns the `AudioStream`; `_process()` calls `wait_to_finish()` only after `is_alive()` is false. Android used to decode synchronously in `_process()`, which froze the setlist while the player was still scrolling after a tap.
+- **One load at a time:** if the player selects another song while a preview is loading, the new request stays pending. When the old worker finishes, its stream is cached (if valid) and discarded from the current selection, then the latest pending path starts in the same frame. Six stems are never decoded on the main thread.
 - **LRU cache:** loaded streams are stored in `_preview_cache` (Dictionary path→AudioStream) with a maximum of `PREVIEW_CACHE_MAX = 5` entries. When scrolling between previously heard songs, loading is instant (~25MB with native .ogg).
 - **Adaptive delay:** if the stream loads before the 1.5s delay expires, it is reduced to `PREVIEW_ANIM_INTERVAL` (0.3s = one dots frame). With native .ogg (~10ms load), the preview starts in ~0.3s instead of 1.5s.
 - **Native `.ogg`:** `AudioStreamOggVorbis.load_from_file()` is used on all platforms (desktop + Android). If it fails, the fallback uses `FileHelper.read_file()` → `AudioStreamOggVorbis.new()`. On desktop, `load_from_file()` loads ~5MB compressed instead of ~46MB PCM (ffmpeg).
-- **Reference cleanup:** `_stop_preview()` sets `_preview_player.stream = null` to release the AudioStream immediately instead of waiting for `_play_preview()` to replace it.
+- **Reference cleanup:** `_stop_preview()` sets `_preview_player.stream = null` to release the AudioStream immediately instead of waiting for `_play_preview()` to replace it. It deliberately does not join an in-flight worker; `_process()` reaps it when it finishes, and `_exit_tree()` is the only caller that passes `join_threads = true`.
 - **Limited duration:** the preview stops automatically after `PREVIEW_MAX_DURATION = 30s`. This avoids playing the full song as a preview.
 - **Seek by preview_start_time:** when `song.ogg` is used as fallback (no `preview.ogg`), `_preview_player.seek()` is applied to the `preview_start_time` value from `song.ini` divided by 1000 (it is in milliseconds, seek uses seconds). If the value is -1, 0 or null, it seeks to second 30. With `preview.ogg` it plays from the beginning (0s).
-- **Stems in fallback:** when using `song.ogg` as fallback, individual stems (`drums.ogg`, `guitar.ogg`, `bass.ogg`, `keys.ogg`, `rhythm.ogg`, `vocals.ogg`) are also loaded if they exist. An `AudioStreamPlayer` is created for each stem found on the `"Music"` bus with volume at 0.5× `preview_volume`. Loading is asynchronous (thread on desktop, synchronous on Android). The stems are synchronized with `_preview_player.get_playback_position()` to keep them temporally coherent.
+- **Stems in fallback:** when using `song.ogg` as fallback, individual stems (`drums.ogg`, `guitar.ogg`, `bass.ogg`, `keys.ogg`, `rhythm.ogg`, `vocals.ogg`) are also loaded if they exist. An `AudioStreamPlayer` is created for each stem found on the `"Music"` bus with volume at 0.5× `preview_volume`. Loading is always asynchronous (one Thread per request on every platform); the worker also resolves the stem paths with `SongLoader.get_stem_path()`, so the main thread does not probe external storage per stem. A result is applied only if its song path still matches the preview that is playing. The stems are synchronized with `_preview_player.get_playback_position()` to keep them temporally coherent.
+- **Album art offload:** `_album_art_load_func()` decodes the cover, center-crops it and bakes the rounded corners into an `Image` on a worker thread. The main thread only calls `ImageTexture.create_from_image()`. Rounded covers are cached in `_album_art_cache` (LRU, `ALBUM_ART_CACHE_MAX = 8`), with `null` cached for missing/failed covers so they are not probed again. A result for a song that is no longer selected is cached but not applied.
 - **Android .opus skip:** on Android, `_resolve_preview_path()` ignores `preview.opus` files (ffmpeg unavailable) and falls back to `song.ogg` via `get_stem_path()`. On desktop, `.opus` is decoded normally. `SongLoader.get_stem_path()` uses `FileHelper.file_exists() OR ResourceLoader.exists()` to find files both in external storage and in packaged `res://`.
 - **Load timeout:** if the stream does not load within `PREVIEW_LOAD_TIMEOUT = 5s`, the animation stops and the dots are cleared. This avoids an infinite dots loop on error.
 - **Re-selection rewinds:** tapping the already-selected row calls `_rewind_preview()`. If the stream is already loaded it seeks back to the preview start (or `preview_start_time`/30s for the `song.ogg` fallback) and keeps playing, without stopping, reloading or replaying the dots animation. A rewind during the 30s fade-out cancels the fade. If nothing is loaded (preview ended, failed or still loading) it either starts the normal load path or leaves the in-flight load alone. `_on_song_row_input()` uses `InputEventScreenTouch` to distinguish tap from drag (8px threshold).
 - **Dots animation:** 3 frames (`.`, `..`, `...`) alternating every 0.3s, appended to the selected row's title. Minimum delay of 0.3s (one frame) for visual feedback, maximum 1.5s.
 - **Fallback:** on desktop, `preview.opus` is used if it exists (decoded via ffmpeg). On Android, `preview.opus` is ignored and `song.ogg` is used. If the stream does not load, the 5s timeout clears the dots.
 - **Volume:** controlled by `SettingsManager.preview_volume` (default 0.8), applied as `linear_to_db()`.
-- **Cleanup:** `_exit_tree()` calls `_stop_preview()`, which waits for the thread (if it exists) and releases all resources when the app closes.
+- **Cleanup:** `_exit_tree()` calls `_stop_preview(true)` and `_join_album_art_load()`, which wait for the workers (if they exist) and release all resources when the scene or app closes. This is the only place where the main thread waits for a preview/art worker; normal song switching never does.
+
+Test: `godot --headless --path . res://tools/test_preview_async.tscn` (non-blocking select/stop/process, queued load, album art worker and fallback stems).
 
 On each `miss`, `Lane.gd` calls `AudioManager.duck_drums(-12 dB, 0.5 s)`. It only affects the `"drums"` stem. If there is no drum stem (songs without a separate track), it does nothing.
 
@@ -1539,8 +1547,10 @@ rounded cards with an opaque accent surface for the current song, difficulty
 buttons are scaled action pills, and the loading/quit overlays use the same card
 and button styles. The album tile center-crops the cover and bakes the corner
 radius into the texture, because Godot clips Controls to rectangles rather than
-rounded rectangles. Search, scroll position, selection and playlist behavior are
-unchanged.
+rounded rectangles. Both the cover decode/rounding and the song preview/stems
+run on worker threads, and only rows whose selected state changed are repainted,
+so tapping or scrolling through a large setlist does not stall on mobile.
+Search, scroll position, selection and playlist behavior are unchanged.
 
 ### Settings menu layout
 
