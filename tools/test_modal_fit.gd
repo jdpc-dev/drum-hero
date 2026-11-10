@@ -72,8 +72,8 @@ func _ready() -> void:
 	var result_scrim: Control = result.find_child("ResultBg", true, false)
 	var result_card: Control = result.find_child("ResultCard", true, false)
 	_check_modal("results", result_modal, result_scrim, vp)
-	_check("results card is taller than the screen at mobile scale", result_card != null and result_card.get_combined_minimum_size().y > result_modal.scroll.size.y)
-	_check("results can be scrolled", result_modal.scroll.get_v_scroll_bar().max_value > result_modal.scroll.size.y)
+	_check("results card fits at mobile scale", result_card != null and result_card.get_combined_minimum_size().y <= result_modal.scroll.size.y)
+	_check("results does not need scrolling", result_modal.scroll.get_v_scroll_bar().max_value <= result_modal.scroll.size.y + 1.0)
 	_check_buttons_scrollable("results", result_modal)
 	result.queue_free()
 	await get_tree().process_frame

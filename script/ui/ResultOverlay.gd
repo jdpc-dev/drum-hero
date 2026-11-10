@@ -86,19 +86,24 @@ func _build() -> void:
 	_combo_label = _add_row(vbox, "MAX COMBO", 20, Palette.CHROME)
 	_counts_label = _add_row(vbox, "NOTES", 14, Palette.ASH)
 
-	var retry_btn := SettingsUI.button("REPLAY", "primary")
-	retry_btn.name = "RetryButton"
-	retry_btn.custom_minimum_size = Vector2(0, SettingsUI.px(44))
-	retry_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	retry_btn.pressed.connect(func() -> void: retry_requested.emit())
-	vbox.add_child(retry_btn)
+	var buttons := HBoxContainer.new()
+	buttons.name = "ResultButtons"
+	buttons.add_theme_constant_override("separation", SettingsUI.px(10))
+	vbox.add_child(buttons)
 
 	var exit_btn := SettingsUI.button("EXIT", "secondary")
 	exit_btn.name = "ExitButton"
 	exit_btn.custom_minimum_size = Vector2(0, SettingsUI.px(44))
 	exit_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	exit_btn.pressed.connect(func() -> void: exit_requested.emit())
-	vbox.add_child(exit_btn)
+	buttons.add_child(exit_btn)
+
+	var retry_btn := SettingsUI.button("REPLAY", "primary")
+	retry_btn.name = "RetryButton"
+	retry_btn.custom_minimum_size = Vector2(0, SettingsUI.px(44))
+	retry_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	retry_btn.pressed.connect(func() -> void: retry_requested.emit())
+	buttons.add_child(retry_btn)
 
 	refresh()
 
