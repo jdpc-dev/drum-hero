@@ -10,7 +10,7 @@ signal retry_requested()
 signal exit_requested()
 
 const PANEL_WIDTH: float = 520.0
-const ROW_HEIGHT: float = 30.0
+const ROW_HEIGHT: float = 24.0
 
 var _song_label: Label
 var _score_label: Label
@@ -32,23 +32,27 @@ func _build() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(center)
+	var modal := SettingsUI.ModalBody.new()
+	modal.name = "ResultModal"
+	add_child(modal)
 
 	var card := PanelContainer.new()
 	card.name = "ResultCard"
 	card.custom_minimum_size = Vector2(SettingsUI.px(PANEL_WIDTH + 48.0), 0)
-	card.mouse_filter = Control.MOUSE_FILTER_STOP
+	# PASS so a drag on the card background reaches the scroll layer; the scrim
+	# below still stops input from reaching gameplay.
+	card.mouse_filter = Control.MOUSE_FILTER_PASS
 	var card_style := SettingsUI.flat(Palette.SURFACE_1, 20)
-	SettingsUI.pad(card_style, SettingsUI.px(26), SettingsUI.px(20))
+	SettingsUI.pad(card_style, SettingsUI.px(22), SettingsUI.px(14))
 	card.add_theme_stylebox_override("panel", card_style)
-	center.add_child(card)
+	modal.add_card(card)
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "ResultPanel"
-	vbox.add_theme_constant_override("separation", SettingsUI.px(6))
+	# PASS so touch drags over the rows reach the modal's scroll layer; the
+	# buttons keep STOP and stay tappable.
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_theme_constant_override("separation", SettingsUI.px(3))
 	card.add_child(vbox)
 
 	var title := SettingsUI.label("RESULTS", 28, Palette.BONE_HI, 600)
@@ -108,6 +112,7 @@ func refresh() -> void:
 func _add_row(parent: VBoxContainer, caption: String, font_size: int, color: Color) -> Label:
 	var row := HBoxContainer.new()
 	row.custom_minimum_size = Vector2(0, SettingsUI.px(ROW_HEIGHT))
+	row.mouse_filter = Control.MOUSE_FILTER_PASS
 	parent.add_child(row)
 
 	var left := SettingsUI.label(caption, 13, Palette.MUTED, 500)

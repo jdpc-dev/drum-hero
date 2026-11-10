@@ -21,6 +21,7 @@ var _is_initialized: bool = false
 var _debug_label: Label
 var _pause_overlay: CanvasLayer
 var _pause_button: Button
+var _pause_modal: SettingsUI.ModalBody
 var _pause_main_menu: Control
 var _pause_difficulty_menu: Control
 var _is_paused: bool = false
@@ -582,16 +583,16 @@ func _show_pause_overlay() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.add_child(bg)
 
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	_pause_overlay.add_child(center)
+	var modal := SettingsUI.ModalBody.new()
+	modal.name = "PauseModal"
+	_pause_modal = modal
+	_pause_overlay.add_child(modal)
 
 	var difficulties: Array = _get_available_difficulties()
 	_pause_main_menu = _build_pause_main_menu(difficulties)
 	_pause_difficulty_menu = _build_pause_difficulty_menu(difficulties)
-	center.add_child(_pause_main_menu)
-	center.add_child(_pause_difficulty_menu)
+	modal.add_card(_pause_main_menu)
+	modal.add_card(_pause_difficulty_menu)
 
 	add_child(_pause_overlay)
 
@@ -600,17 +601,25 @@ func _build_pause_main_menu(difficulties: Array) -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "PauseMenu"
 	panel.custom_minimum_size = Vector2(SettingsUI.px(360), 0)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# PASS so a drag on the empty card area reaches the scroll layer that keeps
+	# the modal inside the viewport on small screens. The scrim below still
+	# stops clicks from reaching gameplay.
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
-	SettingsUI.pad(panel_style, SettingsUI.px(26), SettingsUI.px(22))
+	SettingsUI.pad(panel_style, SettingsUI.px(22), SettingsUI.px(14))
 	panel.add_theme_stylebox_override("panel", panel_style)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", SettingsUI.px(8))
+	# PASS so touch drags over the card reach the modal's scroll layer; the
+	# buttons keep STOP and stay tappable.
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_theme_constant_override("separation", SettingsUI.px(4))
 	panel.add_child(vbox)
 
 	var title: Label = SettingsUI.label("PAUSED", 26, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Trim the font's empty leading so the song line sits close to the heading.
+	SettingsUI.fit_line_height(title, SettingsUI.px(30))
 	vbox.add_child(title)
 
 	var track: String = GameManager.current_song_title
@@ -621,6 +630,7 @@ func _build_pause_main_menu(difficulties: Array) -> Control:
 		Palette.ASH_DIM
 	)
 	subtitle.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	SettingsUI.fit_line_height(subtitle, SettingsUI.px(18))
 	vbox.add_child(subtitle)
 
 	var resume_btn: Button = SettingsUI.button("RESUME", "primary")
@@ -658,14 +668,17 @@ func _build_pause_difficulty_menu(difficulties: Array) -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "DifficultyMenu"
 	panel.custom_minimum_size = Vector2(SettingsUI.px(380), 0)
-	panel.mouse_filter = Control.MOUSE_FILTER_STOP
+	# See the main pause menu: PASS lets card drags scroll the modal body.
+	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.visible = false
 	var panel_style := SettingsUI.flat(Palette.SURFACE_1, 18)
-	SettingsUI.pad(panel_style, SettingsUI.px(26), SettingsUI.px(22))
+	SettingsUI.pad(panel_style, SettingsUI.px(22), SettingsUI.px(14))
 	panel.add_theme_stylebox_override("panel", panel_style)
 
 	var vbox := VBoxContainer.new()
-	vbox.add_theme_constant_override("separation", SettingsUI.px(8))
+	# See the main pause menu: PASS lets card drags scroll the modal body.
+	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
+	vbox.add_theme_constant_override("separation", SettingsUI.px(4))
 	panel.add_child(vbox)
 
 	var title: Label = SettingsUI.label("DIFFICULTY", 24, Palette.BONE_HI, 600)
@@ -675,7 +688,8 @@ func _build_pause_difficulty_menu(difficulties: Array) -> Control:
 	var list: VBoxContainer = VBoxContainer.new()
 	list.name = "DifficultyList"
 	list.alignment = BoxContainer.ALIGNMENT_CENTER
-	list.add_theme_constant_override("separation", SettingsUI.px(6))
+	list.mouse_filter = Control.MOUSE_FILTER_PASS
+	list.add_theme_constant_override("separation", SettingsUI.px(4))
 	vbox.add_child(list)
 
 	# Only the difficulties present in this song, in Easy -> Expert+ order.
@@ -719,6 +733,8 @@ func _show_pause_difficulty_menu() -> void:
 		_pause_main_menu.hide()
 	if is_instance_valid(_pause_difficulty_menu):
 		_pause_difficulty_menu.show()
+	if _pause_modal:
+		_pause_modal.reset_scroll()
 
 
 func _show_pause_main_menu() -> void:
@@ -726,6 +742,8 @@ func _show_pause_main_menu() -> void:
 		_pause_main_menu.show()
 	if is_instance_valid(_pause_difficulty_menu):
 		_pause_difficulty_menu.hide()
+	if _pause_modal:
+		_pause_modal.reset_scroll()
 
 
 func _hide_pause_overlay() -> void:
@@ -735,6 +753,7 @@ func _hide_pause_overlay() -> void:
 		_pause_overlay.visible = false
 		_pause_overlay.queue_free()
 		_pause_overlay = null
+	_pause_modal = null
 	_pause_main_menu = null
 	_pause_difficulty_menu = null
 

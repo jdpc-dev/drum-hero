@@ -266,6 +266,47 @@ class ContentLimit extends Container:
 			fit_child_in_rect(child, Rect2(Vector2(x, 0.0), Vector2(width, size.y)))
 
 
+# Full-screen body for a centred modal (pause, results). The card stays centred
+# when it fits in the viewport; when the DPI-scaled UI is taller than the screen
+# the body scrolls vertically instead of drawing the card past the top and
+# bottom edges. Horizontal scrolling is never needed: the 1280-unit design
+# width is also the minimum viewport width.
+class ModalBody extends MarginContainer:
+	var scroll: ScrollContainer
+	var center: CenterContainer
+
+	func _init() -> void:
+		set_anchors_preset(Control.PRESET_FULL_RECT)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var margin: int = SettingsUI.px(12)
+		add_theme_constant_override("margin_left", margin)
+		add_theme_constant_override("margin_top", margin)
+		add_theme_constant_override("margin_right", margin)
+		add_theme_constant_override("margin_bottom", margin)
+
+		scroll = ScrollContainer.new()
+		scroll.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+		scroll.vertical_scroll_mode = ScrollContainer.SCROLL_MODE_AUTO
+		scroll.follow_focus = true
+		SettingsUI.style_scroll(scroll)
+		add_child(scroll)
+
+		center = CenterContainer.new()
+		center.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		center.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		# PASS keeps touch drags on the card bubbling up to the scroll layer.
+		center.mouse_filter = Control.MOUSE_FILTER_PASS
+		scroll.add_child(center)
+
+	func add_card(card: Control) -> void:
+		center.add_child(card)
+
+	func reset_scroll() -> void:
+		scroll.scroll_vertical = 0
+
+
 # --- Rows -------------------------------------------------------------------
 
 static func row(title_text: String, desc: String = "", control: Control = null) -> HBoxContainer:

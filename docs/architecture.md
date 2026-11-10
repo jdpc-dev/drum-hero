@@ -791,7 +791,10 @@ difficulty. It emits `retry_requested` and `exit_requested`; the callback is
 `GameplayRoot._restart_song()` / `_exit_to_menu()`. The pause overlay lives on
 layer 10 and the loading overlay on layer 20. All three reuse `SettingsUI` for
 the rounded surface, typography, progress bar and buttons, with the shared
-DPI-aware scale; the gameplay HUD and highway are left untouched.
+DPI-aware scale; the gameplay HUD and highway are left untouched. The pause and
+results overlays build their card inside `SettingsUI.ModalBody`: it centres the
+card while it fits and becomes a vertical scroll layer when the scaled content
+is taller than the viewport, so mobile builds never draw the card off-screen.
 
 `AndroidBridge.clear_exclusion()` is **not** called when the song ends: we are
 still inside gameplay and the touch zones have not changed. It is only cleared
@@ -818,6 +821,7 @@ other case it pauses.
 ```
 godot --headless --path . res://tools/test_song_end.tscn   # clock + overlay + real audio
 godot --headless --path . res://tools/test_song_end_e2e.tscn # real Gameplay.tscn scene
+godot --headless --path . res://tools/test_modal_fit.tscn  # pause/results at mobile scale
 ```
 
 `test_song_end` covers: `song_ended` is emitted only once, the clock stops at
@@ -832,6 +836,12 @@ that a second pass ends again.
 the end (seeking the player near the end) and checks the full chain: `PLAYING` →
 `song_ended` → 1.5 s tail → `RESULT` → `ResultOverlay` on screen with the run's
 data, and that **REPLAY** plays again and dismantles the panel.
+
+`test_modal_fit` rebuilds the results and pause cards at the maximum mobile
+`SettingsUI.ui_scale` and checks that their `ModalBody` keeps the scroll area
+inside the viewport, that the pause card fits without scrolling, and that the
+results card, still taller than the screen at that scale, is actually
+scrollable.
 
 ---
 
