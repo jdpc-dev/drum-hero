@@ -721,8 +721,10 @@ func _build_pause_difficulty_menu(difficulties: Array) -> Control:
 		btn.toggle_mode = true
 		btn.button_group = group
 		btn.button_pressed = off == GameManager.current_difficulty_offset
-		btn.add_theme_stylebox_override("pressed", SettingsUI.flat(Palette.ACCENT_SURFACE, 12))
-		btn.add_theme_stylebox_override("hover_pressed", SettingsUI.flat(Palette.ACCENT_SURFACE_HOVER, 12))
+		# Keep the same content margins as the "secondary" style so the selected
+		# button doesn't shrink relative to the rest of the list.
+		btn.add_theme_stylebox_override("pressed", SettingsUI.pad(SettingsUI.flat(Palette.ACCENT_SURFACE, 12), SettingsUI.px(22), SettingsUI.px(12)))
+		btn.add_theme_stylebox_override("hover_pressed", SettingsUI.pad(SettingsUI.flat(Palette.ACCENT_SURFACE_HOVER, 12), SettingsUI.px(22), SettingsUI.px(12)))
 		btn.add_theme_color_override("font_pressed_color", Palette.BONE_HI)
 		btn.add_theme_color_override("font_hover_pressed_color", Palette.BONE_HI)
 		btn.pressed.connect(_on_pause_difficulty_pressed.bind(off, btn.text))
