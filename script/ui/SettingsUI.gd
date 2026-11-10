@@ -97,6 +97,34 @@ static func pad(sb: StyleBoxFlat, horizontal: float, vertical: float) -> StyleBo
 	return sb
 
 
+# Adaptive icons are exported with transparent padding so launchers can mask
+# them. Trim that padding and centre the art in a square so the icon still
+# fills its display slot instead of looking smaller than the old full-bleed
+# artwork.
+static func trimmed_square(texture: Texture2D) -> Texture2D:
+	if texture == null:
+		return null
+	var image: Image = texture.get_image()
+	if image == null:
+		return texture
+	if image.is_compressed():
+		if image.decompress() != OK:
+			return texture
+	image = image.duplicate()
+	image.convert(Image.FORMAT_RGBA8)
+	var used: Rect2i = image.get_used_rect()
+	if used.size.x <= 0 or used.size.y <= 0:
+		return texture
+	image = image.get_region(used)
+	var side: int = maxi(image.get_width(), image.get_height())
+	if image.get_width() != side or image.get_height() != side:
+		var square := Image.create_empty(side, side, false, Image.FORMAT_RGBA8)
+		var offset := Vector2i((side - image.get_width()) / 2, (side - image.get_height()) / 2)
+		square.blit_rect(image, Rect2i(Vector2i.ZERO, image.get_size()), offset)
+		image = square
+	return ImageTexture.create_from_image(image)
+
+
 # Album art is center-cropped to a square and given the same corner ratio as
 # its frame. Godot clips Controls to rectangles, not rounded rects, so the
 # transparency has to be baked into the texture itself. 192px is enough for the

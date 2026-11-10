@@ -1622,14 +1622,22 @@ func _show_about() -> void:
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(SettingsUI.px(520), 0)
 	var sb := SettingsUI.flat(Palette.SURFACE_1, 22)
-	SettingsUI.pad(sb, SettingsUI.px(30), SettingsUI.px(26))
+	SettingsUI.pad(sb, SettingsUI.px(15), SettingsUI.px(13))
 	panel.add_theme_stylebox_override("panel", sb)
 	center.add_child(panel)
 
 	var column := VBoxContainer.new()
 	column.mouse_filter = Control.MOUSE_FILTER_PASS
-	column.add_theme_constant_override("separation", SettingsUI.px(10))
+	column.add_theme_constant_override("separation", SettingsUI.px(5))
 	panel.add_child(column)
+
+	# The icon, title and version sit closer together than the rest of the
+	# column so they read as one header block.
+	var header := VBoxContainer.new()
+	header.name = "AboutHeader"
+	header.mouse_filter = Control.MOUSE_FILTER_PASS
+	header.add_theme_constant_override("separation", SettingsUI.px(4))
+	column.add_child(header)
 
 	# TextureButton instead of TextureRect: it handles both mouse and touch
 	# presses without double-firing the emulated mouse event on Android.
@@ -1640,14 +1648,14 @@ func _show_about() -> void:
 	icon_slot.custom_minimum_size = Vector2(SettingsUI.px(64), SettingsUI.px(64))
 	icon_slot.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	icon_slot.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	column.add_child(icon_slot)
+	header.add_child(icon_slot)
 
 	var icon := TextureButton.new()
 	icon.name = "AppIcon"
 	# Bake the rounded corners into the texture, like album art: the source
 	# bitmap is square and would otherwise read as a hard red tile on the panel.
-	var icon_texture: Texture2D = load("res://asset/textures/app_icon.png") as Texture2D
-	icon.texture_normal = SettingsUI.rounded_cover(icon_texture, SettingsUI.px(160))
+	var icon_texture: Texture2D = load("res://asset/textures/app_icon_foreground.png") as Texture2D
+	icon.texture_normal = SettingsUI.rounded_cover(SettingsUI.trimmed_square(icon_texture), SettingsUI.px(160))
 	icon.ignore_texture_size = true
 	icon.stretch_mode = TextureButton.STRETCH_KEEP_ASPECT_CENTERED
 	var icon_size: int = SettingsUI.px(80)
@@ -1663,21 +1671,30 @@ func _show_about() -> void:
 
 	var app_name := SettingsUI.label("Drum Hero", 30, Palette.BONE_HI, 600)
 	app_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(app_name)
+	# Trim the font's empty leading so the version sits close to the heading.
+	SettingsUI.fit_line_height(app_name, SettingsUI.px(32))
+	header.add_child(app_name)
 
 	var app_version: String = str(ProjectSettings.get_setting("application/config/version", "1.0.0"))
 	var version := SettingsUI.label("VERSION " + app_version, 11, Palette.ACCENT_GLOW, 600)
 	version.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(version)
+	SettingsUI.fit_line_height(version, SettingsUI.px(11))
+	header.add_child(version)
 
 	var tagline := SettingsUI.description("A drum-only rhythm game for Android and desktop. Developed by jdpc.dev.", Palette.ASH)
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(tagline)
+	header.add_child(tagline)
 	column.add_child(SettingsUI.divider())
+
+	var credits_block := VBoxContainer.new()
+	credits_block.name = "CreditsBlock"
+	credits_block.mouse_filter = Control.MOUSE_FILTER_PASS
+	credits_block.add_theme_constant_override("separation", SettingsUI.px(2))
+	column.add_child(credits_block)
 
 	var made_by := SettingsUI.kicker("MADE POSSIBLE BY")
 	made_by.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	column.add_child(made_by)
+	credits_block.add_child(made_by)
 	var credits: Array[Dictionary] = [
 		{"name": "Godot Engine", "desc": "The engine that powers this project"},
 		{"name": "Freesound.org", "desc": "Drum samples and sound effects"},
@@ -1691,11 +1708,18 @@ func _show_about() -> void:
 		credit_row.add_child(credit_name)
 		var credit_desc := SettingsUI.description(str(entry["desc"]))
 		credit_row.add_child(credit_desc)
-		column.add_child(credit_row)
+		credits_block.add_child(credit_row)
 
-	column.add_child(SettingsUI.divider())
 	var done := SettingsUI.button("Done", "primary")
-	done.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	done.custom_minimum_size = Vector2(SettingsUI.px(160), SettingsUI.px(46))
+	done.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	# Halve the primary button's content padding for this compact footer button.
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var done_style := done.get_theme_stylebox(state) as StyleBoxFlat
+		done_style.content_margin_left = SettingsUI.px(11)
+		done_style.content_margin_right = SettingsUI.px(11)
+		done_style.content_margin_top = SettingsUI.px(6)
+		done_style.content_margin_bottom = SettingsUI.px(6)
 	done.pressed.connect(_close_about)
 	column.add_child(done)
 	done.call_deferred("grab_focus")
