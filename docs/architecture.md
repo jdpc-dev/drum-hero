@@ -795,6 +795,9 @@ DPI-aware scale; the gameplay HUD and highway are left untouched. The pause and
 results overlays build their card inside `SettingsUI.ModalBody`: it centres the
 card while it fits and becomes a vertical scroll layer when the scaled content
 is taller than the viewport, so mobile builds never draw the card off-screen.
+The card lives in its own `CanvasLayer` above the black scrim (the pause card on
+layer 11, the results card on 16): on Android, sharing one layer with the scrim
+lets the scroll container's clip leave the margin below the card undimmed.
 
 `AndroidBridge.clear_exclusion()` is **not** called when the song ends: we are
 still inside gameplay and the touch zones have not changed. It is only cleared

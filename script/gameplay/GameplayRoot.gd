@@ -20,6 +20,7 @@ const CALIBRATION_LABEL_TOP: float = 94.0
 var _is_initialized: bool = false
 var _debug_label: Label
 var _pause_overlay: CanvasLayer
+var _pause_modal_layer: CanvasLayer
 var _pause_button: Button
 var _pause_modal: SettingsUI.ModalBody
 var _pause_main_menu: Control
@@ -583,10 +584,19 @@ func _show_pause_overlay() -> void:
 	bg.mouse_filter = Control.MOUSE_FILTER_STOP
 	_pause_overlay.add_child(bg)
 
+	# The card lives in its own layer. The scroll container clips its content
+	# to the card area, and in a single layer that clip also leaves the scrim
+	# undrawn in the bottom margin on Android, so the screen edge below the
+	# modal shows the gameplay without the dark overlay.
+	_pause_modal_layer = CanvasLayer.new()
+	_pause_modal_layer.name = "PauseModalLayer"
+	_pause_modal_layer.layer = 11
+	_pause_overlay.add_child(_pause_modal_layer)
+
 	var modal := SettingsUI.ModalBody.new()
 	modal.name = "PauseModal"
 	_pause_modal = modal
-	_pause_overlay.add_child(modal)
+	_pause_modal_layer.add_child(modal)
 
 	var difficulties: Array = _get_available_difficulties()
 	_pause_main_menu = _build_pause_main_menu(difficulties)
@@ -753,6 +763,10 @@ func _hide_pause_overlay() -> void:
 		_pause_overlay.visible = false
 		_pause_overlay.queue_free()
 		_pause_overlay = null
+	if _pause_modal_layer:
+		_pause_modal_layer.visible = false
+		_pause_modal_layer.queue_free()
+		_pause_modal_layer = null
 	_pause_modal = null
 	_pause_main_menu = null
 	_pause_difficulty_menu = null

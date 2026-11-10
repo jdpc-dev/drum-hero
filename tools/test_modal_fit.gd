@@ -19,7 +19,7 @@ func _check(label: String, ok: bool) -> void:
 		print("  FAIL ", label)
 
 
-func _check_modal(label: String, modal: SettingsUI.ModalBody, vp: Rect2) -> void:
+func _check_modal(label: String, modal: SettingsUI.ModalBody, scrim: Control, vp: Rect2) -> void:
 	_check(label + " builds its modal body", modal != null)
 	if modal == null:
 		return
@@ -27,6 +27,12 @@ func _check_modal(label: String, modal: SettingsUI.ModalBody, vp: Rect2) -> void
 	_check(label + " modal fills the screen", outer.position.x <= 1.0 and outer.position.y <= 1.0 and outer.size.x >= vp.size.x - 1.0 and outer.size.y >= vp.size.y - 1.0)
 	var scroll: Rect2 = modal.scroll.get_global_rect()
 	_check(label + " scroll area stays inside the screen", scroll.position.x >= -1.0 and scroll.position.y >= -1.0 and scroll.end.x <= vp.end.x + 1.0 and scroll.end.y <= vp.end.y + 1.0)
+	# The scroll container clips its content. Sharing a CanvasLayer with the
+	# scrim makes Android leave the margin below the card undimmed, so the
+	# card must live in its own layer.
+	var scrim_rect: Rect2 = scrim.get_global_rect() if scrim else Rect2()
+	_check(label + " scrim fills the screen", scrim != null and scrim_rect.position.x <= 1.0 and scrim_rect.position.y <= 1.0 and scrim_rect.size.x >= vp.size.x - 1.0 and scrim_rect.size.y >= vp.size.y - 1.0)
+	_check(label + " card and scrim use separate CanvasLayers", modal.get_parent() is CanvasLayer and scrim != null and scrim.get_parent() is CanvasLayer and modal.get_parent() != scrim.get_parent())
 
 
 func _ready() -> void:
@@ -44,8 +50,9 @@ func _ready() -> void:
 	result._build()
 	await get_tree().process_frame
 	var result_modal: SettingsUI.ModalBody = result.find_child("ResultModal", true, false)
+	var result_scrim: Control = result.find_child("ResultBg", true, false)
 	var result_card: Control = result.find_child("ResultCard", true, false)
-	_check_modal("results", result_modal, vp)
+	_check_modal("results", result_modal, result_scrim, vp)
 	_check("results card is taller than the screen at mobile scale", result_card != null and result_card.get_combined_minimum_size().y > result_modal.scroll.size.y)
 	_check("results can be scrolled", result_modal.scroll.get_v_scroll_bar().max_value > result_modal.scroll.size.y)
 	result.queue_free()
@@ -62,11 +69,13 @@ func _ready() -> void:
 	add_child(overlay)
 	await get_tree().process_frame
 	var pause_modal: SettingsUI.ModalBody = overlay.find_child("PauseModal", true, false)
+	var pause_scrim: Control = overlay.find_child("PauseBg", true, false)
 	var pause_main: Control = overlay.find_child("PauseMenu", true, false)
-	_check_modal("pause", pause_modal, vp)
+	_check_modal("pause", pause_modal, pause_scrim, vp)
 	_check("pause card fits at mobile scale", pause_main != null and pause_main.get_combined_minimum_size().y <= pause_modal.scroll.size.y)
 	_check("pause does not need scrolling", pause_modal.scroll.get_v_scroll_bar().max_value <= pause_modal.scroll.size.y + 1.0)
-	overlay.queue_free()
+	game._hide_pause_overlay()
+	await get_tree().process_frame
 	game.free()
 	SettingsUI.ui_scale = 1.0
 	await get_tree().process_frame

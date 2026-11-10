@@ -32,9 +32,16 @@ func _build() -> void:
 	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(bg)
 
+	# See the pause overlay: the card scroll layer must not share a CanvasLayer
+	# with the scrim, or its clip leaves the bottom margin undimmed on Android.
+	var modal_layer := CanvasLayer.new()
+	modal_layer.name = "ResultModalLayer"
+	modal_layer.layer = layer + 1
+	add_child(modal_layer)
+
 	var modal := SettingsUI.ModalBody.new()
 	modal.name = "ResultModal"
-	add_child(modal)
+	modal_layer.add_child(modal)
 
 	var card := PanelContainer.new()
 	card.name = "ResultCard"
