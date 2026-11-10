@@ -182,6 +182,24 @@ static func subtitle(text: String) -> Label:
 	return node
 
 
+# A font's line box carries the full ascent and descent, so a single-line label
+# is much taller than the glyphs it draws. Header text trims that empty leading
+# so the title and subtitle can sit close together and share the height of the
+# header buttons.
+static func fit_line_height(node: Label, target_height: int) -> void:
+	var font_size: int = node.get_theme_font_size("font_size")
+	var font: Font = node.get_theme_font("font")
+	var trim: int = int(ceil(font.get_height(font_size))) - target_height
+	if trim <= 0:
+		return
+	var top_trim: int = int(round(float(trim) * 0.62))
+	var variation := FontVariation.new()
+	variation.base_font = font
+	variation.spacing_top = -top_trim
+	variation.spacing_bottom = -(trim - top_trim)
+	node.add_theme_font_override("font", variation)
+
+
 static func divider() -> Control:
 	var line := ColorRect.new()
 	line.color = Palette.BORDER_SOFT

@@ -549,10 +549,14 @@ func _build_page_header() -> Control:
 	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	titles.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	titles.mouse_filter = Control.MOUSE_FILTER_PASS
-	titles.add_theme_constant_override("separation", SettingsUI.px(2))
+	titles.add_theme_constant_override("separation", 0)
 	_page_title_label = SettingsUI.title("Controls")
 	_page_title_label.add_theme_font_size_override("font_size", SettingsUI.px(34 if _wide_layout else 28))
 	_page_subtitle_label = SettingsUI.subtitle("")
+	# The two labels are trimmed to 40 + 20 design pixels so their combined
+	# height matches the 60 px rendered Back/About buttons.
+	SettingsUI.fit_line_height(_page_title_label, SettingsUI.px(40))
+	SettingsUI.fit_line_height(_page_subtitle_label, SettingsUI.px(20))
 	titles.add_child(_page_title_label)
 	titles.add_child(_page_subtitle_label)
 	header.add_child(titles)
