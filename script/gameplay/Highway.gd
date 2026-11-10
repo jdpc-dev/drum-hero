@@ -156,11 +156,11 @@ func _build_lanes() -> void:
 	lanes_built.emit()
 
 
-# Touch zones are translucent, so two neighbours sharing a fractional edge can
-# both rasterize into the same pixel and draw a brighter 1 px seam (visible on
+# Adjacent translucent or anti-aliased lane tiles sharing a fractional edge can
+# both rasterize into the same pixel, drawing a brighter 1 px seam (visible on
 # mobile at some lane boundaries). Snap every shared edge to a whole pixel so
-# the pads tile exactly instead of overlapping.
-static func touch_zone_bounds(index: int, count: int, width: float) -> Vector2:
+# the tiles abut exactly instead of overlapping.
+static func lane_pixel_bounds(index: int, count: int, width: float) -> Vector2:
 	var lane_w: float = width / float(count)
 	return Vector2(roundf(lane_w * index), roundf(lane_w * (index + 1)))
 
@@ -171,7 +171,7 @@ func _build_touch_zones() -> void:
 
 	for i in range(count):
 		var lane_idx: int = lane_nodes[i].lane_index
-		var bounds: Vector2 = touch_zone_bounds(i, count, screen_w)
+		var bounds: Vector2 = lane_pixel_bounds(i, count, screen_w)
 		var zone_x: float = bounds.x
 		var zone_w: float = bounds.y - bounds.x
 

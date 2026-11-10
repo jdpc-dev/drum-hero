@@ -72,7 +72,7 @@ func _ready() -> void:
 	_check("cada pista tiene etiqueta", _count_lane_labels(highway) == 8)
 	_check("hay linea de golpeo", highway != null and highway.hit_line_ref != null)
 
-	print("=== 3b. las zonas tactiles comparten bordes enteros ===")
+	print("=== 3b. las pistas comparten bordes enteros ===")
 	# 1350 px is the highway width of the mobile test device (1650 minus the
 	# 150 px gameplay padding on both sides). With 8 or 7 lanes the shared
 	# edges fall on fractions, which used to double-blend a 1 px seam.
@@ -82,7 +82,7 @@ func _ready() -> void:
 		var whole_pixels: bool = true
 		var tiles: bool = true
 		for i in range(lane_count):
-			var bounds: Vector2 = Highway.touch_zone_bounds(i, lane_count, lane_width)
+			var bounds: Vector2 = Highway.lane_pixel_bounds(i, lane_count, lane_width)
 			if not is_equal_approx(bounds.x, roundf(bounds.x)):
 				whole_pixels = false
 			if not is_equal_approx(bounds.y, roundf(bounds.y)):
@@ -91,9 +91,9 @@ func _ready() -> void:
 				tiles = false
 			previous_right = bounds.y
 		_check("con %d pistas los bordes caen en pixeles enteros" % lane_count, whole_pixels)
-		_check("con %d pistas las zonas tactiles no se solapan" % lane_count, tiles)
-		_check("con %d pistas las zonas cubren todo el ancho" % lane_count,
-			is_zero_approx(Highway.touch_zone_bounds(0, lane_count, lane_width).x)
+		_check("con %d pistas los bloques no se solapan" % lane_count, tiles)
+		_check("con %d pistas los bloques cubren todo el ancho" % lane_count,
+			is_zero_approx(Highway.lane_pixel_bounds(0, lane_count, lane_width).x)
 			and is_equal_approx(previous_right, lane_width))
 
 	print("=== 4. en HAPTIC la pista del kick sale aparte ===")

@@ -121,8 +121,13 @@ func _end(position: Vector2) -> void:
 func _index_at(position: Vector2) -> int:
 	if lanes.is_empty() or size.x <= 0.0:
 		return -1
-	var tile_w: float = size.x / float(lanes.size())
-	return clampi(int(position.x / tile_w), 0, lanes.size() - 1)
+	# Follow the same snapped edges as _draw() so a drop lands on the tile the
+	# player actually sees under the finger.
+	for i in lanes.size():
+		var bounds: Vector2 = Highway.lane_pixel_bounds(i, lanes.size(), size.x)
+		if position.x < bounds.y:
+			return i
+	return lanes.size() - 1
 
 
 func _draw() -> void:
@@ -130,13 +135,15 @@ func _draw() -> void:
 		return
 
 	var count: int = lanes.size()
-	var tile_w: float = size.x / float(count)
 	var colors: Array[Color] = Highway._get_lane_colors()
 	var font: Font = SettingsUI.font_weight(600)
 
 	for i in count:
 		var lane: int = lanes[i]
-		var rect := Rect2(tile_w * i, 0.0, tile_w, size.y)
+		# Same pixel snapping as the highway pads: fractional tile edges can
+		# leave a 1 px seam between the anti-aliased style boxes.
+		var bounds: Vector2 = Highway.lane_pixel_bounds(i, count, size.x)
+		var rect := Rect2(bounds.x, 0.0, bounds.y - bounds.x, size.y)
 		var lane_color: Color = colors[lane] if lane < colors.size() else Palette.BONE
 		var bg: Color = Palette.SURFACE_2.lerp(lane_color, 0.35)
 		var lifted: bool = _dragging and i == _drag_index
@@ -162,7 +169,7 @@ func _draw() -> void:
 		draw_style_box(style, rect)
 
 		var text: String = DrumGraphics.LANE_LABELS[lane] if lane < DrumGraphics.LANE_LABELS.size() else str(lane)
-		var font_size: int = clampi(int(tile_w * 0.24), SettingsUI.px(11), SettingsUI.px(20))
+		var font_size: int = clampi(int(rect.size.x * 0.24), SettingsUI.px(11), SettingsUI.px(20))
 		var ascent: float = font.get_ascent(font_size)
 		var descent: float = font.get_descent(font_size)
 		var baseline: float = rect.position.y + (rect.size.y + ascent - descent) * 0.5

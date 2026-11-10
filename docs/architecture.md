@@ -892,12 +892,13 @@ its `lane_idx` in metadata (`set_meta("lane_idx", ...)`) to avoid name lookup an
 string parsing in `_update_touch_zones()`. The cached array is only updated if
 the lanes are rebuilt.
 
-**Pixel-snapped pad edges:** `Highway.touch_zone_bounds()` rounds every shared
-touch-zone edge to a whole pixel, and both the translucent pad and its label use
-that rect. Adjacent pads therefore tile exactly. Without the snap, fractional
-lane widths can make two neighbours rasterize into the same pixel and draw a
-brighter 1 px seam (visible at the 3-4 and 7-8 boundaries in Default and the
-4-5 boundary in Haptic on a 1650x720 mobile layout).
+**Pixel-snapped lane edges:** `Highway.lane_pixel_bounds()` rounds every shared
+lane edge to a whole pixel. The translucent touch zones and their labels use
+that rect, and so do the draggable blocks in the custom lane-order row. Adjacent
+tiles therefore abut exactly. Without the snap, fractional lane widths can make
+two neighbours rasterize into the same pixel and draw a brighter 1 px seam
+(visible at the 3-4 and 7-8 boundaries in Default, the 4-5 boundary in Haptic,
+and between the last blocks of the lane-order row on a 1650x720 mobile layout).
 
 **`lane_pressed` signal:** `TouchInput` emits `lane_pressed(lane_index,
 position)` on all three input paths (keyboard, touch and mouse), right before
