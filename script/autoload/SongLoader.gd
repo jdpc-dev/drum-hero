@@ -61,8 +61,12 @@ const MAX_DIRS_PER_FRAME = 64
 # Unlimited batch for the one-shot walk (scan_songs()).
 const UNLIMITED_DIR_BUDGET: int = 0x7FFFFFFF
 # Frame margin for the deadline the UI passes to scan_step(). 8 ms leaves room
-# for that frame's drawing even if the library is huge.
+# for that frame's drawing even if the library is huge. Phones draw the same
+# scene with much less headroom, so their batch is cut sooner and the modal and
+# its progress stay responsive.
 const SCAN_FRAME_BUDGET_MS = 8
+const SCAN_FRAME_BUDGET_MOBILE_MS = 4
+const SCAN_FRAME_BUDGET_MOBILE_CHECK_DIRS = 4
 
 var _scanned_paths: Dictionary = {}
 var _dirs_visited: int = 0
@@ -161,9 +165,11 @@ func request_scan(owner: String = "") -> void:
 
 
 func frame_deadline_usec() -> int:
-	# The deadline passed to pump_scan() so as not to spend more than
-	# SCAN_FRAME_BUDGET_MS in one batch.
-	return Time.get_ticks_usec() + SCAN_FRAME_BUDGET_MS * 1000
+	# The deadline passed to pump_scan() so as not to spend more than the
+	# frame budget in one batch. Phones get a shorter batch: their rendering
+	# already uses most of the frame.
+	var budget_ms: int = SCAN_FRAME_BUDGET_MOBILE_MS if OS.has_feature("mobile") else SCAN_FRAME_BUDGET_MS
+	return Time.get_ticks_usec() + budget_ms * 1000
 
 
 func pump_scan(deadline_usec: int, owner: String = "") -> bool:
@@ -391,15 +397,17 @@ func scan_step(dir_budget: int, deadline_usec: int = 0) -> bool:
 	if not is_scanning:
 		return true
 	var processed: int = 0
+	# The clock costs more than a directory listing over DirectoryAccess, so it
+	# is checked in groups. Phones use a shorter group to keep the shorter
+	# budget from being overshot.
+	var deadline_check_dirs: int = SCAN_FRAME_BUDGET_MOBILE_CHECK_DIRS if OS.has_feature("mobile") else 8
 	while processed < dir_budget:
 		if _scan_stack.is_empty() and not _advance_to_next_root():
 			_finish_scan()
 			return true
 		_scan_one_dir()
 		processed += 1
-		# The clock is checked every eight directories: reading it on every
-		# directory costs more than the walk itself over DirectoryAccess.
-		if deadline_usec > 0 and processed % 8 == 0 and Time.get_ticks_usec() >= deadline_usec:
+		if deadline_usec > 0 and processed % deadline_check_dirs == 0 and Time.get_ticks_usec() >= deadline_usec:
 			break
 	if _scan_cancelled:
 		_finish_scan()

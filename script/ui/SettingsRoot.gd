@@ -42,7 +42,8 @@ var _scan_status: Label
 var _scan_folder: Label
 var _scan_summary: Label
 var _scan_pump_active: bool = false
-var _scan_start_delay: int = 0
+var _scan_start_pending: bool = false
+var _scan_modal_fade: Tween
 var _songs_link_status: Label
 var _library_section: VBoxContainer
 var _root_path_edit: LineEdit
@@ -77,11 +78,10 @@ const WIDE_BREAKPOINT: float = 1000.0
 const CONTENT_MAX_WIDTH: float = 1180.0
 const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
-# The modal is built on the frame the player presses Rescan now. The first
-# batch of the walk is delayed by one frame so that frame is spent drawing the
-# modal instead of listing directories: otherwise the panel only appears after
-# the disk work, which reads as a laggy pop-up.
-const SCAN_START_DELAY_FRAMES: int = 1
+const SCAN_MODAL_FADE_SECONDS: float = 0.14
+# The walk waits for the modal's entrance tween to finish before pump_scan()
+# touches the disks. One frame was not enough on phones: the scan batches
+# competed with the fade and the panel looked like it popped in late.
 
 # Easter egg: the About icon is a soundboard. The clips live outside the
 # imported resource graph, so the folder is read at runtime and the fallback
@@ -190,8 +190,7 @@ func _process(delta: float) -> void:
 	# or the panel can be closed mid-batch without leaving anything hanging.
 	if not _scan_pump_active:
 		return
-	if _scan_start_delay > 0:
-		_scan_start_delay -= 1
+	if _scan_start_pending:
 		return
 	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
 		_finish_scan()
@@ -1446,10 +1445,14 @@ func _scan_summary_and_rescan() -> void:
 		SongLoader.request_scan(SCAN_OWNER)
 		return
 	_scan_pump_active = true
-	# Show the modal first: the walk is only pumped from _process, after the
-	# delay, so this frame draws the panel and the next one scrolls the disks.
-	_scan_start_delay = SCAN_START_DELAY_FRAMES
+	# Show the modal first and let its entrance finish: while the flag is set,
+	# _process only draws the panel. Starting the disk walk together with the
+	# fade made the pop-up stutter on phones.
+	_scan_start_pending = true
 	_set_scan_widgets_visible(true)
+	# If the modal already existed there is no new fade to wait for.
+	if _scan_modal_fade == null:
+		_scan_start_pending = false
 	if is_instance_valid(_scan_status):
 		_scan_status.text = "Scanning..."
 	SongLoader.request_scan(SCAN_OWNER)
@@ -1467,7 +1470,7 @@ func _on_scan_progress(root_index: int, root_total: int, current_dir: String, _d
 
 func _finish_scan() -> void:
 	_scan_pump_active = false
-	_scan_start_delay = 0
+	_scan_start_pending = false
 	_set_scan_widgets_visible(false)
 	_update_scan_summary()
 
@@ -1477,7 +1480,7 @@ func _abort_scan() -> void:
 		_hide_scan_modal()
 		return
 	_scan_pump_active = false
-	_scan_start_delay = 0
+	_scan_start_pending = false
 	# Only a walk started from this panel is cancelled: leaving Settings must
 	# not cut the scan the menu is showing underneath.
 	SongLoader.abort_scan(SCAN_OWNER)
@@ -1561,11 +1564,23 @@ func _show_scan_modal() -> void:
 	content.add_child(_cancel_scan_button)
 
 	_scan_modal.modulate.a = 0.0
-	var fade := create_tween()
-	fade.tween_property(_scan_modal, "modulate:a", 1.0, 0.14).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_scan_modal_fade = create_tween()
+	_scan_modal_fade.tween_property(_scan_modal, "modulate:a", 1.0, SCAN_MODAL_FADE_SECONDS).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	_scan_modal_fade.finished.connect(_on_scan_modal_fade_finished)
+
+
+func _on_scan_modal_fade_finished() -> void:
+	# The modal is fully on screen: only now is it safe to spend the frame on
+	# the disk walk without making the entrance stutter.
+	_scan_modal_fade = null
+	_scan_start_pending = false
 
 
 func _hide_scan_modal() -> void:
+	if _scan_modal_fade:
+		_scan_modal_fade.kill()
+		_scan_modal_fade = null
+	_scan_start_pending = false
 	if is_instance_valid(_scan_modal):
 		# Detach before freeing so a rescan started in the same frame can reuse
 		# the "ScanModal" name and the scrim stops blocking input immediately.

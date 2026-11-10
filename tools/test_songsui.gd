@@ -399,6 +399,10 @@ func _ready() -> void:
 	_check("el indicador ya no vive en la tarjeta", not is_instance_valid(root._scan_bar) and not is_instance_valid(root._scan_status) and not is_instance_valid(root._scan_folder))
 	_check("y se puede reescanear", root._rescan_button.disabled == false)
 
+	var rescan_progressed := [false]
+	var rescan_probe := func(_ri: int, _rt: int, _dir: String, _dv: int, _sf: int) -> void:
+		rescan_progressed[0] = true
+	SongLoader.scan_progress.connect(rescan_probe)
 	root._scan_summary_and_rescan()
 	_check("se abre el modal de escaneo", root._scan_modal_is_open())
 	_check("el escaneo espera a que el modal se pinte", not SongLoader.is_scanning)
@@ -406,13 +410,14 @@ func _ready() -> void:
 	_check("y boton de cancelar", is_instance_valid(root._cancel_scan_button) and not root._cancel_scan_button.disabled)
 	_check("el estado dice que esta escaneando", root._scan_status.text.begins_with("Scanning"))
 	_check("reescanear se bloquea y cancelar se habilita", root._rescan_button.disabled and not root._cancel_scan_button.disabled)
-	var rescan_started: bool = false
-	for i in 30:
-		if SongLoader.is_scanning:
-			rescan_started = true
-			break
+	# The walk starts after the modal's entrance: wait in real time, not in
+	# frames or SceneTree timers, because headless frames are much faster than
+	# a phone's and the deadline uses engine ticks.
+	var wait_until_usec: int = Time.get_ticks_usec() + 300000
+	while Time.get_ticks_usec() < wait_until_usec:
 		await get_tree().process_frame
-	_check("el escaneo arranca en el frame siguiente", rescan_started)
+	SongLoader.scan_progress.disconnect(rescan_probe)
+	_check("el escaneo arranca tras la entrada del modal", rescan_progressed[0])
 	for i in 300:
 		if not SongLoader.is_scanning:
 			break
@@ -442,6 +447,9 @@ func _ready() -> void:
 			_reached_wide = true
 	SongLoader.scan_progress.connect(probe)
 	root._scan_summary_and_rescan()
+	# This section is about cancellation, not the modal entrance: skip the
+	# start delay so the wide walk is running when Cancel is pressed.
+	root._scan_start_pending = false
 	var cancel_rescan_started: bool = false
 	for i in 30:
 		if SongLoader.is_scanning:
@@ -475,6 +483,8 @@ func _ready() -> void:
 	print("=== 15. salir de la pestana cancela el escaneo ===")
 	root._scan_summary_and_rescan()
 	_check("con el modal abierto", root._scan_modal_is_open())
+	# The section tests the tab abort: do not wait for the entrance fade.
+	root._scan_start_pending = false
 	var tab_rescan_started: bool = false
 	for i in 30:
 		if SongLoader.is_scanning:
