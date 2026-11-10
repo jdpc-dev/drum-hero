@@ -879,7 +879,9 @@ func _build_theme_swatches(theme_id: String) -> Control:
 		block.custom_minimum_size.y = SettingsUI.px(36)
 		block.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		block.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		block.add_theme_stylebox_override("panel", SettingsUI.flat(colors[i], 8, 1, Palette.BORDER))
+		# No hairline around the preview: the shared white border reads as a
+		# bright outline on the black SURFACE swatch and fights the accent.
+		block.add_theme_stylebox_override("panel", SettingsUI.flat(colors[i], 8))
 		column.add_child(block)
 
 		var caption := SettingsUI.label(captions[i], 11, Palette.ASH, 600)
