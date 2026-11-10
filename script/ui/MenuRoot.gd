@@ -419,7 +419,6 @@ func _build_header_bar() -> void:
 	_header_bar.add_child(hbox)
 
 	var art_frame := PanelContainer.new()
-	art_frame.custom_minimum_size = Vector2(SettingsUI.px(64), SettingsUI.px(64))
 	art_frame.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var art_style := SettingsUI.flat(Palette.SURFACE_2, 14)
 	art_frame.add_theme_stylebox_override("panel", art_style)
@@ -462,6 +461,14 @@ func _build_header_bar() -> void:
 	_settings_button.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	_settings_button.pressed.connect(_on_settings_pressed)
 	hbox.add_child(_settings_button)
+
+	# The inputs report their full height, stylebox content padding included.
+	# Match the tallest one so the square cover lines up with the whole row.
+	var row_height: float = maxf(
+		search_input.get_combined_minimum_size().y,
+		_settings_button.get_combined_minimum_size().y
+	)
+	art_frame.custom_minimum_size = Vector2(row_height, row_height)
 
 
 func _build_song_list() -> void:
