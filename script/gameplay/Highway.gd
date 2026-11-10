@@ -44,6 +44,7 @@ var _next_note_index: int = 0
 var _beat_line_cursor: int = 0
 
 var _bg_sprite: Sprite2D
+var _hit_zone_backing: ColorRect
 
 signal lanes_built()
 
@@ -68,6 +69,7 @@ func _ready() -> void:
 	_refresh_screen_size()
 	_label_settings = preload("res://asset/fonts/label_settings.tres")
 	_add_background()
+	_add_hit_zone_backing()
 	_build_lanes()
 
 
@@ -110,6 +112,20 @@ func _add_background() -> void:
 	_bg_sprite.scale = Vector2(screen_w / _bg_sprite.texture.get_width(), bg_h / _bg_sprite.texture.get_height())
 	_bg_sprite.z_index = -1
 	add_child(_bg_sprite)
+
+
+# The note input pads sit below the hit lanes on top of the shared black. Their
+# colours are translucent, so over black they read darker than the lane
+# palette. This white layer is the neutral base that lifts them, while the hit
+# lane row keeps its black frame.
+func _add_hit_zone_backing() -> void:
+	_hit_zone_backing = ColorRect.new()
+	_hit_zone_backing.color = Palette.HIT_ZONE_BACKING
+	_hit_zone_backing.position = Vector2(0, labels_y)
+	_hit_zone_backing.size = Vector2(screen_w, screen_h - labels_y)
+	_hit_zone_backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hit_zone_backing.z_index = -2
+	add_child(_hit_zone_backing)
 
 
 func _build_lanes() -> void:
@@ -164,7 +180,7 @@ func _build_touch_zones() -> void:
 		zone.position = Vector2(zone_x, labels_y)
 		zone.size = Vector2(zone_w, screen_h - labels_y)
 		zone.color = lane_colors[lane_idx]
-		zone.color.a = 0.12
+		zone.color.a = 0.15
 		zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		add_child(zone)
 
@@ -174,7 +190,8 @@ func _build_touch_zones() -> void:
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		label.label_settings = _label_settings
 		label.add_theme_font_size_override("font_size", 14)
-		label.add_theme_color_override("font_color", lane_colors[lane_idx])
+		# Neutral ink: on the lifted hit-zone base the pure lane colours lose
+		# contrast, while the pad tint already carries the lane identity.
 		label.position = Vector2(zone_x, labels_y)
 		label.size = Vector2(zone_w, screen_h - labels_y)
 		add_child(label)

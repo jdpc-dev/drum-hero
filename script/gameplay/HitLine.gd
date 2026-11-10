@@ -48,10 +48,19 @@ func setup(highway: Node) -> void:
 		var right_gap: float = edge_gap if i == count - 1 else inner_gap * 0.5
 		var rect := ColorRect.new()
 		rect.color = lane_colors[lane_idx]
-		rect.color.a = 0.35
+		rect.color.a = 0.50
 		rect.size = Vector2(lane_w - left_gap - right_gap, hit_zone_h * 0.6)
 		rect.position = Vector2(lane_w * i + left_gap, hit_zone_h * 0.2)
 		rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+
+		# The lift layer is block-sized on purpose: the gaps and the margins
+		# around the hit lanes stay on the black frame.
+		var backing := ColorRect.new()
+		backing.color = Palette.HIT_ZONE_BACKING
+		backing.size = rect.size
+		backing.position = rect.position
+		backing.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(backing)
 		add_child(rect)
 		_hit_line_rects.append(rect)
 		_rect_lane_indices.append(lane_idx)
