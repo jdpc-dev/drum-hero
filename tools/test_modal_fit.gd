@@ -19,6 +19,25 @@ func _check(label: String, ok: bool) -> void:
 		print("  FAIL ", label)
 
 
+# A Button defaults to MOUSE_FILTER_STOP, which swallows the touch press before
+# the ScrollContainer can start dragging. The modal's buttons must use PASS so
+# a swipe that starts on top of one still scrolls the card.
+func _check_buttons_scrollable(label: String, modal: SettingsUI.ModalBody) -> void:
+	if modal == null:
+		return
+	var pending: Array[Node] = [modal]
+	var buttons: Array[Button] = []
+	while not pending.is_empty():
+		var node: Node = pending.pop_back()
+		if node is Button:
+			buttons.append(node)
+		for child in node.get_children():
+			pending.append(child)
+	_check(label + " has interactive buttons", not buttons.is_empty())
+	for button in buttons:
+		_check(label + " button '" + button.name + "' lets swipes scroll", button.mouse_filter == Control.MOUSE_FILTER_PASS)
+
+
 func _check_modal(label: String, modal: SettingsUI.ModalBody, scrim: Control, vp: Rect2) -> void:
 	_check(label + " builds its modal body", modal != null)
 	if modal == null:
@@ -55,6 +74,7 @@ func _ready() -> void:
 	_check_modal("results", result_modal, result_scrim, vp)
 	_check("results card is taller than the screen at mobile scale", result_card != null and result_card.get_combined_minimum_size().y > result_modal.scroll.size.y)
 	_check("results can be scrolled", result_modal.scroll.get_v_scroll_bar().max_value > result_modal.scroll.size.y)
+	_check_buttons_scrollable("results", result_modal)
 	result.queue_free()
 	await get_tree().process_frame
 
@@ -74,6 +94,7 @@ func _ready() -> void:
 	_check_modal("pause", pause_modal, pause_scrim, vp)
 	_check("pause card fits at mobile scale", pause_main != null and pause_main.get_combined_minimum_size().y <= pause_modal.scroll.size.y)
 	_check("pause does not need scrolling", pause_modal.scroll.get_v_scroll_bar().max_value <= pause_modal.scroll.size.y + 1.0)
+	_check_buttons_scrollable("pause", pause_modal)
 	game._hide_pause_overlay()
 	await get_tree().process_frame
 	game.free()

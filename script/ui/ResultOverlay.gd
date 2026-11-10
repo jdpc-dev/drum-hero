@@ -56,8 +56,8 @@ func _build() -> void:
 
 	var vbox := VBoxContainer.new()
 	vbox.name = "ResultPanel"
-	# PASS so touch drags over the rows reach the modal's scroll layer; the
-	# buttons keep STOP and stay tappable.
+	# PASS so touch drags over the rows reach the modal's scroll layer. Buttons
+	# are PASS too (see SettingsUI.button), so a swipe works on top of them.
 	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_theme_constant_override("separation", SettingsUI.px(3))
 	card.add_child(vbox)

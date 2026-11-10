@@ -620,8 +620,8 @@ func _build_pause_main_menu(difficulties: Array) -> Control:
 	panel.add_theme_stylebox_override("panel", panel_style)
 
 	var vbox := VBoxContainer.new()
-	# PASS so touch drags over the card reach the modal's scroll layer; the
-	# buttons keep STOP and stay tappable.
+	# PASS so touch drags over the card reach the modal's scroll layer. Buttons
+	# are PASS too (see SettingsUI.button), so a swipe works on top of them.
 	vbox.mouse_filter = Control.MOUSE_FILTER_PASS
 	vbox.add_theme_constant_override("separation", SettingsUI.px(4))
 	panel.add_child(vbox)

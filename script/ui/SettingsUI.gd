@@ -337,6 +337,12 @@ static func button(text: String, kind: String = "secondary") -> Button:
 	var node := Button.new()
 	node.text = text
 	node.custom_minimum_size.y = px(46)
+	# STOP would swallow the touch press, leaving the parent ScrollContainer
+	# unable to start a drag over the button. With PASS the press bubbles up;
+	# once the scroll actually starts, ScrollContainer sends
+	# NOTIFICATION_SCROLL_BEGIN and the button cancels its press attempt, so a
+	# swipe scrolls while a tap still activates it.
+	node.mouse_filter = Control.MOUSE_FILTER_PASS
 	node.add_theme_font_override("font", font_weight(500))
 	node.add_theme_font_size_override("font_size", px(17))
 
