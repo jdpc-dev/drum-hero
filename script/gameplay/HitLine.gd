@@ -107,6 +107,11 @@ func _build_judgment_areas() -> void:
 	add_child(miss_rect)
 	_judgment_area_rects.append(miss_rect)
 
+	# New rects default to visible. Set the initial state right away so they
+	# cannot flash on the loading screen before _process has run once when the
+	# judgement-area debug view is off.
+	_refresh_judgment_areas()
+
 
 func flash(lane_index: int) -> void:
 	for i in range(_hit_line_rects.size()):
@@ -116,10 +121,14 @@ func flash(lane_index: int) -> void:
 			break
 
 
-func _process(delta: float) -> void:
+func _refresh_judgment_areas() -> void:
 	var visible: bool = SettingsManager.show_judgment_areas
 	for r in _judgment_area_rects:
 		r.visible = visible
+
+
+func _process(delta: float) -> void:
+	_refresh_judgment_areas()
 
 	for i in range(_flash_timers.size()):
 		if _flash_timers[i] > 0.0:
