@@ -108,8 +108,6 @@ const BEAT_MEASURE: Color = Color(0.847, 0.863, 0.890, 0.65)
 const BEAT_BEAT: Color = Color(0.847, 0.863, 0.890, 0.30)
 
 # --- Hit line ---
-# The base bar that crosses the highway width, behind the per-lane rects.
-const HIT_LINE_BAR_DIM: Color = Color(0.463, 0.486, 0.529, 0.25)
 # Neutral base for the hit zone (hit lanes + note input pads). Their colors are
 # translucent, so a white backing at low opacity lifts them off the black
 # highway without washing them out.

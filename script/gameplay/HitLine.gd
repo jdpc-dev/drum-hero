@@ -31,12 +31,6 @@ func setup(highway: Node) -> void:
 
 	_pixels_per_second = highway.get_pixels_per_second()
 
-	var bg_line := ColorRect.new()
-	bg_line.color = Palette.HIT_LINE_BAR_DIM
-	bg_line.size = Vector2(highway.screen_w, 2.0)
-	bg_line.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg_line)
-
 	var lane_colors: Array[Color] = highway._get_lane_colors()
 
 	var edge_gap: float = lane_w * EDGE_GAP_RATIO
