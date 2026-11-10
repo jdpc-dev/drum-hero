@@ -42,6 +42,7 @@ var _scan_status: Label
 var _scan_folder: Label
 var _scan_summary: Label
 var _scan_pump_active: bool = false
+var _scan_start_delay: int = 0
 var _songs_link_status: Label
 var _library_section: VBoxContainer
 var _root_path_edit: LineEdit
@@ -76,6 +77,11 @@ const WIDE_BREAKPOINT: float = 1000.0
 const CONTENT_MAX_WIDTH: float = 1180.0
 const SCAN_OWNER: String = "settings"
 const SONGS_LINKTREE_URL: String = "https://linktr.ee/com.drum.hero"
+# The modal is built on the frame the player presses Rescan now. The first
+# batch of the walk is delayed by one frame so that frame is spent drawing the
+# modal instead of listing directories: otherwise the panel only appears after
+# the disk work, which reads as a laggy pop-up.
+const SCAN_START_DELAY_FRAMES: int = 1
 
 # Easter egg: the About icon is a soundboard. The clips live outside the
 # imported resource graph, so the folder is read at runtime and the fallback
@@ -183,6 +189,9 @@ func _process(delta: float) -> void:
 	# The walk advances from _process and not from an await: this way the modal
 	# or the panel can be closed mid-batch without leaving anything hanging.
 	if not _scan_pump_active:
+		return
+	if _scan_start_delay > 0:
+		_scan_start_delay -= 1
 		return
 	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
 		_finish_scan()
@@ -1413,6 +1422,10 @@ func _on_rescan_pressed() -> void:
 
 func _on_cancel_scan_pressed() -> void:
 	if not SongLoader.is_scanning:
+		# The modal is on screen one frame before the walk starts. Cancelling in
+		# that window must drop the queued scan instead of being ignored.
+		if _scan_pump_active:
+			_abort_scan()
 		return
 	SongLoader.cancel_scan()
 	if is_instance_valid(_scan_status):
@@ -1433,12 +1446,13 @@ func _scan_summary_and_rescan() -> void:
 		SongLoader.request_scan(SCAN_OWNER)
 		return
 	_scan_pump_active = true
+	# Show the modal first: the walk is only pumped from _process, after the
+	# delay, so this frame draws the panel and the next one scrolls the disks.
+	_scan_start_delay = SCAN_START_DELAY_FRAMES
 	_set_scan_widgets_visible(true)
 	if is_instance_valid(_scan_status):
 		_scan_status.text = "Scanning..."
 	SongLoader.request_scan(SCAN_OWNER)
-	if SongLoader.pump_scan(SongLoader.frame_deadline_usec(), SCAN_OWNER):
-		_finish_scan()
 
 
 func _on_scan_progress(root_index: int, root_total: int, current_dir: String, _dirs_visited: int, songs_found: int) -> void:
@@ -1453,6 +1467,7 @@ func _on_scan_progress(root_index: int, root_total: int, current_dir: String, _d
 
 func _finish_scan() -> void:
 	_scan_pump_active = false
+	_scan_start_delay = 0
 	_set_scan_widgets_visible(false)
 	_update_scan_summary()
 
@@ -1462,6 +1477,7 @@ func _abort_scan() -> void:
 		_hide_scan_modal()
 		return
 	_scan_pump_active = false
+	_scan_start_delay = 0
 	# Only a walk started from this panel is cancelled: leaving Settings must
 	# not cut the scan the menu is showing underneath.
 	SongLoader.abort_scan(SCAN_OWNER)
@@ -1681,7 +1697,7 @@ func _show_about() -> void:
 	SettingsUI.fit_line_height(version, SettingsUI.px(11))
 	header.add_child(version)
 
-	var tagline := SettingsUI.description("A drum-only rhythm game for Android and desktop. Developed by jdpc.dev.", Palette.ASH)
+	var tagline := SettingsUI.description("drum-only rhythm game for android and desktop developed by jdpc.dev", Palette.ASH)
 	tagline.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	header.add_child(tagline)
 	column.add_child(SettingsUI.divider())

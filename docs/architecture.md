@@ -1075,12 +1075,13 @@ counts the entire walk, so the last number the UI sees is the correct one.
 `script/ui/ScanFeedback.gd` is the single place where that progress is formatted,
 and both surfaces share it:
 
-- **Settings ▸ Songs** — `Rescan now` triggers `_scan_summary_and_rescan()`, which requests the scan and pumps it from `_process` (owner `settings`). The walk is shown in a blocking modal (scrim, centered panel) with a bar, `i/N` with the songs found, the current folder and a `Cancel` button. When finished or cancelled, the modal closes and `_update_scan_summary()` refreshes the "Last scan" line and the warnings for cancelled/unreachable roots. Back/Escape while the modal is open cancels the walk instead of closing Settings underneath it.
-- **Menu** — `_refresh_song_list()` uses the same loading overlay (owner `menu`), but only when there is no cached library (first run). Closing Settings never scans: the menu applies the guitar fallback in memory and rebuilds the rows when `SongLoader.library_generation` changed (a scan ran inside the panel). The scan details, including why a rescan is pending, live in *Settings ▸ Songs*.
+- **Settings ▸ Songs** — `Rescan now` triggers `_scan_summary_and_rescan()`, which requests the scan and pumps it from `_process` (owner `settings`). The modal is built first and the walk is delayed by one frame (`SCAN_START_DELAY_FRAMES`), so the panel is painted before the disk work instead of popping up late over a frame that already spent its budget listing directories. The walk is shown in a blocking modal (scrim, centered panel) with a bar, `i/N` with the songs found, the current folder and a `Cancel` button. When finished or cancelled, the modal closes and `_update_scan_summary()` refreshes the "Last scan" line and the warnings for cancelled/unreachable roots. Back/Escape while the modal is open cancels the walk instead of closing Settings underneath it.
+- **Menu** — `_refresh_song_list()` uses the same loading overlay (owner `menu`), but only when there is no cached library (first run). It also waits one frame before the first batch so the overlay is on screen before the launch scan starts. Closing Settings never scans: the menu applies the guitar fallback in memory and rebuilds the rows when `SongLoader.library_generation` changed (a scan ran inside the panel). The scan details, including why a rescan is pending, live in *Settings ▸ Songs*.
 
 The cancel button does not cut abruptly: it requests `cancel_scan()` and shows
 "Cancelling...". The list is rebuilt with what was found, which is an exact
-prefix of the full walk.
+prefix of the full walk. A tap during the one-frame delay before the walk
+starts drops the queued scan instead of leaving the modal waiting.
 
 Any scan started by a surface is aborted in its `_exit_tree()` and when changing
 tabs in Settings: if the UI disappears mid-scan, `SongLoader` must not be left

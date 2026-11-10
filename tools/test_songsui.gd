@@ -400,12 +400,19 @@ func _ready() -> void:
 	_check("y se puede reescanear", root._rescan_button.disabled == false)
 
 	root._scan_summary_and_rescan()
-	_check("el reescaneo es inmediato, sin await", SongLoader.is_scanning)
 	_check("se abre el modal de escaneo", root._scan_modal_is_open())
+	_check("el escaneo espera a que el modal se pinte", not SongLoader.is_scanning)
 	_check("con barra, estado y carpeta", is_instance_valid(root._scan_bar) and is_instance_valid(root._scan_status) and is_instance_valid(root._scan_folder))
 	_check("y boton de cancelar", is_instance_valid(root._cancel_scan_button) and not root._cancel_scan_button.disabled)
 	_check("el estado dice que esta escaneando", root._scan_status.text.begins_with("Scanning"))
 	_check("reescanear se bloquea y cancelar se habilita", root._rescan_button.disabled and not root._cancel_scan_button.disabled)
+	var rescan_started: bool = false
+	for i in 30:
+		if SongLoader.is_scanning:
+			rescan_started = true
+			break
+		await get_tree().process_frame
+	_check("el escaneo arranca en el frame siguiente", rescan_started)
 	for i in 300:
 		if not SongLoader.is_scanning:
 			break
@@ -435,7 +442,13 @@ func _ready() -> void:
 			_reached_wide = true
 	SongLoader.scan_progress.connect(probe)
 	root._scan_summary_and_rescan()
-	_check("el escaneo vuelve a arrancar", SongLoader.is_scanning)
+	var cancel_rescan_started: bool = false
+	for i in 30:
+		if SongLoader.is_scanning:
+			cancel_rescan_started = true
+			break
+		await get_tree().process_frame
+	_check("el escaneo vuelve a arrancar", cancel_rescan_started)
 	for i in 300:
 		if _reached_wide:
 			break
@@ -461,8 +474,14 @@ func _ready() -> void:
 
 	print("=== 15. salir de la pestana cancela el escaneo ===")
 	root._scan_summary_and_rescan()
-	_check("el escaneo esta en marcha", SongLoader.is_scanning)
 	_check("con el modal abierto", root._scan_modal_is_open())
+	var tab_rescan_started: bool = false
+	for i in 30:
+		if SongLoader.is_scanning:
+			tab_rescan_started = true
+			break
+		await get_tree().process_frame
+	_check("el escaneo esta en marcha", tab_rescan_started)
 	root._on_tab_selected(root.SONGS_TAB - 1)
 	await get_tree().process_frame
 	_check("al cambiar de pestana se aborta", not SongLoader.is_scanning and not root._scan_pump_active)

@@ -35,6 +35,10 @@ var _loading_is_scan: bool = false
 var _quit_confirm_overlay: CanvasLayer
 
 var _scan_pump_active: bool = false
+# The overlay is built on the deferred call that starts the launch scan. The
+# first batch is delayed one frame so the overlay is drawn before the disk walk;
+# otherwise it only pops up after the work and the launch feels laggy.
+var _scan_start_delay: int = 0
 
 # Launch-only event: it must not replay when Gameplay returns to the menu.
 # `static` survives the scene change; tests never set it because they do not
@@ -60,6 +64,7 @@ var _preview_title_label: Label
 var _preview_dots_text: String = ""
 
 const SCAN_OWNER: String = "menu"
+const SCAN_START_DELAY_FRAMES: int = 1
 
 const PREVIEW_STEM_NAMES := ["drums", "bass", "guitar", "keys", "rhythm", "vocals"]
 var _preview_stem_paths: Array[String] = []
@@ -324,7 +329,10 @@ func _process(delta: float) -> void:
 					fade_tween.tween_property(player, "volume_db", linear_to_db(SettingsManager.preview_volume), remaining_fade_in).set_ease(Tween.EASE_OUT).set_trans(Tween.TRANS_SINE)
 			_preview_stem_load_result = {}
 	if _scan_pump_active:
-		_pump_scan()
+		if _scan_start_delay > 0:
+			_scan_start_delay -= 1
+		else:
+			_pump_scan()
 
 
 # The library scan advances from here and not from an await: this way the menu
@@ -337,6 +345,7 @@ func _pump_scan() -> void:
 
 func _abort_scan() -> void:
 	_scan_pump_active = false
+	_scan_start_delay = 0
 	SongLoader.abort_scan(SCAN_OWNER)
 
 
@@ -354,6 +363,12 @@ func _on_scan_progress(root_index: int, root_total: int, current_dir: String, _d
 
 func _on_cancel_scan_pressed() -> void:
 	if not SongLoader.is_scanning:
+		# The overlay is on screen one frame before the walk starts. Cancelling
+		# in that window must drop the queued scan instead of leaving the
+		# overlay up until the scan starts anyway.
+		if _scan_pump_active:
+			_abort_scan()
+			_hide_loading_screen()
 		return
 	SongLoader.cancel_scan()
 	if is_instance_valid(_loading_status):
@@ -902,14 +917,15 @@ func _refresh_song_list() -> void:
 	if _scan_pump_active:
 		return
 	_scan_pump_active = true
+	_scan_start_delay = SCAN_START_DELAY_FRAMES
 	_show_loading_screen(true)
 	_update_loading(0.0, "Scanning songs...")
 	SongLoader.request_scan(SCAN_OWNER)
-	_pump_scan()
 
 
 func _finish_song_list_refresh() -> void:
 	_scan_pump_active = false
+	_scan_start_delay = 0
 	var kept: int = SongLoader.song_list.size()
 	# It is read from SongLoader and not from a local flag: pump_scan() can
 	# chain the queued rescan in the same call, and a local flag would keep the
