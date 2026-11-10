@@ -677,7 +677,7 @@ func _build_pause_main_menu(difficulties: Array) -> Control:
 func _build_pause_difficulty_menu(difficulties: Array) -> Control:
 	var panel := PanelContainer.new()
 	panel.name = "DifficultyMenu"
-	panel.custom_minimum_size = Vector2(SettingsUI.px(380), 0)
+	panel.custom_minimum_size = Vector2(SettingsUI.px(360), 0)
 	# See the main pause menu: PASS lets card drags scroll the modal body.
 	panel.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel.visible = false
@@ -691,9 +691,38 @@ func _build_pause_difficulty_menu(difficulties: Array) -> Control:
 	vbox.add_theme_constant_override("separation", SettingsUI.px(4))
 	panel.add_child(vbox)
 
+	var header := HBoxContainer.new()
+	header.mouse_filter = Control.MOUSE_FILTER_PASS
+	header.add_theme_constant_override("separation", SettingsUI.px(10))
+	vbox.add_child(header)
+
+	var back_width: int = SettingsUI.px(70)
+	var back_btn: Button = SettingsUI.button("BACK", "secondary")
+	back_btn.name = "DifficultyBackButton"
+	back_btn.custom_minimum_size = Vector2(back_width, SettingsUI.px(30))
+	# Trim the default control padding so the button matches the heading's line
+	# height and reads as part of the header instead of a large control.
+	for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+		var back_style := back_btn.get_theme_stylebox(state) as StyleBoxFlat
+		back_style.content_margin_left = SettingsUI.px(12)
+		back_style.content_margin_right = SettingsUI.px(12)
+		back_style.content_margin_top = SettingsUI.px(4)
+		back_style.content_margin_bottom = SettingsUI.px(4)
+	back_btn.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	back_btn.pressed.connect(_show_pause_main_menu)
+	header.add_child(back_btn)
+
 	var title: Label = SettingsUI.label("DIFFICULTY", 24, Palette.BONE_HI, 600)
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	vbox.add_child(title)
+	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(title)
+
+	# Match the back button's width so the heading stays centred in the card.
+	var header_spacer := Control.new()
+	header_spacer.custom_minimum_size.x = back_width
+	header_spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	header.add_child(header_spacer)
 
 	var list: VBoxContainer = VBoxContainer.new()
 	list.name = "DifficultyList"
@@ -729,13 +758,6 @@ func _build_pause_difficulty_menu(difficulties: Array) -> Control:
 		btn.add_theme_color_override("font_hover_pressed_color", Palette.BONE_HI)
 		btn.pressed.connect(_on_pause_difficulty_pressed.bind(off, btn.text))
 		list.add_child(btn)
-
-	var back_btn: Button = SettingsUI.button("BACK", "secondary")
-	back_btn.name = "DifficultyBackButton"
-	back_btn.custom_minimum_size = Vector2(0, SettingsUI.px(46))
-	back_btn.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	back_btn.pressed.connect(_show_pause_main_menu)
-	vbox.add_child(back_btn)
 
 	return panel
 
