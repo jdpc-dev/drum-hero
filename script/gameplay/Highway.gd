@@ -140,17 +140,29 @@ func _build_lanes() -> void:
 	lanes_built.emit()
 
 
+# Touch zones are translucent, so two neighbours sharing a fractional edge can
+# both rasterize into the same pixel and draw a brighter 1 px seam (visible on
+# mobile at some lane boundaries). Snap every shared edge to a whole pixel so
+# the pads tile exactly instead of overlapping.
+static func touch_zone_bounds(index: int, count: int, width: float) -> Vector2:
+	var lane_w: float = width / float(count)
+	return Vector2(roundf(lane_w * index), roundf(lane_w * (index + 1)))
+
+
 func _build_touch_zones() -> void:
 	var count: int = lane_nodes.size()
-	var lane_w: float = screen_w / float(count)
 	var lane_colors: Array[Color] = _get_lane_colors()
 
 	for i in range(count):
 		var lane_idx: int = lane_nodes[i].lane_index
+		var bounds: Vector2 = touch_zone_bounds(i, count, screen_w)
+		var zone_x: float = bounds.x
+		var zone_w: float = bounds.y - bounds.x
+
 		var zone := ColorRect.new()
 		zone.name = "TouchZone_" + str(lane_idx)
-		zone.position = Vector2(lane_w * i, labels_y)
-		zone.size = Vector2(lane_w, screen_h - labels_y)
+		zone.position = Vector2(zone_x, labels_y)
+		zone.size = Vector2(zone_w, screen_h - labels_y)
 		zone.color = lane_colors[lane_idx]
 		zone.color.a = 0.12
 		zone.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -163,8 +175,8 @@ func _build_touch_zones() -> void:
 		label.label_settings = _label_settings
 		label.add_theme_font_size_override("font_size", 14)
 		label.add_theme_color_override("font_color", lane_colors[lane_idx])
-		label.position = Vector2(lane_w * i, labels_y)
-		label.size = Vector2(lane_w, screen_h - labels_y)
+		label.position = Vector2(zone_x, labels_y)
+		label.size = Vector2(zone_w, screen_h - labels_y)
 		add_child(label)
 
 
