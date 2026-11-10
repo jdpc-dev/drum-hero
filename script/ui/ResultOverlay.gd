@@ -65,6 +65,8 @@ func _build() -> void:
 	var title := SettingsUI.label("RESULTS", 28, Palette.BONE_HI, 600)
 	title.name = "TitleLabel"
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	# Trim the font's empty leading so the song line sits close to the heading.
+	SettingsUI.fit_line_height(title, SettingsUI.px(32))
 	vbox.add_child(title)
 
 	_song_label = SettingsUI.label("", 14, Palette.ASH, 400)
@@ -73,6 +75,7 @@ func _build() -> void:
 	# Long titles ("Artist - Song (Difficulty)") are split into two lines
 	# instead of overflowing the panel.
 	_song_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	SettingsUI.fit_line_height(_song_label, SettingsUI.px(18))
 	vbox.add_child(_song_label)
 
 	vbox.add_child(SettingsUI.divider())
