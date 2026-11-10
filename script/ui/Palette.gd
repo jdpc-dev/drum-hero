@@ -101,8 +101,11 @@ const SCRIM_SOFT: Color = Color(0.0, 0.0, 0.0, 0.6)
 const SCRIM_RESULT: Color = Color(0.0, 0.0, 0.0, 0.8)
 
 # --- Highway beat lines ---
-const BEAT_MEASURE: Color = Color(0.847, 0.863, 0.890, 0.4)
-const BEAT_BEAT: Color = Color(0.847, 0.863, 0.890, 0.12)
+# These sit on the shared black, so low alpha reads as a near-black grey.
+# Keep both above the black canvas and the measure line clearly stronger than
+# the beat line so the bar structure stays legible at a glance.
+const BEAT_MEASURE: Color = Color(0.847, 0.863, 0.890, 0.65)
+const BEAT_BEAT: Color = Color(0.847, 0.863, 0.890, 0.30)
 
 # --- Hit line ---
 # The base bar that crosses the highway width, behind the per-lane rects.

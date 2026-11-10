@@ -177,8 +177,8 @@ Beat Lines render at `z_index = -1` (the same depth layer as the background), en
 
 | Type | Height | Color |
 |------|--------|-------|
-| Measure Line | 2 px | White, 40% opacity |
-| Beat Line | 1 px | White, 12% opacity |
+| Measure Line | 2 px | White, 65% opacity |
+| Beat Line | 1 px | White, 30% opacity |
 
 Both span the full screen width.
 
