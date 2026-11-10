@@ -80,4 +80,8 @@ GestureExclusionPlugin/.gradle/
 *.jar
 
 # Godot import files for fastlane graphics are not needed by F-Droid
-metadata/en-US/images/*.import
+metadata/**/*.import
+
+# Source shots for the fastlane images; the copies shipped to F-Droid live in
+# metadata/en-US/images/ and are tracked there.
+/screenshots/
